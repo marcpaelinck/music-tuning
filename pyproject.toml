@@ -1,0 +1,22 @@
+[tool.poetry]
+name = "music-tuning"
+version = "0.1.0"
+description = "Utilities to create sound files and graphs for my tuning research"
+authors = ["Marc Paelinck <marc.paelinck@gmail.com>"]
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "^3.12"
+numpy = "^1.26.3"
+SciPy = "^1.11.4"
+matplotlib = "^3.8.2"
+pandas = "^2.1.4"
+pydantic = "^2.5.3"
+
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.black]
+# line-length = 120

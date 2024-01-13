@@ -1,0 +1,300 @@
+[
+    {
+        "group": "gongkebyar",
+        "instrument": "pemade",
+        "tuning": "penumbang",
+        "note": "ding",
+        "octave": "octave2",
+        "freq": 560,
+        "index": 0,
+        "harmonics": [
+            {
+                "freq": 560,
+                "ampl": -17.8,
+                "interval": 1.0,
+                "reduced_interval": 1.0,
+                "type": "base frequency"
+            },
+            {
+                "freq": 1538,
+                "ampl": -35.6,
+                "interval": 2.75,
+                "reduced_interval": 1.375,
+                "type": "harmonic"
+            },
+            {
+                "freq": 2767,
+                "ampl": -31.5,
+                "interval": 4.94,
+                "reduced_interval": 1.235,
+                "type": "harmonic"
+            },
+            {
+                "freq": 2939,
+                "ampl": -15.7,
+                "interval": 5.25,
+                "reduced_interval": 1.3125,
+                "type": "harmonic"
+            },
+            {
+                "freq": 3224,
+                "ampl": -18.2,
+                "interval": 5.76,
+                "reduced_interval": 1.44,
+                "type": "harmonic"
+            },
+            {
+                "freq": 4737,
+                "ampl": -46.8,
+                "interval": 8.46,
+                "reduced_interval": 1.0575,
+                "type": "harmonic"
+            },
+            {
+                "freq": 4758,
+                "ampl": -38.3,
+                "interval": 8.5,
+                "reduced_interval": 1.0625,
+                "type": "harmonic"
+            },
+            {
+                "freq": 6859,
+                "ampl": -47.3,
+                "interval": 12.25,
+                "reduced_interval": 1.53125,
+                "type": "harmonic"
+            }
+        ],
+        "comment": "freq in Hz, ampl in dB.\nInterval is the ratio with the first peak, which is considered to be the base note.\nReduced_interval is related to the octave of the base note."
+    },
+    {
+        "group": "gongkebyar",
+        "instrument": "pemade",
+        "tuning": "penumbang",
+        "note": "dong",
+        "octave": "octave2",
+        "freq": 601,
+        "index": 0,
+        "harmonics": [
+            {
+                "freq": 601,
+                "ampl": -20.9,
+                "interval": 1.0,
+                "reduced_interval": 1.0,
+                "type": "base frequency"
+            },
+            {
+                "freq": 1594,
+                "ampl": -43.3,
+                "interval": 2.65,
+                "reduced_interval": 1.325,
+                "type": "harmonic"
+            },
+            {
+                "freq": 1658,
+                "ampl": -41.7,
+                "interval": 2.76,
+                "reduced_interval": 1.38,
+                "type": "harmonic"
+            },
+            {
+                "freq": 2917,
+                "ampl": -30.5,
+                "interval": 4.85,
+                "reduced_interval": 1.2125,
+                "type": "harmonic"
+            },
+            {
+                "freq": 3230,
+                "ampl": -26.6,
+                "interval": 5.37,
+                "reduced_interval": 1.3425,
+                "type": "harmonic"
+            },
+            {
+                "freq": 3390,
+                "ampl": -20.3,
+                "interval": 5.64,
+                "reduced_interval": 1.41,
+                "type": "harmonic"
+            },
+            {
+                "freq": 5227,
+                "ampl": -41.0,
+                "interval": 8.7,
+                "reduced_interval": 1.0875,
+                "type": "harmonic"
+            }
+        ],
+        "comment": "freq in Hz, ampl in dB.\nInterval is the ratio with the first peak, which is considered to be the base note.\nReduced_interval is related to the octave of the base note."
+    },
+    {
+        "group": "gongkebyar",
+        "instrument": "pemade",
+        "tuning": "penumbang",
+        "note": "deng",
+        "octave": "octave2",
+        "freq": 661,
+        "index": 1,
+        "harmonics": [
+            {
+                "freq": 599,
+                "ampl": -38.9,
+                "interval": 0.91,
+                "reduced_interval": 1.82,
+                "type": "harmonic"
+            },
+            {
+                "freq": 661,
+                "ampl": -17.6,
+                "interval": 1.0,
+                "reduced_interval": 1.0,
+                "type": "base frequency"
+            },
+            {
+                "freq": 1762,
+                "ampl": -25.2,
+                "interval": 2.67,
+                "reduced_interval": 1.335,
+                "type": "harmonic"
+            },
+            {
+                "freq": 3388,
+                "ampl": -38.0,
+                "interval": 5.13,
+                "reduced_interval": 1.2825,
+                "type": "harmonic"
+            },
+            {
+                "freq": 3411,
+                "ampl": -17.3,
+                "interval": 5.16,
+                "reduced_interval": 1.29,
+                "type": "harmonic"
+            },
+            {
+                "freq": 3454,
+                "ampl": -28.6,
+                "interval": 5.23,
+                "reduced_interval": 1.3075,
+                "type": "harmonic"
+            },
+            {
+                "freq": 5491,
+                "ampl": -42.4,
+                "interval": 8.31,
+                "reduced_interval": 1.03875,
+                "type": "harmonic"
+            }
+        ],
+        "comment": "freq in Hz, ampl in dB.\nInterval is the ratio with the first peak, which is considered to be the base note.\nReduced_interval is related to the octave of the base note."
+    },
+    {
+        "group": "gongkebyar",
+        "instrument": "pemade",
+        "tuning": "penumbang",
+        "note": "dung",
+        "octave": "octave2",
+        "freq": 829,
+        "index": 1,
+        "harmonics": [
+            {
+                "freq": 661,
+                "ampl": -45.0,
+                "interval": 0.8,
+                "reduced_interval": 1.6,
+                "type": "harmonic"
+            },
+            {
+                "freq": 829,
+                "ampl": -16.2,
+                "interval": 1.0,
+                "reduced_interval": 1.0,
+                "type": "base frequency"
+            },
+            {
+                "freq": 2073,
+                "ampl": -48.8,
+                "interval": 2.5,
+                "reduced_interval": 1.25,
+                "type": "harmonic"
+            },
+            {
+                "freq": 2266,
+                "ampl": -24.8,
+                "interval": 2.73,
+                "reduced_interval": 1.365,
+                "type": "harmonic"
+            },
+            {
+                "freq": 3027,
+                "ampl": -35.8,
+                "interval": 3.65,
+                "reduced_interval": 1.825,
+                "type": "harmonic"
+            },
+            {
+                "freq": 4311,
+                "ampl": -27.6,
+                "interval": 5.2,
+                "reduced_interval": 1.3,
+                "type": "harmonic"
+            },
+            {
+                "freq": 4344,
+                "ampl": -33.7,
+                "interval": 5.24,
+                "reduced_interval": 1.31,
+                "type": "harmonic"
+            }
+        ],
+        "comment": "freq in Hz, ampl in dB.\nInterval is the ratio with the first peak, which is considered to be the base note.\nReduced_interval is related to the octave of the base note."
+    },
+    {
+        "group": "gongkebyar",
+        "instrument": "pemade",
+        "tuning": "penumbang",
+        "note": "dang",
+        "octave": "octave2",
+        "freq": 883,
+        "index": 0,
+        "harmonics": [
+            {
+                "freq": 883,
+                "ampl": -22.3,
+                "interval": 1.0,
+                "reduced_interval": 1.0,
+                "type": "base frequency"
+            },
+            {
+                "freq": 2503,
+                "ampl": -24.2,
+                "interval": 2.83,
+                "reduced_interval": 1.415,
+                "type": "harmonic"
+            },
+            {
+                "freq": 2910,
+                "ampl": -39.7,
+                "interval": 3.3,
+                "reduced_interval": 1.65,
+                "type": "harmonic"
+            },
+            {
+                "freq": 4644,
+                "ampl": -44.4,
+                "interval": 5.26,
+                "reduced_interval": 1.315,
+                "type": "harmonic"
+            },
+            {
+                "freq": 4808,
+                "ampl": -30.1,
+                "interval": 5.45,
+                "reduced_interval": 1.3625,
+                "type": "harmonic"
+            }
+        ],
+        "comment": "freq in Hz, ampl in dB.\nInterval is the ratio with the first peak, which is considered to be the base note.\nReduced_interval is related to the octave of the base note."
+    }
+]
