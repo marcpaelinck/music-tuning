@@ -4,12 +4,14 @@ having an amplitude higher than the given threshold.
 Then aggregates all 'similar' harmonic ratios using a DISTINCTIVENESS value.
 """
 import json
+import math
 import os
 from enum import Enum, auto
+from typing import List
 
 import numpy as np
 import pandas as pd
-from pydantic import BaseModel
+from pydantic import BaseModel, RootModel
 
 GONG_KEBYAR = "gongkebyar"
 SEMAR_PAGULINGAN = "semarpagulingan"
@@ -17,8 +19,8 @@ ANGKLUNG = "angklung"
 
 DATA_FOLDER = ".\\tuning\\data\\" + GONG_KEBYAR
 THRESHOLD = -48  # dB
-# During the aggregation step, harmonics whose ratio is less than the distinctiveness
-# will be considered equal.
+# During the aggregation step, frequencies whose mutual ratio is less
+# than the distinctiveness will be considered equal.
 DISTINCTIVENESS = pow(2, 75 / 1200)  # 3/4 of a semitone.
 NOTE_SEQ = ["ding", "dong", "deng", "deung", "dung", "dang", "daing"]
 
@@ -31,21 +33,42 @@ class HarmonicType(Enum):
 class Harmonic(BaseModel):
     freq: float
     ampl: float
-    interval: float
-    reduced_interval: float
+
+
+HarmonicList = RootModel[List[Harmonic]]
+
+
+class TypedHarmonic(BaseModel):
+    harmonic: Harmonic
+    ratio: float
+    reduced_ratio: float
     type: HarmonicType
+
+
+TypedHarmonicList = RootModel[List[TypedHarmonic]]
+
+
+class AggregatedHarmonic(BaseModel):
+    ratio: float
+    ampl: float
+    typed_harmonics: TypedHarmonicList
+
+
+AggregatedHarmonicList = RootModel[List[AggregatedHarmonic]]
 
 
 class Note(BaseModel):
     group: str
     instrument: str
     tuning: str
-    note: str
+    name: str
     octave: str
-    freq: str
-    index: str
-    harmonics: list[Harmonic]
+    freq: float
+    index: int
+    typed_harmonics: TypedHarmonicList
 
+
+NoteList = RootModel[List[Note]]
 
 Frequency = float
 Ratio = float
@@ -56,13 +79,8 @@ Interval = float
 
 
 def reduce_to_octave(ratio: Ratio) -> Ratio:
-    # Returns the ratio reduced to within an octave
-    if 1 <= ratio < 2:
-        return ratio
-    elif ratio < 1:
-        return reduce_to_octave(2 * ratio)
-    else:
-        return reduce_to_octave(ratio / 2)
+    # Returns the ratio reduced to an ratio within an octave (1 <= reduced ratio < 2)
+    return pow(2, math.log(ratio, 2) % 1)
 
 
 def get_harmonics(folder: str, file: str, octave_range: list[Frequency]) -> list[Note]:
@@ -101,49 +119,55 @@ def get_harmonics(folder: str, file: str, octave_range: list[Frequency]) -> list
     peaks = [
         (x := -p[1] / (2 * p[0]), p[0] * pow(x, 2) + p[1] * x + p[2]) for p in poly
     ]
-    peaks = [
-        {
-            "freq": int(p[0]),
-            "ampl": round(p[1], 1),
-        }
+    typed_harmonics = [
+        Harmonic(
+            freq=int(p[0]),
+            ampl=round(p[1], 1),
+        )
         for p in peaks
     ]
 
-    # Determine the base note
-    inoctave = [
-        p for p in peaks if octave_range[0] * 0.9 < p["freq"] < octave_range[1] * 1.1
+    # Determine the base note: this is the harmonic withtin the octave range with the highest amplitude.
+    harmonics_within_octave = [
+        harmonic
+        for harmonic in typed_harmonics
+        if octave_range[0] * 0.9 < harmonic.freq < octave_range[1] * 1.1
     ]
     basenote = next(
-        p for p in inoctave if p["ampl"] == max(p1["ampl"] for p1 in inoctave)
+        harmonic
+        for harmonic in harmonics_within_octave
+        if harmonic.ampl == max(h.ampl for h in harmonics_within_octave)
     )
-    basenoteindex = peaks.index(basenote)
+    basenoteindex = typed_harmonics.index(basenote)
 
-    # add information to peaks
-    peaks = [
-        p
-        | {
-            "interval": (interval := round(p["freq"] / basenote["freq"], 2)),
-            "reduced_interval": reduce_to_octave(interval),
-            "type": "base frequency" if p is basenote else "harmonic",
-        }
-        for p in peaks
+    # Create typed harmonics
+    typed_harmonics = [
+        TypedHarmonic(
+            harmonic=harmonic,
+            ratio=round((ratio := round(harmonic.freq / basenote.freq, 2)), 5),
+            reduced_ratio=round(reduce_to_octave(ratio), 5),
+            type=HarmonicType.BASE_NOTE
+            if harmonic is basenote
+            else HarmonicType.HARMONIC,
+        )
+        for harmonic in typed_harmonics
     ]
 
     group = folder.split("\\")[-1]
     categories = file.split(".")[0].split("-")
-    return {
-        "group": group,
-        "instrument": categories[1],
-        "tuning": categories[2],
-        "note": categories[3],
-        "octave": categories[4],
-        "freq": basenote["freq"],
-        "index": basenoteindex,
-        "harmonics": peaks,
-        "comment": "freq in Hz, ampl in dB.\n"
+    return Note(
+        group=group,
+        instrument=categories[1],
+        tuning=categories[2],
+        name=categories[3],
+        octave=categories[4],
+        freq=basenote.freq,
+        index=basenoteindex,
+        typed_harmonics=typed_harmonics,
+        comment="freq in Hz, ampl in dB.\n"
         + "Interval is the ratio with the first peak, which is considered to be the base note.\n"
-        + "Reduced_interval is related to the octave of the base note.",
-    }
+        + "Reduced_ratio is related to the octave of the base note.",
+    )
 
 
 def get_octave_range(
@@ -154,9 +178,9 @@ def get_octave_range(
     return octave_ranges[octave]
 
 
-def aggregate_next_pair(harmonics=list[list[tuple[Interval, Amplitude]]]) -> bool:
-    def avg_harmonic(harmonics: list[tuple[Interval, Amplitude]]):
-        return np.average([h[0] for h in harmonics])
+def aggregate_next_pair(harmonics=list[list[TypedHarmonic]]) -> bool:
+    def avg_harmonic(harmonics: list[TypedHarmonic]):
+        return np.average([harmonic.reduced_ratio for harmonic in harmonics])
 
     i = 0
     j = i + 1
@@ -165,7 +189,7 @@ def aggregate_next_pair(harmonics=list[list[tuple[Interval, Amplitude]]]) -> boo
         avg1 = avg_harmonic(harmonics[i])
         avg2 = avg_harmonic(harmonics[j])
         if avg2 / avg1 < DISTINCTIVENESS:
-            if avg1 != 1:
+            if avg1 != 1 or avg2 == 1:
                 # discard in case of base note
                 harmonics[i].extend(harmonics[j])
             harmonics.remove(harmonics[j])
@@ -175,21 +199,30 @@ def aggregate_next_pair(harmonics=list[list[tuple[Interval, Amplitude]]]) -> boo
     return aggregated
 
 
-def aggregate_harmonics(notes: list[Note]) -> list[Harmonic]:
+def aggregate_harmonics(note_list: NoteList) -> AggregatedHarmonicList:
     all_harmonics = sorted(
         [
-            [(harmonic["reduced_interval"], harmonic["ampl"])]
-            for note in notes
-            for harmonic in note["harmonics"]
+            [typed_harmonic]
+            for note in note_list.root
+            for typed_harmonic in note.typed_harmonics.root
         ],
-        key=lambda x: x[0],
+        key=lambda lst: lst[0].reduced_ratio,
     )
+
     while aggregate_next_pair(all_harmonics):
         pass
-    return [
-        (np.average([h[0] for h in harmonics]), np.average([h[1] for h in harmonics]))
+    return AggregatedHarmonicList(
+        AggregatedHarmonic(
+            ratio=round(
+                np.average([harmonic.reduced_ratio for harmonic in harmonics]), 5
+            ),
+            ampl=round(
+                np.average([harmonic.harmonic.ampl for harmonic in harmonics]), 5
+            ),
+            typed_harmonics=harmonics,
+        )
         for harmonics in all_harmonics
-    ]
+    )
 
 
 def determine_harmonics_all_files(folder: str):
@@ -207,19 +240,23 @@ def determine_harmonics_all_files(folder: str):
         for f in os.listdir(folder)
         if os.path.isfile(os.path.join(folder, f)) and f.startswith("spectrum")
     ]
-    notes = sorted(
-        [
-            get_harmonics(folder, filename, get_octave_range(filename, octave_ranges))
-            for filename in file_names
-        ],
-        key=lambda x: NOTE_SEQ.index(x["note"]),
+    note_list = NoteList(
+        sorted(
+            [
+                get_harmonics(
+                    folder, filename, get_octave_range(filename, octave_ranges)
+                )
+                for filename in file_names
+            ],
+            key=lambda note: NOTE_SEQ.index(note.name),
+        )
     )
     with open(os.path.join(folder, "harmonics_per_note.json"), "w") as outfile:
-        outfile.write(json.dumps(notes, indent=4))
+        outfile.write(note_list.model_dump_json(indent=4))
 
-    aggregated_harmonics = aggregate_harmonics(notes)
+    aggregated_harmonics = aggregate_harmonics(note_list)
     with open(os.path.join(folder, "aggregated_harmonics.json"), "w") as outfile:
-        outfile.write(json.dumps(aggregated_harmonics, indent=4))
+        outfile.write(aggregated_harmonics.model_dump_json(indent=4))
 
 
 if __name__ == "__main__":
