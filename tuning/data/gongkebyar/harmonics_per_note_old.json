@@ -1,0 +1,363 @@
+[
+    {
+        "group": "gongkebyar",
+        "instrument": "pemade",
+        "tuning": "penumbang",
+        "name": "ding",
+        "octave": "octave2",
+        "freq": 560.0,
+        "index": 0,
+        "typed_harmonics": [
+            {
+                "harmonic": {
+                    "freq": 560.0,
+                    "ampl": -17.8
+                },
+                "interval": 1.0,
+                "reduced_interval": 1.0,
+                "type": 1
+            },
+            {
+                "harmonic": {
+                    "freq": 1538.0,
+                    "ampl": -35.6
+                },
+                "interval": 2.75,
+                "reduced_interval": 1.375,
+                "type": 2
+            },
+            {
+                "harmonic": {
+                    "freq": 2767.0,
+                    "ampl": -31.5
+                },
+                "interval": 4.94,
+                "reduced_interval": 1.235,
+                "type": 2
+            },
+            {
+                "harmonic": {
+                    "freq": 2939.0,
+                    "ampl": -15.7
+                },
+                "interval": 5.25,
+                "reduced_interval": 1.3125,
+                "type": 2
+            },
+            {
+                "harmonic": {
+                    "freq": 3224.0,
+                    "ampl": -18.2
+                },
+                "interval": 5.76,
+                "reduced_interval": 1.4400000000000002,
+                "type": 2
+            },
+            {
+                "harmonic": {
+                    "freq": 4737.0,
+                    "ampl": -46.8
+                },
+                "interval": 8.46,
+                "reduced_interval": 1.0575000000000003,
+                "type": 2
+            },
+            {
+                "harmonic": {
+                    "freq": 4758.0,
+                    "ampl": -38.3
+                },
+                "interval": 8.5,
+                "reduced_interval": 1.0625,
+                "type": 2
+            },
+            {
+                "harmonic": {
+                    "freq": 6859.0,
+                    "ampl": -47.3
+                },
+                "interval": 12.25,
+                "reduced_interval": 1.5312500000000002,
+                "type": 2
+            }
+        ]
+    },
+    {
+        "group": "gongkebyar",
+        "instrument": "pemade",
+        "tuning": "penumbang",
+        "name": "dong",
+        "octave": "octave2",
+        "freq": 601.0,
+        "index": 0,
+        "typed_harmonics": [
+            {
+                "harmonic": {
+                    "freq": 601.0,
+                    "ampl": -20.9
+                },
+                "interval": 1.0,
+                "reduced_interval": 1.0,
+                "type": 1
+            },
+            {
+                "harmonic": {
+                    "freq": 1594.0,
+                    "ampl": -43.3
+                },
+                "interval": 2.65,
+                "reduced_interval": 1.325,
+                "type": 2
+            },
+            {
+                "harmonic": {
+                    "freq": 1658.0,
+                    "ampl": -41.7
+                },
+                "interval": 2.76,
+                "reduced_interval": 1.3799999999999997,
+                "type": 2
+            },
+            {
+                "harmonic": {
+                    "freq": 2917.0,
+                    "ampl": -30.5
+                },
+                "interval": 4.85,
+                "reduced_interval": 1.2125,
+                "type": 2
+            },
+            {
+                "harmonic": {
+                    "freq": 3230.0,
+                    "ampl": -26.6
+                },
+                "interval": 5.37,
+                "reduced_interval": 1.3425000000000002,
+                "type": 2
+            },
+            {
+                "harmonic": {
+                    "freq": 3390.0,
+                    "ampl": -20.3
+                },
+                "interval": 5.64,
+                "reduced_interval": 1.41,
+                "type": 2
+            },
+            {
+                "harmonic": {
+                    "freq": 5227.0,
+                    "ampl": -41.0
+                },
+                "interval": 8.7,
+                "reduced_interval": 1.0875,
+                "type": 2
+            }
+        ]
+    },
+    {
+        "group": "gongkebyar",
+        "instrument": "pemade",
+        "tuning": "penumbang",
+        "name": "deng",
+        "octave": "octave2",
+        "freq": 661.0,
+        "index": 1,
+        "typed_harmonics": [
+            {
+                "harmonic": {
+                    "freq": 599.0,
+                    "ampl": -38.9
+                },
+                "interval": 0.91,
+                "reduced_interval": 1.82,
+                "type": 2
+            },
+            {
+                "harmonic": {
+                    "freq": 661.0,
+                    "ampl": -17.6
+                },
+                "interval": 1.0,
+                "reduced_interval": 1.0,
+                "type": 1
+            },
+            {
+                "harmonic": {
+                    "freq": 1762.0,
+                    "ampl": -25.2
+                },
+                "interval": 2.67,
+                "reduced_interval": 1.3350000000000002,
+                "type": 2
+            },
+            {
+                "harmonic": {
+                    "freq": 3388.0,
+                    "ampl": -38.0
+                },
+                "interval": 5.13,
+                "reduced_interval": 1.2825000000000002,
+                "type": 2
+            },
+            {
+                "harmonic": {
+                    "freq": 3411.0,
+                    "ampl": -17.3
+                },
+                "interval": 5.16,
+                "reduced_interval": 1.2900000000000003,
+                "type": 2
+            },
+            {
+                "harmonic": {
+                    "freq": 3454.0,
+                    "ampl": -28.6
+                },
+                "interval": 5.23,
+                "reduced_interval": 1.3075,
+                "type": 2
+            },
+            {
+                "harmonic": {
+                    "freq": 5491.0,
+                    "ampl": -42.4
+                },
+                "interval": 8.31,
+                "reduced_interval": 1.0387499999999998,
+                "type": 2
+            }
+        ]
+    },
+    {
+        "group": "gongkebyar",
+        "instrument": "pemade",
+        "tuning": "penumbang",
+        "name": "dung",
+        "octave": "octave2",
+        "freq": 829.0,
+        "index": 1,
+        "typed_harmonics": [
+            {
+                "harmonic": {
+                    "freq": 661.0,
+                    "ampl": -45.0
+                },
+                "interval": 0.8,
+                "reduced_interval": 1.6,
+                "type": 2
+            },
+            {
+                "harmonic": {
+                    "freq": 829.0,
+                    "ampl": -16.2
+                },
+                "interval": 1.0,
+                "reduced_interval": 1.0,
+                "type": 1
+            },
+            {
+                "harmonic": {
+                    "freq": 2073.0,
+                    "ampl": -48.8
+                },
+                "interval": 2.5,
+                "reduced_interval": 1.25,
+                "type": 2
+            },
+            {
+                "harmonic": {
+                    "freq": 2266.0,
+                    "ampl": -24.8
+                },
+                "interval": 2.73,
+                "reduced_interval": 1.365,
+                "type": 2
+            },
+            {
+                "harmonic": {
+                    "freq": 3027.0,
+                    "ampl": -35.8
+                },
+                "interval": 3.65,
+                "reduced_interval": 1.8250000000000002,
+                "type": 2
+            },
+            {
+                "harmonic": {
+                    "freq": 4311.0,
+                    "ampl": -27.6
+                },
+                "interval": 5.2,
+                "reduced_interval": 1.3000000000000003,
+                "type": 2
+            },
+            {
+                "harmonic": {
+                    "freq": 4344.0,
+                    "ampl": -33.7
+                },
+                "interval": 5.24,
+                "reduced_interval": 1.3100000000000003,
+                "type": 2
+            }
+        ]
+    },
+    {
+        "group": "gongkebyar",
+        "instrument": "pemade",
+        "tuning": "penumbang",
+        "name": "dang",
+        "octave": "octave2",
+        "freq": 883.0,
+        "index": 0,
+        "typed_harmonics": [
+            {
+                "harmonic": {
+                    "freq": 883.0,
+                    "ampl": -22.3
+                },
+                "interval": 1.0,
+                "reduced_interval": 1.0,
+                "type": 1
+            },
+            {
+                "harmonic": {
+                    "freq": 2503.0,
+                    "ampl": -24.2
+                },
+                "interval": 2.83,
+                "reduced_interval": 1.415,
+                "type": 2
+            },
+            {
+                "harmonic": {
+                    "freq": 2910.0,
+                    "ampl": -39.7
+                },
+                "interval": 3.3,
+                "reduced_interval": 1.6500000000000001,
+                "type": 2
+            },
+            {
+                "harmonic": {
+                    "freq": 4644.0,
+                    "ampl": -44.4
+                },
+                "interval": 5.26,
+                "reduced_interval": 1.3150000000000002,
+                "type": 2
+            },
+            {
+                "harmonic": {
+                    "freq": 4808.0,
+                    "ampl": -30.1
+                },
+                "interval": 5.45,
+                "reduced_interval": 1.3625000000000003,
+                "type": 2
+            }
+        ]
+    }
+]
