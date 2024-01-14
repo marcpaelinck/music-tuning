@@ -1,6 +1,6 @@
 import pytest
 
-from tuning.frequency_analysis import reduce_to_octave
+from tuning.analysis.frequency_analysis import reduce_to_octave
 
 data = [(4, 1), (4.5, 1.125), (1.81, 1.81), (3.875, 1.9375)]
 

@@ -3,17 +3,23 @@
     "comment": "freq in Hz, ampl in dB.\nInterval is the ratio with the first peak, which is considered to be the base note.\nReduced_ratio is related to the octave of the base note.",
     "notes": [
         {
-            "instrument": "pemade",
-            "tuning": "penumbang",
-            "name": "ding",
-            "octave": "octave2",
+            "spectrum": {
+                "instrument": "pemade",
+                "tuning": "penumbang",
+                "note": "ding",
+                "octave": {
+                    "sequence": 2,
+                    "start_freq": 560.0,
+                    "end_freq": 1120.0
+                }
+            },
             "freq": 560.0,
             "index": 0,
             "typed_harmonics": [
                 {
                     "harmonic": {
-                        "freq": 560.0,
-                        "ampl": -17.8
+                        "frequency": 560.0,
+                        "amplitude": -17.8
                     },
                     "ratio": 1.0,
                     "reduced_ratio": 1.0,
@@ -21,8 +27,8 @@
                 },
                 {
                     "harmonic": {
-                        "freq": 1538.0,
-                        "ampl": -35.6
+                        "frequency": 1538.0,
+                        "amplitude": -35.6
                     },
                     "ratio": 2.75,
                     "reduced_ratio": 1.375,
@@ -30,8 +36,8 @@
                 },
                 {
                     "harmonic": {
-                        "freq": 2767.0,
-                        "ampl": -31.5
+                        "frequency": 2767.0,
+                        "amplitude": -31.5
                     },
                     "ratio": 4.94,
                     "reduced_ratio": 1.235,
@@ -39,8 +45,8 @@
                 },
                 {
                     "harmonic": {
-                        "freq": 2939.0,
-                        "ampl": -15.7
+                        "frequency": 2939.0,
+                        "amplitude": -15.7
                     },
                     "ratio": 5.25,
                     "reduced_ratio": 1.3125,
@@ -48,8 +54,8 @@
                 },
                 {
                     "harmonic": {
-                        "freq": 3224.0,
-                        "ampl": -18.2
+                        "frequency": 3224.0,
+                        "amplitude": -18.2
                     },
                     "ratio": 5.76,
                     "reduced_ratio": 1.44,
@@ -57,8 +63,8 @@
                 },
                 {
                     "harmonic": {
-                        "freq": 4737.0,
-                        "ampl": -46.8
+                        "frequency": 4737.0,
+                        "amplitude": -46.8
                     },
                     "ratio": 8.46,
                     "reduced_ratio": 1.0575,
@@ -66,8 +72,8 @@
                 },
                 {
                     "harmonic": {
-                        "freq": 4758.0,
-                        "ampl": -38.3
+                        "frequency": 4758.0,
+                        "amplitude": -38.3
                     },
                     "ratio": 8.5,
                     "reduced_ratio": 1.0625,
@@ -75,8 +81,8 @@
                 },
                 {
                     "harmonic": {
-                        "freq": 6859.0,
-                        "ampl": -47.3
+                        "frequency": 6859.0,
+                        "amplitude": -47.3
                     },
                     "ratio": 12.25,
                     "reduced_ratio": 1.53125,
@@ -85,17 +91,23 @@
             ]
         },
         {
-            "instrument": "pemade",
-            "tuning": "penumbang",
-            "name": "dong",
-            "octave": "octave2",
+            "spectrum": {
+                "instrument": "pemade",
+                "tuning": "penumbang",
+                "note": "dong",
+                "octave": {
+                    "sequence": 2,
+                    "start_freq": 560.0,
+                    "end_freq": 1120.0
+                }
+            },
             "freq": 601.0,
             "index": 0,
             "typed_harmonics": [
                 {
                     "harmonic": {
-                        "freq": 601.0,
-                        "ampl": -20.9
+                        "frequency": 601.0,
+                        "amplitude": -20.9
                     },
                     "ratio": 1.0,
                     "reduced_ratio": 1.0,
@@ -103,8 +115,8 @@
                 },
                 {
                     "harmonic": {
-                        "freq": 1594.0,
-                        "ampl": -43.3
+                        "frequency": 1594.0,
+                        "amplitude": -43.3
                     },
                     "ratio": 2.65,
                     "reduced_ratio": 1.325,
@@ -112,8 +124,8 @@
                 },
                 {
                     "harmonic": {
-                        "freq": 1658.0,
-                        "ampl": -41.7
+                        "frequency": 1658.0,
+                        "amplitude": -41.7
                     },
                     "ratio": 2.76,
                     "reduced_ratio": 1.38,
@@ -121,8 +133,8 @@
                 },
                 {
                     "harmonic": {
-                        "freq": 2917.0,
-                        "ampl": -30.5
+                        "frequency": 2917.0,
+                        "amplitude": -30.5
                     },
                     "ratio": 4.85,
                     "reduced_ratio": 1.2125,
@@ -130,8 +142,8 @@
                 },
                 {
                     "harmonic": {
-                        "freq": 3230.0,
-                        "ampl": -26.6
+                        "frequency": 3230.0,
+                        "amplitude": -26.6
                     },
                     "ratio": 5.37,
                     "reduced_ratio": 1.3425,
@@ -139,8 +151,8 @@
                 },
                 {
                     "harmonic": {
-                        "freq": 3390.0,
-                        "ampl": -20.3
+                        "frequency": 3390.0,
+                        "amplitude": -20.3
                     },
                     "ratio": 5.64,
                     "reduced_ratio": 1.41,
@@ -148,8 +160,8 @@
                 },
                 {
                     "harmonic": {
-                        "freq": 5227.0,
-                        "ampl": -41.0
+                        "frequency": 5227.0,
+                        "amplitude": -41.0
                     },
                     "ratio": 8.7,
                     "reduced_ratio": 1.0875,
@@ -158,17 +170,23 @@
             ]
         },
         {
-            "instrument": "pemade",
-            "tuning": "penumbang",
-            "name": "deng",
-            "octave": "octave2",
+            "spectrum": {
+                "instrument": "pemade",
+                "tuning": "penumbang",
+                "note": "deng",
+                "octave": {
+                    "sequence": 2,
+                    "start_freq": 560.0,
+                    "end_freq": 1120.0
+                }
+            },
             "freq": 661.0,
             "index": 1,
             "typed_harmonics": [
                 {
                     "harmonic": {
-                        "freq": 599.0,
-                        "ampl": -38.9
+                        "frequency": 599.0,
+                        "amplitude": -38.9
                     },
                     "ratio": 0.91,
                     "reduced_ratio": 1.82,
@@ -176,8 +194,8 @@
                 },
                 {
                     "harmonic": {
-                        "freq": 661.0,
-                        "ampl": -17.6
+                        "frequency": 661.0,
+                        "amplitude": -17.6
                     },
                     "ratio": 1.0,
                     "reduced_ratio": 1.0,
@@ -185,8 +203,8 @@
                 },
                 {
                     "harmonic": {
-                        "freq": 1762.0,
-                        "ampl": -25.2
+                        "frequency": 1762.0,
+                        "amplitude": -25.2
                     },
                     "ratio": 2.67,
                     "reduced_ratio": 1.335,
@@ -194,8 +212,8 @@
                 },
                 {
                     "harmonic": {
-                        "freq": 3388.0,
-                        "ampl": -38.0
+                        "frequency": 3388.0,
+                        "amplitude": -38.0
                     },
                     "ratio": 5.13,
                     "reduced_ratio": 1.2825,
@@ -203,8 +221,8 @@
                 },
                 {
                     "harmonic": {
-                        "freq": 3411.0,
-                        "ampl": -17.3
+                        "frequency": 3411.0,
+                        "amplitude": -17.3
                     },
                     "ratio": 5.16,
                     "reduced_ratio": 1.29,
@@ -212,8 +230,8 @@
                 },
                 {
                     "harmonic": {
-                        "freq": 3454.0,
-                        "ampl": -28.6
+                        "frequency": 3454.0,
+                        "amplitude": -28.6
                     },
                     "ratio": 5.23,
                     "reduced_ratio": 1.3075,
@@ -221,8 +239,8 @@
                 },
                 {
                     "harmonic": {
-                        "freq": 5491.0,
-                        "ampl": -42.4
+                        "frequency": 5491.0,
+                        "amplitude": -42.4
                     },
                     "ratio": 8.31,
                     "reduced_ratio": 1.03875,
@@ -231,17 +249,23 @@
             ]
         },
         {
-            "instrument": "pemade",
-            "tuning": "penumbang",
-            "name": "dung",
-            "octave": "octave2",
+            "spectrum": {
+                "instrument": "pemade",
+                "tuning": "penumbang",
+                "note": "dung",
+                "octave": {
+                    "sequence": 2,
+                    "start_freq": 560.0,
+                    "end_freq": 1120.0
+                }
+            },
             "freq": 829.0,
             "index": 1,
             "typed_harmonics": [
                 {
                     "harmonic": {
-                        "freq": 661.0,
-                        "ampl": -45.0
+                        "frequency": 661.0,
+                        "amplitude": -45.0
                     },
                     "ratio": 0.8,
                     "reduced_ratio": 1.6,
@@ -249,8 +273,8 @@
                 },
                 {
                     "harmonic": {
-                        "freq": 829.0,
-                        "ampl": -16.2
+                        "frequency": 829.0,
+                        "amplitude": -16.2
                     },
                     "ratio": 1.0,
                     "reduced_ratio": 1.0,
@@ -258,8 +282,8 @@
                 },
                 {
                     "harmonic": {
-                        "freq": 2073.0,
-                        "ampl": -48.8
+                        "frequency": 2073.0,
+                        "amplitude": -48.8
                     },
                     "ratio": 2.5,
                     "reduced_ratio": 1.25,
@@ -267,8 +291,8 @@
                 },
                 {
                     "harmonic": {
-                        "freq": 2266.0,
-                        "ampl": -24.8
+                        "frequency": 2266.0,
+                        "amplitude": -24.8
                     },
                     "ratio": 2.73,
                     "reduced_ratio": 1.365,
@@ -276,8 +300,8 @@
                 },
                 {
                     "harmonic": {
-                        "freq": 3027.0,
-                        "ampl": -35.8
+                        "frequency": 3027.0,
+                        "amplitude": -35.8
                     },
                     "ratio": 3.65,
                     "reduced_ratio": 1.825,
@@ -285,8 +309,8 @@
                 },
                 {
                     "harmonic": {
-                        "freq": 4311.0,
-                        "ampl": -27.6
+                        "frequency": 4311.0,
+                        "amplitude": -27.6
                     },
                     "ratio": 5.2,
                     "reduced_ratio": 1.3,
@@ -294,8 +318,8 @@
                 },
                 {
                     "harmonic": {
-                        "freq": 4344.0,
-                        "ampl": -33.7
+                        "frequency": 4344.0,
+                        "amplitude": -33.7
                     },
                     "ratio": 5.24,
                     "reduced_ratio": 1.31,
@@ -304,17 +328,23 @@
             ]
         },
         {
-            "instrument": "pemade",
-            "tuning": "penumbang",
-            "name": "dang",
-            "octave": "octave2",
+            "spectrum": {
+                "instrument": "pemade",
+                "tuning": "penumbang",
+                "note": "dang",
+                "octave": {
+                    "sequence": 2,
+                    "start_freq": 560.0,
+                    "end_freq": 1120.0
+                }
+            },
             "freq": 883.0,
             "index": 0,
             "typed_harmonics": [
                 {
                     "harmonic": {
-                        "freq": 883.0,
-                        "ampl": -22.3
+                        "frequency": 883.0,
+                        "amplitude": -22.3
                     },
                     "ratio": 1.0,
                     "reduced_ratio": 1.0,
@@ -322,8 +352,8 @@
                 },
                 {
                     "harmonic": {
-                        "freq": 2503.0,
-                        "ampl": -24.2
+                        "frequency": 2503.0,
+                        "amplitude": -24.2
                     },
                     "ratio": 2.83,
                     "reduced_ratio": 1.415,
@@ -331,8 +361,8 @@
                 },
                 {
                     "harmonic": {
-                        "freq": 2910.0,
-                        "ampl": -39.7
+                        "frequency": 2910.0,
+                        "amplitude": -39.7
                     },
                     "ratio": 3.3,
                     "reduced_ratio": 1.65,
@@ -340,8 +370,8 @@
                 },
                 {
                     "harmonic": {
-                        "freq": 4644.0,
-                        "ampl": -44.4
+                        "frequency": 4644.0,
+                        "amplitude": -44.4
                     },
                     "ratio": 5.26,
                     "reduced_ratio": 1.315,
@@ -349,8 +379,8 @@
                 },
                 {
                     "harmonic": {
-                        "freq": 4808.0,
-                        "ampl": -30.1
+                        "frequency": 4808.0,
+                        "amplitude": -30.1
                     },
                     "ratio": 5.45,
                     "reduced_ratio": 1.3625,
