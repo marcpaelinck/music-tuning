@@ -1,7 +1,7 @@
 """
 Analyzes the spectrum of each file in the input data folder and saves all the frequencies 
 having an amplitude higher than the given threshold.
-Then aggregates all 'similar' harmonic ratios using a DISTINCTIVENESS value.
+Then aggregates all 'similar' partial ratios using a DISTINCTIVENESS value.
 """
 import json
 import math
@@ -12,24 +12,21 @@ from typing import List
 import numpy as np
 import pandas as pd
 from classes import (
-    AggregatedHarmonic,
-    AggregatedHarmonicList,
+    AggregatedPartial,
+    AggregatedPartialList,
     Frequency,
-    Harmonic,
-    HarmonicType,
     Note,
     NoteList,
     Octave,
+    Partial,
+    PartialType,
     Ratio,
     SpectrumInfo,
     Tone,
 )
+from constants import GONG_KEBYAR
+from utils import get_output_folder, get_spectrum_folder
 
-GONG_KEBYAR = "gongkebyar"
-SEMAR_PAGULINGAN = "semarpagulingan"
-ANGKLUNG = "angklung"
-
-DATA_FOLDER = ".\\tuning\\data\\" + GONG_KEBYAR
 THRESHOLD = -48  # dB
 # During the aggregation step, frequencies whose mutual ratio is less
 # than the distinctiveness will be considered equal.
@@ -42,7 +39,7 @@ def reduce_to_octave(ratio: Ratio) -> Ratio:
     return pow(2, math.log(ratio, 2) % 1)
 
 
-def get_harmonics(spectrum_info: SpectrumInfo, tone_list: list[Tone]) -> List[Note]:
+def get_partials(spectrum_info: SpectrumInfo, tone_list: list[Tone]) -> List[Note]:
     """
     Determines frequency peaks by identifying frequencies that exceed the the given threshold,
     where the preceding 2 have a lower amplitude and are increasing, while following 2 frequencies
@@ -83,7 +80,7 @@ def get_harmonics(spectrum_info: SpectrumInfo, tone_list: list[Tone]) -> List[No
         for p in poly
     ]
 
-    # Determine the base note: this is the harmonic within the octave range with the highest amplitude.
+    # Determine the base note: this is the partial within the octave range with the highest amplitude.
     tones_within_octave = [
         tone
         for tone in tones
@@ -98,31 +95,30 @@ def get_harmonics(spectrum_info: SpectrumInfo, tone_list: list[Tone]) -> List[No
     )
     basenoteindex = tones.index(basenote)
 
-    # Create harmonics
-    harmonics = [
-        Harmonic(
-            tone=harmonic,
-            ratio=(round(ratio := harmonic.frequency / basenote.frequency, 5)),
+    # Create partials
+    partials = [
+        Partial(
+            tone=partial,
+            ratio=(round(ratio := partial.frequency / basenote.frequency, 5)),
             reduced_ratio=round(reduce_to_octave(ratio), 5),
-            type=HarmonicType.BASE_NOTE
-            if harmonic is basenote
-            else HarmonicType.HARMONIC,
+            type=PartialType.BASE_NOTE if partial is basenote else PartialType.PARTIAL,
         )
-        for harmonic in tones
+        for partial in tones
     ]
 
     return Note(
+        name=spectrum_info.note,
         spectrum=spectrum_info,
         freq=basenote.frequency,
         index=basenoteindex,
-        harmonics=harmonics,
+        partials=partials,
     )
 
 
 def create_note_list_from_folder(folder: str) -> NoteList:
     """Creates a NoteList object from the spectrum files in the given folder.
     For each file in the folder, a Note object is created containing a
-    a list of harmonics belonging to that note.
+    a list of partials belonging to that note.
 
     Args:
         folder (str): full path to the folder containing spectrum files.
@@ -172,97 +168,96 @@ def create_note_list_from_folder(folder: str) -> NoteList:
         + "Reduced_ratio is related to the octave of the base note.",
         notes=sorted(
             [
-                get_harmonics(
+                get_partials(
                     spectrum_info=get_spectrum_info(filename, octave_ranges),
                     tone_list=get_tone_list(filename),
                 )
                 for filename in file_names
             ],
-            key=lambda note: NOTE_SEQ.index(note.spectrum.note),
+            key=lambda note: NOTE_SEQ.index(note.name),
         ),
     )
 
 
-def group_harmonics(harmonics=List[List[Harmonic]]):
-    """Groups similar harmonics together in the same sub-list.
+def group_partials(partials=List[List[Partial]]):
+    """Groups similar partials together in the same sub-list.
        DISTINCTIVENESS is used to determine similarity.
-       Base notes are kept in a separate group. No 'similar' harmonics are added to this group.
+       Base notes are kept in a separate group. No 'similar' partials are added to this group.
 
     Args:
-        harmonics (List[List[TypedHarmonic]]): Initial list.
-        Initially, each (sub-)list contains exactly one harmonic.
+        partials (List[List[TypedPartial]]): Initial list.
+        Initially, each (sub-)list contains exactly one partial.
 
     Returns:
         None
     """
 
-    def avg_harmonic(harmonics: List[Harmonic]):
-        return np.average([harmonic.reduced_ratio for harmonic in harmonics])
+    def avg_partial(partials: List[Partial]):
+        return np.average([partial.reduced_ratio for partial in partials])
 
     # Scan the list from beginning to end. If two consecutive (lists of) tones are 'similar'
     # then join them into one list and start again from the beginning of the list.
     while True:
         i = 0
         aggregated = False
-        while i + 1 < len(harmonics) and not aggregated:
-            avg1 = avg_harmonic(harmonics[i])
-            avg2 = avg_harmonic(harmonics[i + 1])
+        while i + 1 < len(partials) and not aggregated:
+            avg1 = avg_partial(partials[i])
+            avg2 = avg_partial(partials[i + 1])
             if (avg2 / avg1 < DISTINCTIVENESS) and not (avg1 == 1 < avg2):
                 # merge both lists but keep base notes (ratio==1) in a separate list.
-                harmonics[i].extend(harmonics[i + 1])
-                harmonics.remove(harmonics[i + 1])
+                partials[i].extend(partials[i + 1])
+                partials.remove(partials[i + 1])
                 aggregated = True
             i += 1
         if not aggregated:
             break
 
 
-def aggregate_harmonics(note_list: NoteList) -> AggregatedHarmonicList:
-    """Generates a list of aggregated harmonics over all notes.
+def aggregate_partials(note_list: NoteList) -> AggregatedPartialList:
+    """Generates a list of aggregated partials over all notes.
 
     Args:
-        note_list (NoteList): List of notes with harmonics.
+        note_list (NoteList): List of notes with partials.
 
     Returns:
-        AggregatedHarmonicList: List of aggregated harmonics.
+        AggregatedPartialList: List of aggregated partials.
     """
-    all_harmonics = sorted(
-        [[harmonic] for note in note_list.notes for harmonic in note.harmonics.root],
+    all_partials = sorted(
+        [[partial] for note in note_list.notes for partial in note.partials.root],
         key=lambda lst: lst[0].reduced_ratio,
     )
 
-    group_harmonics(all_harmonics)
+    group_partials(all_partials)
 
-    return AggregatedHarmonicList(
-        AggregatedHarmonic(
-            ratio=round(
-                np.average([harmonic.reduced_ratio for harmonic in harmonics]), 5
-            ),
-            ampl=round(
-                np.average([harmonic.tone.amplitude for harmonic in harmonics]), 5
-            ),
-            harmonics=harmonics,
+    return AggregatedPartialList(
+        AggregatedPartial(
+            ratio=round(np.average([partial.reduced_ratio for partial in partials]), 5),
+            ampl=round(np.average([partial.tone.amplitude for partial in partials]), 5),
+            partials=partials,
         )
-        for harmonics in all_harmonics
+        for partials in all_partials
     )
 
 
-def determine_harmonics_all_files(folder: str):
+def determine_partials_all_files(instrument_group: str):
     """
     Determines frequency peaks for all files in the given folder
     Args:
-        folder_in (str): input folder containing the spectra of individual notes
+        instrument (str): subfolder containing the data
         folder_out (str): output folder for results file
     """
-    note_list = create_note_list_from_folder((folder))
+    output_folder = get_output_folder(instrument_group)
+    spectrum_folder = get_spectrum_folder(instrument_group)
 
-    with open(os.path.join(folder, "harmonics_per_note.json"), "w") as outfile:
+    note_list = create_note_list_from_folder(spectrum_folder)
+
+    with open(os.path.join(output_folder, "partials_per_note.json"), "w") as outfile:
         outfile.write(note_list.model_dump_json(indent=4))
 
-    aggregated_harmonics = aggregate_harmonics(note_list)
-    with open(os.path.join(folder, "aggregated_harmonics.json"), "w") as outfile:
-        outfile.write(aggregated_harmonics.model_dump_json(indent=4))
+    aggregated_partials = aggregate_partials(note_list)
+    with open(os.path.join(output_folder, "aggregated_partials.json"), "w") as outfile:
+        outfile.write(aggregated_partials.model_dump_json(indent=4))
 
 
 if __name__ == "__main__":
-    determine_harmonics_all_files(DATA_FOLDER)
+    determine_partials_all_files(GONG_KEBYAR)

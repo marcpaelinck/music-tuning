@@ -34,7 +34,9 @@ def db_to_ampl(db: float) -> float:
     return pow(10, db / 20)
 
 
-def dissonance(f: float, g: float, ampl_f: float = 1, ampl_g: float = 1, is_db=False) -> float:
+def dissonance(
+    f: float, g: float, ampl_f: float = 1, ampl_g: float = 1, is_db=False
+) -> float:
     """
     Returns the dissonance value between two frequencies, each with given amplitude.
     [Jensen]
@@ -46,12 +48,29 @@ def dissonance(f: float, g: float, ampl_f: float = 1, ampl_g: float = 1, is_db=F
     return ampl_f * ampl_g * (math.exp(-0.84 * q) - math.exp(-1.38 * q))
 
 
-def dissonance_profile(f_harmonics: list[tuple[float, float]], g_harmonics: list[tuple[float, float]], step: float):
+def dissonance_profile(
+    f_partials: list[tuple[float, float]],
+    g_partials: list[tuple[float, float]],
+    step: float,
+):
     ...
 
 
 def plot_cbw():
-    freq_list = [0.008, 0.016, 0.032, 0.064, 0.128, 0.256, 0.512, 1.024, 2.048, 4.096, 8.192, 16.384]
+    freq_list = [
+        0.008,
+        0.016,
+        0.032,
+        0.064,
+        0.128,
+        0.256,
+        0.512,
+        1.024,
+        2.048,
+        4.096,
+        8.192,
+        16.384,
+    ]
     freq_list = [1000 * f for f in freq_list]
     cbwz = [cbw_z(f) for f in freq_list]
     cbwv = [cbw_v(f) for f in freq_list]

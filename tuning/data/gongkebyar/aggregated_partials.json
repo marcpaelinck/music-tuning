@@ -2,7 +2,7 @@
     {
         "ratio": 1.0,
         "ampl": -18.96,
-        "harmonics": [
+        "partials": [
             {
                 "tone": {
                     "frequency": 560.0,
@@ -53,7 +53,7 @@
     {
         "ratio": 1.06124,
         "ampl": -42.125,
-        "harmonics": [
+        "partials": [
             {
                 "tone": {
                     "frequency": 5491.0,
@@ -61,7 +61,7 @@
                 },
                 "ratio": 8.30711,
                 "reduced_ratio": 1.03839,
-                "type": "harmonic"
+                "type": "partial"
             },
             {
                 "tone": {
@@ -70,7 +70,7 @@
                 },
                 "ratio": 8.45893,
                 "reduced_ratio": 1.05737,
-                "type": "harmonic"
+                "type": "partial"
             },
             {
                 "tone": {
@@ -79,7 +79,7 @@
                 },
                 "ratio": 8.49643,
                 "reduced_ratio": 1.06205,
-                "type": "harmonic"
+                "type": "partial"
             },
             {
                 "tone": {
@@ -88,14 +88,14 @@
                 },
                 "ratio": 8.69717,
                 "reduced_ratio": 1.08715,
-                "type": "harmonic"
+                "type": "partial"
             }
         ]
     },
     {
         "ratio": 1.29356,
         "ampl": -31.63077,
-        "harmonics": [
+        "partials": [
             {
                 "tone": {
                     "frequency": 2917.0,
@@ -103,7 +103,7 @@
                 },
                 "ratio": 4.85358,
                 "reduced_ratio": 1.21339,
-                "type": "harmonic"
+                "type": "partial"
             },
             {
                 "tone": {
@@ -112,7 +112,7 @@
                 },
                 "ratio": 4.94107,
                 "reduced_ratio": 1.23527,
-                "type": "harmonic"
+                "type": "partial"
             },
             {
                 "tone": {
@@ -121,7 +121,7 @@
                 },
                 "ratio": 2.5006,
                 "reduced_ratio": 1.2503,
-                "type": "harmonic"
+                "type": "partial"
             },
             {
                 "tone": {
@@ -130,7 +130,7 @@
                 },
                 "ratio": 5.12557,
                 "reduced_ratio": 1.28139,
-                "type": "harmonic"
+                "type": "partial"
             },
             {
                 "tone": {
@@ -139,7 +139,7 @@
                 },
                 "ratio": 5.16036,
                 "reduced_ratio": 1.29009,
-                "type": "harmonic"
+                "type": "partial"
             },
             {
                 "tone": {
@@ -148,7 +148,7 @@
                 },
                 "ratio": 5.20024,
                 "reduced_ratio": 1.30006,
-                "type": "harmonic"
+                "type": "partial"
             },
             {
                 "tone": {
@@ -157,7 +157,7 @@
                 },
                 "ratio": 5.22542,
                 "reduced_ratio": 1.30635,
-                "type": "harmonic"
+                "type": "partial"
             },
             {
                 "tone": {
@@ -166,7 +166,7 @@
                 },
                 "ratio": 5.24005,
                 "reduced_ratio": 1.31001,
-                "type": "harmonic"
+                "type": "partial"
             },
             {
                 "tone": {
@@ -175,7 +175,7 @@
                 },
                 "ratio": 5.24821,
                 "reduced_ratio": 1.31205,
-                "type": "harmonic"
+                "type": "partial"
             },
             {
                 "tone": {
@@ -184,7 +184,7 @@
                 },
                 "ratio": 5.25934,
                 "reduced_ratio": 1.31484,
-                "type": "harmonic"
+                "type": "partial"
             },
             {
                 "tone": {
@@ -193,7 +193,7 @@
                 },
                 "ratio": 2.65225,
                 "reduced_ratio": 1.32612,
-                "type": "harmonic"
+                "type": "partial"
             },
             {
                 "tone": {
@@ -202,7 +202,7 @@
                 },
                 "ratio": 2.66566,
                 "reduced_ratio": 1.33283,
-                "type": "harmonic"
+                "type": "partial"
             },
             {
                 "tone": {
@@ -211,14 +211,14 @@
                 },
                 "ratio": 5.37438,
                 "reduced_ratio": 1.34359,
-                "type": "harmonic"
+                "type": "partial"
             }
         ]
     },
     {
         "ratio": 1.39248,
         "ampl": -27.84286,
-        "harmonics": [
+        "partials": [
             {
                 "tone": {
                     "frequency": 4808.0,
@@ -226,7 +226,7 @@
                 },
                 "ratio": 5.44507,
                 "reduced_ratio": 1.36127,
-                "type": "harmonic"
+                "type": "partial"
             },
             {
                 "tone": {
@@ -235,7 +235,7 @@
                 },
                 "ratio": 2.73341,
                 "reduced_ratio": 1.36671,
-                "type": "harmonic"
+                "type": "partial"
             },
             {
                 "tone": {
@@ -244,7 +244,7 @@
                 },
                 "ratio": 2.74643,
                 "reduced_ratio": 1.37321,
-                "type": "harmonic"
+                "type": "partial"
             },
             {
                 "tone": {
@@ -253,7 +253,7 @@
                 },
                 "ratio": 2.75874,
                 "reduced_ratio": 1.37937,
-                "type": "harmonic"
+                "type": "partial"
             },
             {
                 "tone": {
@@ -262,7 +262,7 @@
                 },
                 "ratio": 5.6406,
                 "reduced_ratio": 1.41015,
-                "type": "harmonic"
+                "type": "partial"
             },
             {
                 "tone": {
@@ -271,7 +271,7 @@
                 },
                 "ratio": 2.83465,
                 "reduced_ratio": 1.41733,
-                "type": "harmonic"
+                "type": "partial"
             },
             {
                 "tone": {
@@ -280,14 +280,14 @@
                 },
                 "ratio": 5.75714,
                 "reduced_ratio": 1.43929,
-                "type": "harmonic"
+                "type": "partial"
             }
         ]
     },
     {
         "ratio": 1.56286,
         "ampl": -46.15,
-        "harmonics": [
+        "partials": [
             {
                 "tone": {
                     "frequency": 6859.0,
@@ -295,7 +295,7 @@
                 },
                 "ratio": 12.24821,
                 "reduced_ratio": 1.53103,
-                "type": "harmonic"
+                "type": "partial"
             },
             {
                 "tone": {
@@ -304,14 +304,14 @@
                 },
                 "ratio": 0.79735,
                 "reduced_ratio": 1.59469,
-                "type": "harmonic"
+                "type": "partial"
             }
         ]
     },
     {
         "ratio": 1.64779,
         "ampl": -39.7,
-        "harmonics": [
+        "partials": [
             {
                 "tone": {
                     "frequency": 2910.0,
@@ -319,14 +319,14 @@
                 },
                 "ratio": 3.29558,
                 "reduced_ratio": 1.64779,
-                "type": "harmonic"
+                "type": "partial"
             }
         ]
     },
     {
         "ratio": 1.81905,
         "ampl": -37.35,
-        "harmonics": [
+        "partials": [
             {
                 "tone": {
                     "frequency": 599.0,
@@ -334,7 +334,7 @@
                 },
                 "ratio": 0.9062,
                 "reduced_ratio": 1.81241,
-                "type": "harmonic"
+                "type": "partial"
             },
             {
                 "tone": {
@@ -343,7 +343,7 @@
                 },
                 "ratio": 3.65139,
                 "reduced_ratio": 1.82569,
-                "type": "harmonic"
+                "type": "partial"
             }
         ]
     }

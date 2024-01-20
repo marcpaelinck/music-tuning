@@ -11,9 +11,9 @@ Amplitude = float
 Interval = float
 
 
-class HarmonicType(Enum):
+class PartialType(Enum):
     BASE_NOTE = "base note"
-    HARMONIC = "harmonic"
+    PARTIAL = "partial"
 
 
 class Octave(BaseModel):
@@ -27,23 +27,23 @@ class Tone(BaseModel):
     amplitude: float
 
 
-class Harmonic(BaseModel):
+class Partial(BaseModel):
     tone: Tone
     ratio: Ratio
     reduced_ratio: Ratio
-    type: HarmonicType
+    type: PartialType
 
 
-HarmonicList = RootModel[List[Harmonic]]
+PartialList = RootModel[List[Partial]]
 
 
-class AggregatedHarmonic(BaseModel):
+class AggregatedPartial(BaseModel):
     ratio: Ratio
     ampl: Amplitude
-    harmonics: HarmonicList
+    partials: PartialList
 
 
-AggregatedHarmonicList = RootModel[List[AggregatedHarmonic]]
+AggregatedPartialList = RootModel[List[AggregatedPartial]]
 
 
 class SpectrumInfo(BaseModel):
@@ -54,10 +54,11 @@ class SpectrumInfo(BaseModel):
 
 
 class Note(BaseModel):
+    name: str
     spectrum: SpectrumInfo
     freq: Frequency
     index: int
-    harmonics: HarmonicList
+    partials: PartialList
 
 
 class NoteList(BaseModel):

@@ -20,12 +20,12 @@ import os
 import sys
 
 if sys.platform == "win32":
-    print("pipe-test.py, running on windows")
+    print("audacity_interface.py, running on windows")
     TONAME = "\\\\.\\pipe\\ToSrvPipe"
     FROMNAME = "\\\\.\\pipe\\FromSrvPipe"
     EOL = "\r\n\0"
 else:
-    print("pipe-test.py, running on linux or mac")
+    print("audacity_interface.py, running on linux or mac")
     TONAME = "/tmp/audacity_script_pipe.to." + str(os.getuid())
     FROMNAME = "/tmp/audacity_script_pipe.from." + str(os.getuid())
     EOL = "\n"
@@ -73,23 +73,3 @@ def do_command(command):
     response = get_response()
     print("Rcvd: <<< \n" + response)
     return response
-
-
-def quick_test():
-    """Example list of commands."""
-    do_command("PlotSpectrum:")
-    # do_command("Help: Command=Help")
-    # do_command('Help: Command="GetInfo"')
-    # do_command('SetPreference: Name=GUI/Theme Value=classic Reload=1')
-
-
-def select_256():
-    # with pyautogui.hold("alt"):
-    #     pyautogui.press("tab")
-    with pyautogui.hold("alt"):
-        pyautogui.press("s")
-    pyautogui.press("8")
-
-
-quick_test()
-select_256()
