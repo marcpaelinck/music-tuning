@@ -11,12 +11,13 @@ from typing import List
 
 import numpy as np
 import pandas as pd
-from classes import (
+
+from tuning.analysis.classes import (
     AggregatedPartial,
     AggregatedPartialList,
     Frequency,
-    Note,
-    NoteList,
+    NoteInfo,
+    NoteInfoList,
     Octave,
     Partial,
     PartialType,
@@ -24,14 +25,13 @@ from classes import (
     SpectrumInfo,
     Tone,
 )
-from constants import GONG_KEBYAR
-from utils import get_output_folder, get_spectrum_folder
+from tuning.analysis.constants import FileType, InstrumentGroup
+from tuning.analysis.utils import get_path
 
 THRESHOLD = -48  # dB
 # During the aggregation step, frequencies whose mutual ratio is less
 # than the distinctiveness will be considered equal.
 DISTINCTIVENESS = pow(2, 75 / 1200)  # 3/4 of a semitone.
-NOTE_SEQ = ["ding", "dong", "deng", "deung", "dung", "dang", "daing"]
 
 
 def reduce_to_octave(ratio: Ratio) -> Ratio:
@@ -39,7 +39,7 @@ def reduce_to_octave(ratio: Ratio) -> Ratio:
     return pow(2, math.log(ratio, 2) % 1)
 
 
-def get_partials(spectrum_info: SpectrumInfo, tone_list: list[Tone]) -> List[Note]:
+def get_partials(spectrum_info: SpectrumInfo, tone_list: list[Tone]) -> List[NoteInfo]:
     """
     Determines frequency peaks by identifying frequencies that exceed the the given threshold,
     where the preceding 2 have a lower amplitude and are increasing, while following 2 frequencies
@@ -80,7 +80,7 @@ def get_partials(spectrum_info: SpectrumInfo, tone_list: list[Tone]) -> List[Not
         for p in poly
     ]
 
-    # Determine the base note: this is the partial within the octave range with the highest amplitude.
+    # Determine the fundamental frequency: this is the partial within the octave range with the highest amplitude.
     tones_within_octave = [
         tone
         for tone in tones
@@ -88,34 +88,39 @@ def get_partials(spectrum_info: SpectrumInfo, tone_list: list[Tone]) -> List[Not
         < tone.frequency
         < spectrum_info.octave.end_freq * 1.1
     ]
-    basenote = next(
+    fundamental = next(
         tone
         for tone in tones_within_octave
         if tone.amplitude == max(h.amplitude for h in tones_within_octave)
     )
-    basenoteindex = tones.index(basenote)
+    fundamentalindex = tones.index(fundamental)
 
     # Create partials
     partials = [
         Partial(
             tone=partial,
-            ratio=(round(ratio := partial.frequency / basenote.frequency, 5)),
+            ratio=(round(ratio := partial.frequency / fundamental.frequency, 5)),
             reduced_ratio=round(reduce_to_octave(ratio), 5),
-            type=PartialType.BASE_NOTE if partial is basenote else PartialType.PARTIAL,
+            type=PartialType.FUNDAMENTAL
+            if partial is fundamental
+            else PartialType.PARTIAL,
         )
         for partial in tones
     ]
 
-    return Note(
-        name=spectrum_info.note,
+    return NoteInfo(
+        note=spectrum_info.note,
+        instrument=spectrum_info.instrument,
+        ombaktype=spectrum_info.ombaktype,
+        octave=spectrum_info.octave,
         spectrum=spectrum_info,
-        freq=basenote.frequency,
-        index=basenoteindex,
+        freq=fundamental.frequency,
+        index=fundamentalindex,
         partials=partials,
     )
 
 
-def create_note_list_from_folder(folder: str) -> NoteList:
+def create_note_list_from_folder(folder: str) -> NoteInfoList:
     """Creates a NoteList object from the spectrum files in the given folder.
     For each file in the folder, a Note object is created containing a
     a list of partials belonging to that note.
@@ -134,20 +139,23 @@ def create_note_list_from_folder(folder: str) -> NoteList:
         items = file.split(".")[0].split("-")
         return SpectrumInfo(
             instrument=items[1],
-            tuning=items[2],
+            ombaktype=items[2],
             note=items[3],
             octave=Octave(
-                sequence=int(octave := items[5]),
+                sequence=int(octave := items[4]),
                 start_freq=octave_ranges[octave][0],
                 end_freq=octave_ranges[octave][1],
             ),
         )
 
-    def get_tone_list(file) -> list[Tone]:
+    def create_tone_list(file) -> list[Tone]:
         # converts the contents of a spectrum file into a list of Tone objects.
         spectrum_df = pd.read_csv(os.path.join(folder, file), sep="\t")
-        spectrum_list = spectrum_df.rename(
-            columns={"Frequency (Hz)": "frequency", "Level (dB)": "amplitude"}
+        # spectrum_list = spectrum_df.rename(
+        #     columns={"Frequency (Hz)": "frequency", "Level (dB)": "amplitude"}
+        # ).to_dict(orient="records")
+        spectrum_list = spectrum_df.set_axis(
+            ["frequency", "amplitude"], axis=1
         ).to_dict(orient="records")
         return [Tone(**record) for record in spectrum_list]
 
@@ -161,20 +169,20 @@ def create_note_list_from_folder(folder: str) -> NoteList:
         and re.match("^spectrum-[a-z\\d\\-]+.txt$", f)
     ]
 
-    return NoteList(
+    return NoteInfoList(
         group=os.path.basename(folder),
         comment="freq in Hz, ampl in dB.\n"
-        + "Interval is the ratio with the first peak, which is considered to be the base note.\n"
-        + "Reduced_ratio is related to the octave of the base note.",
+        + "Interval is the ratio with the first peak, which is considered to be the fundamental.\n"
+        + "Reduced_ratio is related to the octave of the fundamental.",
         notes=sorted(
             [
                 get_partials(
                     spectrum_info=get_spectrum_info(filename, octave_ranges),
-                    tone_list=get_tone_list(filename),
+                    tone_list=create_tone_list(filename),
                 )
                 for filename in file_names
             ],
-            key=lambda note: NOTE_SEQ.index(note.name),
+            key=lambda noteinfo: noteinfo.note,
         ),
     )
 
@@ -182,7 +190,7 @@ def create_note_list_from_folder(folder: str) -> NoteList:
 def group_partials(partials=List[List[Partial]]):
     """Groups similar partials together in the same sub-list.
        DISTINCTIVENESS is used to determine similarity.
-       Base notes are kept in a separate group. No 'similar' partials are added to this group.
+       Fundamentals are kept in a separate group. No 'similar' partials are added to this group.
 
     Args:
         partials (List[List[TypedPartial]]): Initial list.
@@ -204,7 +212,7 @@ def group_partials(partials=List[List[Partial]]):
             avg1 = avg_partial(partials[i])
             avg2 = avg_partial(partials[i + 1])
             if (avg2 / avg1 < DISTINCTIVENESS) and not (avg1 == 1 < avg2):
-                # merge both lists but keep base notes (ratio==1) in a separate list.
+                # merge both lists but keep fundamentals (ratio==1) in a separate list.
                 partials[i].extend(partials[i + 1])
                 partials.remove(partials[i + 1])
                 aggregated = True
@@ -213,7 +221,7 @@ def group_partials(partials=List[List[Partial]]):
             break
 
 
-def aggregate_partials(note_list: NoteList) -> AggregatedPartialList:
+def aggregate_partials(note_list: NoteInfoList) -> AggregatedPartialList:
     """Generates a list of aggregated partials over all notes.
 
     Args:
@@ -239,25 +247,36 @@ def aggregate_partials(note_list: NoteList) -> AggregatedPartialList:
     )
 
 
-def determine_partials_all_files(instrument_group: str):
+def determine_partials_all_files(group: InstrumentGroup):
     """
     Determines frequency peaks for all files in the given folder
     Args:
         instrument (str): subfolder containing the data
         folder_out (str): output folder for results file
     """
-    output_folder = get_output_folder(instrument_group)
-    spectrum_folder = get_spectrum_folder(instrument_group)
+    note_list = create_note_list_from_folder(get_path(group, FileType.SPECTRUM))
 
-    note_list = create_note_list_from_folder(spectrum_folder)
-
-    with open(os.path.join(output_folder, "partials_per_note.json"), "w") as outfile:
+    with open(
+        get_path(group, FileType.OUTPUT, "partials_per_note.json"), "w"
+    ) as outfile:
         outfile.write(note_list.model_dump_json(indent=4))
 
     aggregated_partials = aggregate_partials(note_list)
-    with open(os.path.join(output_folder, "aggregated_partials.json"), "w") as outfile:
+    with open(
+        get_path(group, FileType.OUTPUT, "aggregated_partials.json"), "w"
+    ) as outfile:
         outfile.write(aggregated_partials.model_dump_json(indent=4))
 
 
 if __name__ == "__main__":
-    determine_partials_all_files(GONG_KEBYAR)
+    determine_partials_all_files(InstrumentGroup.GONG_KEBYAR)
+    import json
+
+    # with open(
+    #     get_path(
+    #         InstrumentGroup.GONG_KEBYAR, FileType.OUTPUT, "partials_per_note.json"
+    #     ),
+    #     "r",
+    # ) as infile:
+    #     json_repr = json.load(infile)
+    # note_list = NoteList.model_validate_json(json_data=json.dumps(json_repr))

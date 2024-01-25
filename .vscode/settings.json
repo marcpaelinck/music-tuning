@@ -15,4 +15,8 @@
     ],
     "python.testing.unittestEnabled": false,
     "python.testing.pytestEnabled": true,
+    "python.envFile": "${workspaceFolder}/.env",
+    "terminal.integrated.env.windows": {
+        "PYTHONPATH" : "${workspaceFolder};${env:PYTHONPATH}"
+ }
 }

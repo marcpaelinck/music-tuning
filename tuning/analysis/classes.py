@@ -1,7 +1,5 @@
-import json
-import os
 from enum import Enum
-from typing import List
+from typing import Optional
 
 from pydantic import BaseModel, RootModel
 
@@ -9,11 +7,48 @@ Frequency = float
 Ratio = float
 Amplitude = float
 Interval = float
+Filename = str
 
 
 class PartialType(Enum):
-    BASE_NOTE = "base note"
+    FUNDAMENTAL = "fundamental"
     PARTIAL = "partial"
+
+
+class OmbakType(Enum):
+    PENUMBANG = "penumbang"
+    PENGISEP = "pengisep"
+
+
+class Note(Enum):
+    DING = "ding"
+    DONG = "dong"
+    DENG = "deng"
+    DEUNG = "deung"
+    DUNG = "dung"
+    DANG = "dang"
+    DAING = "daing"
+
+    def __init__(self, val):
+        super().__init__(val)
+        self.index = ["ding", "dong", "deng", "deung", "dung", "dang", "daing"].index(
+            val
+        )
+
+    def __lt__(self, obj):
+        return (self.index) < (obj.index)
+
+    def __gt__(self, obj):
+        return (self.index) > (obj.index)
+
+    def __le__(self, obj):
+        return (self.index) <= (obj.index)
+
+    def __ge__(self, obj):
+        return (self.index) >= (obj.index)
+
+    def __eq__(self, obj):
+        return (self.index) == (obj.index)
 
 
 class Octave(BaseModel):
@@ -34,7 +69,7 @@ class Partial(BaseModel):
     type: PartialType
 
 
-PartialList = RootModel[List[Partial]]
+PartialList = RootModel[list[Partial]]
 
 
 class AggregatedPartial(BaseModel):
@@ -43,37 +78,38 @@ class AggregatedPartial(BaseModel):
     partials: PartialList
 
 
-AggregatedPartialList = RootModel[List[AggregatedPartial]]
+AggregatedPartialList = RootModel[list[AggregatedPartial]]
 
 
 class SpectrumInfo(BaseModel):
     instrument: str
-    tuning: str
-    note: str
+    ombaktype: OmbakType
+    note: Note
     octave: Octave
 
 
-class Note(BaseModel):
-    name: str
-    spectrum: SpectrumInfo
-    freq: Frequency
+WavePattern = RootModel[list[Amplitude]]
+
+
+class NoteInfo(BaseModel):
+    note: Note
+    instrument: str
+    ombaktype: OmbakType
+    octave: Octave
+    freq: Optional[Frequency] = None
     index: int
-    partials: PartialList
+    wav: Optional[WavePattern] = []
+    partials: Optional[PartialList] = []
 
 
-class NoteList(BaseModel):
+class NoteInfoList(BaseModel):
     group: str
     comment: str
-    notes: List[Note]
+    notes: list[NoteInfo]
 
 
-def parse_file(pydantic_type: type, folder: str, filename: str):
-    with open(os.path.join(folder, filename), "r") as f:
-        json_data = json.load(f)
-        if isinstance(json_data, List):
-            return pydantic_type(json_data)
-        else:
-            return pydantic_type(**json_data)
+class SoundFileInfo(BaseModel):
+    filename: str
 
 
 if __name__ == "__main__":
