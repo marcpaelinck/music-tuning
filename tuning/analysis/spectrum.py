@@ -218,7 +218,9 @@ def get_spectrum_filepath(group: InstrumentGroup, instrument: Instrument, note: 
 
 def create_spectra(orchestra: InstrumentGroup) -> None:
     if not orchestra.has_sound_samples:
-        logger.warning("No sound samples available, please create a group from soundfiles.")
+        logger.warning("No sound samples available: call get_sound_samples first.")
+        return
+
     for instrument in orchestra.instruments:
         logger.info(f"Processing {instrument.name} {instrument.code}.")
         if instrument.error:

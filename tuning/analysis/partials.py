@@ -164,7 +164,8 @@ def create_partials(orchestra: InstrumentGroup, count: int = DEFAULT_PARTIAL_COU
     """
 
     if not orchestra.has_spectra:
-        logger.warning("No spectra available, please first create the spectra.")
+        logger.warning("No spectra available: call create_spectra first.")
+        return
 
     for instrument in orchestra.instruments:
         for note in instrument.notes:
