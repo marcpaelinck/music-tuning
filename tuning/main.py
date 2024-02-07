@@ -6,18 +6,25 @@ from tuning.common.utils import (
     read_group_from_jsonfile,
     save_group_to_jsonfile,
 )
-from tuning.instruments.instrumentinfo import create_group
+from tuning.instruments.instrumentinfo import create_group_from_info_file
+from tuning.instruments.process_soundfiles import get_sound_samples
 
 GROUPNAME = InstrumentGroupName.TEST
 
 
 if __name__ == "__main__":
-    orchestra = create_group(GROUPNAME, only_included=True)
-    # get_sound_samples(orchestra)
+    orchestra = create_group_from_info_file(GROUPNAME, only_included=False)
     # save_group_to_jsonfile(orchestra)
-    # orchestra = read_group_from_jsonfile(InstrumentGroupName.TEST)
+
+    # orchestra = read_group_from_jsonfile(GROUPNAME)
+    get_sound_samples(orchestra)
+    save_group_to_jsonfile(orchestra)
+
+    # orchestra = read_group_from_jsonfile(GROUPNAME)
     create_spectra(orchestra)
-    # save_group_to_jsonfile(orchestra)
-    # orchestra = read_group_from_jsonfile(InstrumentGroupName.TEST)
-    # create_partials(orchestra)
-    # save_group_to_jsonfile(orchestra)
+    save_group_to_jsonfile(orchestra)
+
+    # orchestra = read_group_from_jsonfile(GROUPNAME, read_sounddata=False, save_spectrumdata=False)
+    create_partials(orchestra)
+    # print("saving results")
+    save_group_to_jsonfile(orchestra)

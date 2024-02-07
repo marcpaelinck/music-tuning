@@ -3,6 +3,7 @@ Analyzes the spectrum of each file in the input data folder and saves all the fr
 having an amplitude higher than the given threshold.
 Then aggregates all 'similar' partial ratios using a DISTINCTIVENESS value.
 """
+
 import logging
 import math
 
@@ -66,9 +67,10 @@ def select_loudest_partial_regions(
             for i in range(mid_seq, SEQ_LENGTH - 1)
         )
     ]
-    logger.info(f"--- Found {len(sequences)} peaks")
+    logger.info(f"--- Found {len(sequences)} peaks.")
 
     # Select the top x sequences, ignore sequences that are too close to already selected sequences
+    logger.info(f"--- Selecting {count} loudest partials.")
     sequences = sorted(sequences, key=lambda seq: seq[mid_seq].amplitude, reverse=True)
     top_sequences = []
     for new_seq in sequences:
@@ -123,9 +125,12 @@ def get_partials(note: Note, count: int = DEFAULT_PARTIAL_COUNT) -> list[Partial
         if note.octave.start_freq * 0.9 < tone.frequency < note.octave.end_freq * 1.1
     ]
     fundamental = next(
-        tone
-        for tone in tones_within_octave
-        if tone.amplitude == max(h.amplitude for h in tones_within_octave)
+        (
+            tone
+            for tone in tones_within_octave
+            if tone.amplitude == max(h.amplitude for h in tones_within_octave)
+        ),
+        None,
     )
 
     # Determine partials to keep

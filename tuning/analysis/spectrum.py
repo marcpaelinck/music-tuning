@@ -1,6 +1,5 @@
-import json
 import logging
-from xmlrpc.client import MAXINT, MININT
+from xmlrpc.client import MAXINT
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -12,16 +11,10 @@ from tuning.common.classes import (
     Instrument,
     InstrumentGroup,
     Note,
-    NoteName,
     Spectrum,
     Tone,
 )
 from tuning.common.constants import (
-    INSTRUMENT_FIELDS,
-    NOTE_FIELDS,
-    OCTAVE_FIELDS,
-    SPECTRA_INFO_FILE,
-    SPECTRUM_FIELDS,
     TRUNCATE_FROM,
     TRUNCATE_TO,
     FileType,
@@ -54,7 +47,7 @@ def truncate_spectrum(spectrum: Spectrum, min_freq: int = 0, max_freq: int = 100
 def import_spectrum(
     group: InstrumentGroupName,
     filename: str,
-    truncate: tuple[Frequency, Frequency],
+    truncate: tuple[Frequency, Frequency] = (TRUNCATE_FROM, TRUNCATE_TO),
 ) -> Spectrum:
     """
     Imports a spectrum from a file in the spectrum folder.
@@ -254,24 +247,4 @@ if __name__ == "__main__":
     #     float_format="%.5f",
     # )
 
-    spectrum_1 = import_spectrum(
-        group=InstrumentGroupName.TEST,
-        filename="pemade-PEM1-ding-3.csv",
-        truncate=(TRUNCATE_FROM, TRUNCATE_TO),
-    )
-    spectrum_2 = import_spectrum(
-        group=InstrumentGroupName.TEST,
-        filename="genderwayang-GWA1-dong-1.csv",
-        truncate=(TRUNCATE_FROM, TRUNCATE_TO),
-    )
-    spectrum_3 = import_spectrum(
-        group=InstrumentGroupName.TEST,
-        filename="audacity-32768-ioeua-ENHANCED-ding.txt",
-        truncate=(TRUNCATE_FROM, TRUNCATE_TO),
-    )
-    plot_spectra(
-        (spectrum_1.frequencies(), spectrum_1.amplitudes()),
-        (spectrum_2.amplitudes(), spectrum_2.frequencies()),
-        (spectrum_3.frequencies(), spectrum_3.amplitudes()),
-    )
     # plot_spectra((x, amplitudes), (x, yfdb), (spectrum_gk.frequencies, spectrum_gk.amplitudes)

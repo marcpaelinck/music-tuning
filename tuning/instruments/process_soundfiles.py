@@ -2,13 +2,10 @@
 This module enables to detect the notes in .wav files and to return
 a separate wave pattern for each note.
 """
+
 import logging
 import os
-from operator import ge
 
-import matplotlib.pyplot as plt
-import numpy as np
-import pandas as pd
 from matplotlib.figure import Figure
 from matplotlib.pylab import f
 from scipy.io import wavfile
@@ -22,8 +19,11 @@ from tuning.common.classes import (
 )
 from tuning.common.constants import (
     AMPLITUDE_THRESHOLD_TO_AVERAGE_RATIO,
+    ENHANCED_SOUNDFILE_SUFFIX,
     MINIMUM_SAMPLE_DURATION,
     SHORT_BLANKS_DURATION_THRESHOLD,
+    SOUNDFILE_CLIP_FIX,
+    SOUNDFILE_EQUALIZE_NOTES,
     FileType,
     InstrumentGroupName,
 )
@@ -32,81 +32,13 @@ from tuning.instruments.enhance_soundfiles import (
     equalize_note_amplitudes,
     reconstruct_clipped_regions,
 )
+from tuning.instruments.utils import create_soundclip_ranges
 
 logging.basicConfig(
     format="%(asctime)s - %(name)-12s %(levelname)-7s: %(message)s", datefmt="%H:%M:%S"
 )
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
-
-
-def create_soundclip_ranges(
-    data: SoundData, threshold: float, include: callable = ge
-) -> list[ClipRange]:
-    """
-    Returns ranges in which the sound data exceeds the given threshold.
-
-    Args:
-        data (SoundData): sound data that should be examined.
-        threshold (float): amplitude value.
-        include (callable, optional): comparison function. Indicates how data should relate
-                                      to the threshold in order to be included. Default ge.
-
-    Returns:
-        list[ClipRange]: _description_
-    """
-    amplitudes = pd.DataFrame(data).abs().max(axis=1).to_frame(name="amplitude")
-
-    # Mark start and end positions of contiguous clip ranges with amplitude >= threshold.
-    # If the recording ends with high amplitude, add "End" label to the last row.
-    logger.info("--- Detecting boundaries of sound ranges.")
-    # -- Add column containing amplitude value of the next row.
-    events = amplitudes.assign(next=amplitudes.shift(-1))
-    lastindex = events.index[-1]
-    # -- Add start or end labels.
-    events["event"] = np.where(
-        # -- Add start label when threshold is being violated.
-        ~include(events.amplitude, threshold) & include(events.next, threshold),
-        "Start",
-        # -- Add end label when violation ends.
-        np.where(
-            (include(events.amplitude, threshold) & ~include(events.next, threshold))
-            | ((events.index == lastindex) & include(events.amplitude, threshold)),
-            "End",
-            "",
-        ),
-    )
-    # Add an end label to the last row if the last value still exceeds the threshold.
-    events["event"] = np.where(
-        (events.amplitude < threshold) & (events.next >= threshold),
-        "Start",
-        np.where(
-            ((events.amplitude >= threshold) & (events.next < threshold))
-            | ((events.index == lastindex) & (events.amplitude >= threshold)),
-            "End",
-            "",
-        ),
-    )
-    #  Remove all non-labeled rows
-    events = events[~(events.event == "")].drop(["next"], axis=1)
-    if events.empty:
-        return []
-
-    # Remove possible unmatched final start (note that 0 <= #odd rows - #even rows <=1)
-    logger.info("--- Creating clip ranges.")
-    # Create ranges from the indices of consecutive start and stop labels.
-    start_events = events.iloc[::2]  # odd numbered rows
-    end_events = events.iloc[1::2]  # even numbered rows
-    # The following assertions ensure that the start and stop labels alternate
-    # and that each start label has a corresponding end label.
-    assert list(start_events.event.unique()) == ["Start"]
-    assert list(end_events.event.unique()) == ["End"]
-    assert len(start_events) == len(end_events)
-    # Create clip ranges from the start and stop boundaries
-    intervals = pd.DataFrame({"start": start_events.index, "end": end_events.index}).to_dict(
-        orient="records"
-    )
-    return [ClipRange(start=interval["start"], end=interval["end"]) for interval in intervals]
 
 
 def detect_individual_notes(sample_rate: int, data: SoundData) -> list[ClipRange]:
@@ -149,9 +81,9 @@ def detect_individual_notes(sample_rate: int, data: SoundData) -> list[ClipRange
 def process_wav_file(
     group: InstrumentGroup,
     instrument: Instrument,
-    clip_fix: bool = True,
-    equalize_notes: bool = True,
-    save: bool = False,
+    clip_fix: bool = SOUNDFILE_CLIP_FIX,
+    equalize_notes: bool = SOUNDFILE_EQUALIZE_NOTES,
+    save: bool = ENHANCED_SOUNDFILE_SUFFIX,
     suffix: str = "-ENHANCED",
 ) -> list[Sample]:
     """
@@ -169,9 +101,12 @@ def process_wav_file(
     )
 
     if clip_fix:
+        logger.info("Repairing regions that exceeded maximum recording level.")
         data = reconstruct_clipped_regions(data)
 
+    logger.info("--- Detecting note boundaries.")
     clipranges = detect_individual_notes(sample_rate, data)
+
     if len(clipranges) != len(instrument.notes):
         logger.error(
             f"--- {group.grouptype} .wav file {instrument.soundfile}: {len(instrument.notes)} "
@@ -186,12 +121,14 @@ def process_wav_file(
         # add_samples_to_instrument(instrument, clipranges, sample_rate, data)
 
     if equalize_notes:
+        logger.info("Equalizing the amplitude of the individual noise.")
         data = equalize_note_amplitudes(sample_rate, data, clipranges)
 
     name, extension = os.path.splitext(instrument.soundfile)
     save_filename = get_path(group.grouptype, FileType.SOUND, name + suffix + extension)
 
     if save:
+        logger.info("Saving the enhanced file.")
         wavfile.write(save_filename, sample_rate, data)
 
     # Clip data into separate notes

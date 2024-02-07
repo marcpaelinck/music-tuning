@@ -26,6 +26,9 @@ OCTAVE_RANGE_FILE = "octave_ranges.json"
 AMPLITUDE_THRESHOLD_TO_AVERAGE_RATIO = 0.5  # minimum amplitude for note detection
 SHORT_BLANKS_DURATION_THRESHOLD = 0.1  # low amplitude periods within a note that should not be considered as note ending, in seconds
 MINIMUM_SAMPLE_DURATION = 1  # minimum duration of a note, in seconds (to filter out random sounds)
+SOUNDFILE_CLIP_FIX = True
+SOUNDFILE_EQUALIZE_NOTES = True
+ENHANCED_SOUNDFILE_SUFFIX = "-ENHANCED"
 
 # SPECTRUM
 SPECTRUM_FILE_PATTERN = r"^([a-zA-Z\d]+-)+[a-zA-Z\d]+.csv$"

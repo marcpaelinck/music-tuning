@@ -2,7 +2,7 @@ import numpy as np
 from scipy.interpolate import CubicSpline
 
 from tuning.common.classes import ClipRange, SoundData
-from tuning.instruments.process_soundfiles import create_soundclip_ranges
+from tuning.instruments.utils import create_soundclip_ranges
 
 
 def reconstruct_clipped_regions(

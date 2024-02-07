@@ -21,7 +21,7 @@ def get_octave_dict(group: InstrumentGroupName) -> dict[Octave]:
     return octave_collection
 
 
-def create_group(group: InstrumentGroupName, only_included=False) -> InstrumentGroup:
+def create_group_from_info_file(group: InstrumentGroupName, only_included=False) -> InstrumentGroup:
     """
     Parses the excel document containing information about the instruments files.
     """

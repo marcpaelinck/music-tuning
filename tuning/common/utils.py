@@ -3,10 +3,10 @@ import os
 import re
 from ast import parse
 
-import pandas as pd
+from matplotlib import pyplot as plt
 from pydantic import BaseModel
 
-from tuning.common.classes import InstrumentGroup, NoteName, Octave
+from tuning.common.classes import Instrument, InstrumentGroup, Note, NoteName, Octave
 from tuning.common.constants import (
     DATA_FOLDER,
     OCTAVE_RANGE_FILE,
@@ -53,7 +53,23 @@ def save_group_to_jsonfile(group: InstrumentGroup):
         outfile.write(group.model_dump_json(indent=4))
 
 
-def read_group_from_jsonfile(groupname: InstrumentGroupName):
+def read_group_from_jsonfile(
+    groupname: InstrumentGroupName,
+    read_sounddata: bool = False,
+    read_spectrumdata: bool = True,
+    save_spectrumdata: bool = True,
+):
     with open(get_path(groupname, FileType.SETTINGS, f"{groupname.value}.json"), "r") as infile:
         jsonvalue = infile.read()
-    return InstrumentGroup.model_validate_json(jsonvalue)
+    return InstrumentGroup.model_validate_json(
+        jsonvalue,
+        context={
+            "read_sounddata": read_sounddata,
+            "read_spectrumdata": read_spectrumdata,
+            "save_spectrumdata": save_spectrumdata,
+        },
+    )
+
+
+def get_instrument_by_id(group: InstrumentGroup, code: str) -> Instrument:
+    return next((instr for instr in group.instruments if instr.code == code), None)
