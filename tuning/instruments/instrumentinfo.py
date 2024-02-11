@@ -7,9 +7,9 @@ from tuning.common.constants import INSTRUMENT_INFO_FILE, FileType, InstrumentGr
 from tuning.common.utils import get_path, note_from_shortcode
 
 
-def get_octave_dict(group: InstrumentGroupName) -> dict[Octave]:
+def get_octave_dict(groupname: InstrumentGroupName) -> dict[Octave]:
     row_list = pd.read_excel(
-        get_path(group, FileType.SETTINGS, INSTRUMENT_INFO_FILE), sheet_name="Octaves"
+        get_path(groupname, FileType.SETTINGS, INSTRUMENT_INFO_FILE), sheet_name="Octaves"
     ).to_dict(orient="records")
     octave_collection: dict = defaultdict(dict)
     for row in row_list:
@@ -21,14 +21,16 @@ def get_octave_dict(group: InstrumentGroupName) -> dict[Octave]:
     return octave_collection
 
 
-def create_group_from_info_file(group: InstrumentGroupName, only_included=False) -> InstrumentGroup:
+def create_group_from_info_file(
+    groupname: InstrumentGroupName, only_included=False
+) -> InstrumentGroup:
     """
     Parses the excel document containing information about the instruments files.
     """
-    orchestra = InstrumentGroup(grouptype=group, instruments=[])
-    octave_dict = get_octave_dict(group)
+    orchestra = InstrumentGroup(grouptype=groupname, instruments=[])
+    octave_dict = get_octave_dict(groupname)
     fileinfo = pd.read_excel(
-        get_path(group, FileType.SETTINGS, INSTRUMENT_INFO_FILE), sheet_name="Sound Files"
+        get_path(groupname, FileType.SETTINGS, INSTRUMENT_INFO_FILE), sheet_name="Sound Files"
     ).to_dict(orient="records")
     if only_included:
         fileinfo = [instr for instr in fileinfo if instr["include"]]

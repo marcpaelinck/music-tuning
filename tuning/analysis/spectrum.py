@@ -45,7 +45,7 @@ def truncate_spectrum(spectrum: Spectrum, min_freq: int = 0, max_freq: int = 100
 
 
 def import_spectrum(
-    group: InstrumentGroupName,
+    groupname: InstrumentGroupName,
     filename: str,
     truncate: tuple[Frequency, Frequency] = (TRUNCATE_FROM, TRUNCATE_TO),
 ) -> Spectrum:
@@ -53,7 +53,7 @@ def import_spectrum(
     Imports a spectrum from a file in the spectrum folder.
 
     Args:
-        group (InstrumentGroup): _description_
+        groupname (InstrumentGroup): _description_
         filename (str): file name without path information.
         truncate (tuple[Frequency, Frequency]): min and max frequencies to keep.
 
@@ -61,7 +61,7 @@ def import_spectrum(
         Spectrum: truncated spectrum
     """
     spectrum_df = pd.read_csv(
-        filepath := get_path(group, FileType.SPECTRUM, filename),
+        filepath := get_path(groupname, FileType.SPECTRUM, filename),
         sep="\t",
     )
     spectrum_list = spectrum_df.set_axis(["frequency", "amplitude"], axis=1).to_dict(

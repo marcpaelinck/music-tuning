@@ -83,8 +83,8 @@ def summarize_spectrum_files(groupname: InstrumentGroupName):
     )
 
 
-def inspect_wav_file(group: InstrumentGroupName, file: str, start: float, stop: float):
-    sample_rate, data = wavfile.read(get_path(group, FileType.SOUND, file))
+def inspect_wav_file(groupname: InstrumentGroupName, file: str, start: float, stop: float):
+    sample_rate, data = wavfile.read(get_path(groupname, FileType.SOUND, file))
     amplitudes = pd.DataFrame(data)
     amplitudes["time"] = (amplitudes.index / sample_rate).round(2)
     return amplitudes[(amplitudes.time >= start) & (amplitudes.time <= stop)]

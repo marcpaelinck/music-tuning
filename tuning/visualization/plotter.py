@@ -84,7 +84,7 @@ if __name__ == "__main__":
     groupname = InstrumentGroupName.SEMAR_PAGULINGAN
     orchestra = read_group_from_jsonfile(groupname, read_sounddata=False, read_spectrumdata=False)
     filepath = get_path(
-        group=orchestra.grouptype, filetype=FileType.ANALYSES, filename="partial_plots.pdf"
+        groupname=orchestra.grouptype, filetype=FileType.ANALYSES, filename="partial_plots.pdf"
     )
     create_pdf(
         group=orchestra,

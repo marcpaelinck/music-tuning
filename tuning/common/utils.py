@@ -8,8 +8,8 @@ from tuning.common.classes import Instrument, InstrumentGroup, Note, NoteName, T
 from tuning.common.constants import DATA_FOLDER, FileType, InstrumentGroupName
 
 
-def get_path(group: InstrumentGroupName, filetype: FileType, filename: str = ""):
-    return os.path.join(DATA_FOLDER, group.value, filetype.value, filename)
+def get_path(groupname: InstrumentGroupName, filetype: FileType, filename: str = ""):
+    return os.path.join(DATA_FOLDER, groupname.value, filetype.value, filename)
 
 
 def get_filenames(folder: str, regex: str = ".*") -> list[str]:
