@@ -1,18 +1,11 @@
 import json
 import os
 import re
-from ast import parse
 
-from matplotlib import pyplot as plt
 from pydantic import BaseModel
 
-from tuning.common.classes import Instrument, InstrumentGroup, Note, NoteName, Octave
-from tuning.common.constants import (
-    DATA_FOLDER,
-    OCTAVE_RANGE_FILE,
-    FileType,
-    InstrumentGroupName,
-)
+from tuning.common.classes import Instrument, InstrumentGroup, Note, NoteName, Tone
+from tuning.common.constants import DATA_FOLDER, FileType, InstrumentGroupName
 
 
 def get_path(group: InstrumentGroupName, filetype: FileType, filename: str = ""):
@@ -46,18 +39,25 @@ def note_from_shortcode(code: str) -> NoteName:
     return next((note for note in NoteName if note.value == f"d{code}ng"), None)
 
 
+def get_partial(note: Note) -> Tone:
+    return note.partials[note.partial_index].tone
+
+
 def save_group_to_jsonfile(group: InstrumentGroup):
-    with open(
-        get_path(group.grouptype, FileType.SETTINGS, f"{group.grouptype.value}.json"), "w"
-    ) as outfile:
-        outfile.write(group.model_dump_json(indent=4))
+    tempfilepath = get_path(group.grouptype, FileType.SETTINGS, f"{group.grouptype.value}.jsonx")
+    filepath = tempfilepath.replace(".jsonx", ".json")
+    with open(tempfilepath, "w") as outfile:
+        outfile.write(group.model_dump_json(indent=4, exclude={"hello world"}))
+    if os.path.exists(filepath):
+        os.remove(filepath)
+    os.rename(tempfilepath, filepath)
 
 
 def read_group_from_jsonfile(
     groupname: InstrumentGroupName,
     read_sounddata: bool = False,
     read_spectrumdata: bool = True,
-    save_spectrumdata: bool = True,
+    save_spectrumdata: bool = False,
 ):
     with open(get_path(groupname, FileType.SETTINGS, f"{groupname.value}.json"), "r") as infile:
         jsonvalue = infile.read()

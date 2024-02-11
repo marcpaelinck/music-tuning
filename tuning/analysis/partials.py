@@ -15,11 +15,7 @@ from tuning.common.classes import InstrumentGroup, Note, Partial, Ratio, Tone
 from tuning.common.constants import (
     DEFAULT_PARTIAL_COUNT,
     DISTINCTIVENESS,
-    INSTRUMENT_FIELDS,
-    NOTE_FIELDS,
-    OCTAVE_FIELDS,
-    SPECTRUM_FILE_PATTERN,
-    FileType,
+    PARTIAL_SEQ_LENGTH,
     InstrumentGroupName,
 )
 from tuning.common.utils import read_group_from_jsonfile
@@ -47,13 +43,28 @@ def interpolate_max(x_values, y_values) -> Tone:
 def select_loudest_partial_regions(
     tone_list: list[Tone],
     count: int = DEFAULT_PARTIAL_COUNT,
+    seq_length: int = PARTIAL_SEQ_LENGTH,
     distinct: float = DISTINCTIVENESS,
 ) -> list[list[Tone]]:
-    ...
-    SEQ_LENGTH = 5
-    mid_seq = math.floor(SEQ_LENGTH / 2)
+    """
+    Returns sequences of SEQ_LENGTH consecutive tones around the loudest frequencies in the spectrum.
+    The sequences with the highest amplitude or loudness are returned.
+
+    Args:
+        tone_list (list[Tone]): frequency spectrum.
+        count (int, optional): number of sequences to return. Defaults to DEFAULT_PARTIAL_COUNT.
+        seq_length: length of the sequences (should be an odd number).
+        distinct (float, optional): specifies the minimum ratio between each pair of middle tones
+        in the sequences to return. This avoids returning partials that are too close to each other.
+        Defaults to DISTINCTIVENESS.
+
+    Returns:
+        list[list[Tone]]: list of tone sequences.
+    """
+    seq_length = 5
+    mid_seq = math.floor(seq_length / 2)
     # Create sequences of five consecutive tones
-    sequences = list(zip(*[tone_list[i:] for i in range(SEQ_LENGTH)]))
+    sequences = list(zip(*[tone_list[i:] for i in range(seq_length)]))
     threshold = pd.Series([t.amplitude for t in tone_list]).quantile(0.95)
 
     # Select sequences containing a peak above the given threshold
@@ -64,7 +75,7 @@ def select_loudest_partial_regions(
         and all(sequence[i].amplitude < sequence[mid_seq].amplitude for i in range(mid_seq))
         and all(
             sequence[mid_seq].amplitude > sequence[i + 1].amplitude
-            for i in range(mid_seq, SEQ_LENGTH - 1)
+            for i in range(mid_seq, seq_length - 1)
         )
     ]
     logger.info(f"--- Found {len(sequences)} peaks.")
@@ -118,25 +129,14 @@ def get_partials(note: Note, count: int = DEFAULT_PARTIAL_COUNT) -> list[Partial
     ]
     tones = sorted(tones, key=lambda t: t.amplitude, reverse=True)
 
-    # Determine the fundamental frequency: this is the partial within the octave range with the highest amplitude.
+    # Determine the fundamental: the partial within the octave range with the highest amplitude.
     tones_within_octave = [
-        tone
-        for tone in tones
-        if note.octave.start_freq * 0.9 < tone.frequency < note.octave.end_freq * 1.1
+        tone for tone in tones if note.octave.start_freq < tone.frequency < note.octave.end_freq
     ]
-    fundamental = next(
-        (
-            tone
-            for tone in tones_within_octave
-            if tone.amplitude == max(h.amplitude for h in tones_within_octave)
-        ),
-        None,
-    )
+    fundamental = next(iter(sorted(tones_within_octave, key=lambda t: -t.amplitude)), None)
 
-    # Determine partials to keep
+    # Keep strongest partials, ordered by decreasing amplitude
     tones_to_keep = sorted(tones, key=lambda t: t.amplitude, reverse=True)[:count]
-    if not fundamental in tones_to_keep:
-        x = 1
 
     # Create partials
     partials = [
@@ -148,16 +148,6 @@ def get_partials(note: Note, count: int = DEFAULT_PARTIAL_COUNT) -> list[Partial
         for tone in tones_to_keep
     ]
     return partials
-    # return NoteInfo(
-    #     note=spectrum_info.note,
-    #     instrument=spectrum_info.instrument,
-    #     ombaktype=spectrum_info.ombaktype,
-    #     octave=spectrum_info.octave,
-    #     spectrum=spectrum_info,
-    #     freq=fundamental.frequency,
-    #     partial_index=fundamentalindex,
-    #     partials=partials,
-    # )
 
 
 def create_partials(orchestra: InstrumentGroup, count: int = DEFAULT_PARTIAL_COUNT) -> None:

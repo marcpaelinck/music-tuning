@@ -17,6 +17,12 @@ class FileType(Enum):
     SETTINGS = ""
 
 
+class PageSizes(Enum):
+    A4 = [8.3, 11.7]
+    LETTER = [8.5, 11.0]
+    LEGAL = [8.5, 14.0]
+
+
 DATA_FOLDER = ".\\data"
 INSTRUMENT_INFO_FILE = "info.xlsx"
 SPECTRA_INFO_FILE = "info.csv"
@@ -44,6 +50,9 @@ DEFAULT_PARTIAL_COUNT = 10
 # Frequencies whose ratio is less than the
 # distinctiveness will be considered equal.
 DISTINCTIVENESS = pow(2, 75 / 1200)  # 3/4 of a semitone.
+# Sequence of frequencies around partials for interpolation.
+# This should be an odd number.
+PARTIAL_SEQ_LENGTH = 5
 
 TRUNCATE_FROM = 0
 TRUNCATE_TO = 10000

@@ -1,16 +1,13 @@
 import json
 import math
-import os
 from pprint import pprint
-from statistics import quantiles
 
 import pandas as pd
 from scipy.io import wavfile
 
-from tuning.analysis.spectrum import get_spectrum_summary
 from tuning.common.classes import Instrument
 from tuning.common.constants import FileType, InstrumentGroupName
-from tuning.common.utils import get_path, parse_json_file
+from tuning.common.utils import get_path, parse_json_file, read_group_from_jsonfile
 
 
 def get_notelist_summary():
@@ -94,4 +91,7 @@ def inspect_wav_file(group: InstrumentGroupName, file: str, start: float, stop: 
 
 
 if __name__ == "__main__":
-    summarize_spectrum_files(InstrumentGroupName.SEMAR_PAGULINGAN)
+    groupname = InstrumentGroupName.SEMAR_PAGULINGAN
+    orchestra = read_group_from_jsonfile(groupname, read_sounddata=False, read_spectrumdata=False)
+    instrumenttypes = {instr.instrumenttype for instr in orchestra.instruments}
+    print(instrumenttypes)

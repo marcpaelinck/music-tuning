@@ -4,7 +4,14 @@ from typing import Optional
 
 import numpy as np
 import pandas as pd
-from pydantic import BaseModel, Field, ValidationInfo, field_serializer, model_validator
+from pydantic import (
+    BaseModel,
+    Field,
+    ValidationInfo,
+    field_serializer,
+    field_validator,
+    model_validator,
+)
 from scipy.io import wavfile
 
 from tuning.common.constants import InstrumentGroupName
@@ -82,15 +89,6 @@ class Partial(BaseModel):
     isfundamental: bool
 
 
-# class AggregatedPartial(BaseModel):
-#     ratio: Ratio
-#     ampl: Amplitude
-#     partials: PartialList
-#
-#
-# AggregatedPartialList = RootModel[list[AggregatedPartial]]
-
-
 class Spectrum(BaseModel):
     spectrumfilepath: str | None = None
     tones: Optional[list[Tone]] = Field(default=None)
@@ -147,9 +145,10 @@ class Note(BaseModel):
 
 
 class Instrument(BaseModel):
+    instrumenttype: str = None
     error: bool = False
     comment: str = ""
-    name: str
+    # name: str
     code: str
     ombaktype: OmbakType
     soundfile: str = ""
