@@ -21,6 +21,7 @@ def plot_note_spectra(
     xmax=None,
     ymin=None,
     ymax=None,
+    show: bool = False,
 ):
     spectra = [
         (note.spectrum.frequencies(), note.spectrum.amplitudes()) for note in instrument.notes
@@ -30,11 +31,12 @@ def plot_note_spectra(
         *spectra,
         plottype=PlotType.PLOT,
         pagetitle=title,
-        plottitle=[note.name.value for note in instrument.notes],
+        plottitles=[note.name.value for note in instrument.notes],
         xmin=xmin,
         xmax=xmax,
         ymin=ymin,
         ymax=ymax,
+        show=show,
     )
 
 
@@ -48,6 +50,7 @@ def plot_note_partials(
     xmax=None,
     ymin=None,
     ymax=None,
+    show: bool = False,
 ):
     # define vlines for each note by creating tuples (freq, 0, ampl, color)
     spectra = [
@@ -77,12 +80,19 @@ def plot_note_partials(
         xmax=xmax,
         ymin=ymin,
         ymax=ymax,
+        show=show,
     )
 
 
 if __name__ == "__main__":
     groupname = InstrumentGroupName.SEMAR_PAGULINGAN
-    orchestra = read_group_from_jsonfile(groupname, read_sounddata=False, read_spectrumdata=False)
+    orchestra = read_group_from_jsonfile(groupname, read_sounddata=False, read_spectrumdata=True)
+    # plot_note_spectra(
+    #     orchestra,
+    #     instrument=next(iter([instr for instr in orchestra.instruments if instr.code == "KAN1"])),
+    #     show=True,
+    #     xmax=100,
+    # )
     filepath = get_path(
         groupname=orchestra.grouptype, filetype=FileType.ANALYSES, filename="partial_plots.pdf"
     )
@@ -92,5 +102,5 @@ if __name__ == "__main__":
         filepath=filepath,
         instrumentcodes=None,
         ratio=True,
-        xmax=2,
+        xmax=5,
     )
