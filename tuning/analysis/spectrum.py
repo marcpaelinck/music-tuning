@@ -1,4 +1,3 @@
-import logging
 from xmlrpc.client import MAXINT
 
 import matplotlib.pyplot as plt
@@ -7,7 +6,9 @@ import pandas as pd
 from scipy.fftpack import fft, fftfreq
 
 from tuning.common.classes import (
+    AmplUnit,
     Frequency,
+    FreqUnit,
     Instrument,
     InstrumentGroup,
     Note,
@@ -20,13 +21,9 @@ from tuning.common.constants import (
     FileType,
     InstrumentGroupName,
 )
-from tuning.common.utils import get_path
+from tuning.common.utils import get_logger, get_path
 
-logging.basicConfig(
-    format="%(asctime)s - %(name)-12s %(levelname)-7s: %(message)s", datefmt="%H:%M:%S"
-)
-logger = logging.getLogger(__name__)
-logger.setLevel(logging.INFO)
+logger = get_logger(__name__)
 
 
 def truncate_spectrum(spectrum: Spectrum, min_freq: int = 0, max_freq: int = 10000) -> Spectrum:
@@ -189,6 +186,8 @@ def create_spectrum_audacity(note: Note, filepath: str, truncate=(0, MAXINT)) ->
     spectrum = Spectrum(
         tones=[Tone(amplitude=ampl_db[i], frequency=freq[i]) for i in range(max_index + 1)],
         spectrumfilepath=filepath,
+        freq_unit=FreqUnit.HERZ,
+        ampl_unit=AmplUnit.DB,
     )
     # spectrum = Spectrum(amplitudes=ampl_db[: max_index + 1], frequencies=freq[: max_index + 1])
     return truncate_spectrum(spectrum, min_freq=truncate[0], max_freq=truncate[1])
@@ -205,7 +204,7 @@ def plot_spectra(s1: tuple[list[float]], *args):
 
 
 def get_spectrum_filepath(group: InstrumentGroup, instrument: Instrument, note: Note):
-    filename = f"{instrument.name}-{instrument.code}-{note.name}-{note.octave.index}.csv"
+    filename = f"{instrument.instrumenttype.replace(" ","")}-{instrument.code}-{note.name}-{note.octave.index}.csv"
     return get_path(group.grouptype, FileType.SPECTRUM, filename)
 
 
@@ -215,7 +214,7 @@ def create_spectra(orchestra: InstrumentGroup) -> None:
         return
 
     for instrument in orchestra.instruments:
-        logger.info(f"Processing {instrument.name} {instrument.code}.")
+        logger.info(f"Processing {instrument.instrumenttype} {instrument.code}.")
         if instrument.error:
             continue
         logger.info(f"Generating spectrum files.")

@@ -27,6 +27,7 @@ DATA_FOLDER = ".\\data"
 INSTRUMENT_INFO_FILE = "info.xlsx"
 SPECTRA_INFO_FILE = "info.csv"
 OCTAVE_RANGE_FILE = "octave_ranges.json"
+AGGREGATED_PARTIALS_FILE = "partials_per_instrumenttype.json"
 
 # SOUNDFILES
 AMPLITUDE_THRESHOLD_TO_AVERAGE_RATIO = 0.5  # minimum amplitude for note detection
@@ -46,13 +47,21 @@ SPECTRUM_FIELDS = {"spectrumfilepath": "spectrumfile"}
 
 
 # PARTIALS
-DEFAULT_PARTIAL_COUNT = 10
+DEFAULT_NR_OF_PARTIALS = 10
+TOP_PROMINENT_PARTIALS = 20
+PEAK_WINDOW = 21
+MIN_PROMINENCE = 10
 # Frequencies whose ratio is less than the
 # distinctiveness will be considered equal.
-DISTINCTIVENESS = pow(2, 75 / 1200)  # 3/4 of a semitone.
+DISTINCTIVENESS_CENT = 75  # 3/4 of a semitone.
+DISTINCTIVENESS = pow(2, DISTINCTIVENESS_CENT / 1200)
+MAX_OCTAVES = 6  # maximum octaves to consider
 # Sequence of frequencies around partials for interpolation.
 # This should be an odd number.
 PARTIAL_SEQ_LENGTH = 5
+
+# SUMMARIZE
+KEEP_NR_PARTIALS = 4
 
 TRUNCATE_FROM = 0
 TRUNCATE_TO = 10000

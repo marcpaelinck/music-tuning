@@ -93,5 +93,12 @@ def inspect_wav_file(groupname: InstrumentGroupName, file: str, start: float, st
 if __name__ == "__main__":
     groupname = InstrumentGroupName.SEMAR_PAGULINGAN
     orchestra = read_group_from_jsonfile(groupname, read_sounddata=False, read_spectrumdata=False)
-    instrumenttypes = {instr.instrumenttype for instr in orchestra.instruments}
-    print(instrumenttypes)
+    negatives = [
+        (instrument.code, note.name, partial.tone.frequency)
+        for instrument in orchestra.instruments
+        for note in instrument.notes
+        for partial in note.partials
+        # TODO check why partial can have negative frequency
+        if partial.ratio <= 0
+    ]
+    pprint(negatives)

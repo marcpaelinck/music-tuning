@@ -1,15 +1,16 @@
 import json
 from enum import Enum
-from typing import Optional
+from tkinter import CENTER
+from typing import Dict, List, Optional
 
 import numpy as np
 import pandas as pd
 from pydantic import (
     BaseModel,
     Field,
+    RootModel,
     ValidationInfo,
     field_serializer,
-    field_validator,
     model_validator,
 )
 from scipy.io import wavfile
@@ -43,6 +44,17 @@ class NoteName(Enum):
 
     def __str__(self):
         return self.value
+
+
+class FreqUnit(Enum):
+    HERZ = "Herz"
+    CENT = "Cent"
+    RATIO = "ratio"
+
+
+class AmplUnit(Enum):
+    LINEAR = "linear"
+    DB = "dB"
 
 
 class Octave(BaseModel):
@@ -86,11 +98,25 @@ class Sample(BaseModel):
 class Partial(BaseModel):
     tone: Tone
     ratio: Ratio
+    prominence: float = 0
     isfundamental: bool
+
+
+class AggregatedPartial(BaseModel):
+    identifier: str
+    tone: Tone
+    ratio: Ratio
+    isfundamental: bool
+    partials: Optional[list[Partial]] = Field(default=None)
+
+
+AggregatedPartialDict = RootModel[Dict[str, List[AggregatedPartial]]]
 
 
 class Spectrum(BaseModel):
     spectrumfilepath: str | None = None
+    freq_unit: FreqUnit = FreqUnit.HERZ
+    ampl_unit: AmplUnit = AmplUnit.DB
     tones: Optional[list[Tone]] = Field(default=None)
 
     @model_validator(mode="after")

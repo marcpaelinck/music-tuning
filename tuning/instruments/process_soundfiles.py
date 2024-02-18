@@ -3,7 +3,6 @@ This module enables to detect the notes in .wav files and to return
 a separate wave pattern for each note.
 """
 
-import logging
 import os
 
 from matplotlib.figure import Figure
@@ -27,18 +26,14 @@ from tuning.common.constants import (
     FileType,
     InstrumentGroupName,
 )
-from tuning.common.utils import get_path
+from tuning.common.utils import get_logger, get_path
 from tuning.instruments.enhance_soundfiles import (
     equalize_note_amplitudes,
     reconstruct_clipped_regions,
 )
 from tuning.instruments.utils import create_soundclip_ranges
 
-logging.basicConfig(
-    format="%(asctime)s - %(name)-12s %(levelname)-7s: %(message)s", datefmt="%H:%M:%S"
-)
-logger = logging.getLogger(__name__)
-logger.setLevel(logging.INFO)
+logger = get_logger(__name__)
 
 
 def detect_individual_notes(sample_rate: int, data: SoundData) -> list[ClipRange]:
