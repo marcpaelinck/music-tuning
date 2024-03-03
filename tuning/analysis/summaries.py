@@ -1,114 +1,87 @@
-import json
-import math
-from pprint import pprint
-
 import numpy as np
-import scipy.cluster.hierarchy as hcluster
+import pandas as pd
 
-from tuning.common.classes import (
-    AggregatedPartial,
-    AggregatedPartialDict,
-    InstrumentGroup,
-    Partial,
-    Tone,
+from tuning.common.classes import AggregatedPartialDict, NoteName
+from tuning.common.constants import (
+    AGGREGATED_PARTIALS_FILE,
+    Folder,
+    InstrumentGroupName,
 )
-from tuning.common.constants import KEEP_NR_PARTIALS, FileType, InstrumentGroupName
 from tuning.common.utils import (
-    get_path,
+    db_to_ampl,
     read_group_from_jsonfile,
-    save_object_to_jsonfile,
+    read_object_from_jsonfile,
 )
 
 
-def ratio_to_cents(ratio) -> int:
-    return int(math.log(ratio, 2) * 1200)
+def avg_note_freq_per_instrument_type(
+    groupname: InstrumentGroupName,
+    split_ombak=False,
+    ratios=False,
+) -> pd.DataFrame:
+    """
+    Returns a table containing the average frequency of each note over all similar instruments.
+    (penumbang and pengisep are)
 
+    Args:
+        groupname (InstrumentGroupName): _description_
+        split_ombak (bool): penumbang and pengisep instruments are averaged if False.
+        ratio (bool): if True, returns ratio of note frequencies compared to the frequency of the first note (DING).
 
-def partial_avg(partials: list[Partial], dimension: str) -> float:
-    return np.average(p.tone.frequency for p in partials)
-
-
-def average_ratio(partials: list[Partial]) -> float:
-    return np.average(p.ratio for p in partials)
-
-
-def aggregate(partials: list[Partial], identifier: str) -> AggregatedPartial:
-    avg_freq = np.average([p.tone.frequency for p in partials])
-    avg_ampl = np.average([p.tone.amplitude for p in partials])
-    avg_ratio = np.average([p.ratio for p in partials])
-    isfundamental = partials[0].isfundamental
-    return AggregatedPartial(
-        identifier=identifier,
-        tone=Tone(frequency=avg_freq, amplitude=avg_ampl),
-        isfundamental=isfundamental,
-        partials=partials,
-        ratio=avg_ratio,
-    )
-
-
-def summarize_partials(
-    group: InstrumentGroup, grouping: str = "instrumenttype"
-) -> dict[str, dict[int, list[Partial]]]:
-    # collect the partials and convert the ratios to cents
-    instrument_types = {instrument.instrumenttype for instrument in group.instruments}
-    cents_collections = {
-        itype: [
-            ratio_to_cents(partial.ratio)
-            for instrument in group.instruments
-            if instrument.instrumenttype == itype
-            for note in instrument.notes
-            for partial in note.partials
-            # TODO check why partial can have negative frequency (should be solved)
-            if partial.ratio > 0
-        ]
-        for itype in instrument_types
-    }
-    partial_collections = {
-        itype: [
-            partial
-            for instrument in group.instruments
-            if instrument.instrumenttype == itype
-            for note in instrument.notes
-            for partial in note.partials
-            # TODO check why partial can have negative frequency (should be solved)
-        ]
-        for itype in instrument_types
-    }
-    thresh = 50  # 3/4 of a semitone
-    clusters = {
-        itype: hcluster.fclusterdata(
-            np.array(partials).reshape(-1, 1),
-            thresh,
-            criterion="distance",
-            method="centroid",
-        )
-        for itype, partials in cents_collections.items()
-    }
-    clustering = {
-        itype: [
-            [partials[i] for i in range(len(partials)) if clusters[itype][i] == cl]
-            for cl in set(clusters[itype])
-        ]
-        for itype, partials in partial_collections.items()
-    }
-    largest_clusters = {
-        itype: sorted(clusters, key=lambda c: len(c), reverse=True)[:KEEP_NR_PARTIALS]
-        for itype, clusters in clustering.items()
-    }
-    aggregated = AggregatedPartialDict(
-        root={
-            itype: [aggregate(cluster, itype) for cluster in clusters]
-            for itype, clusters in largest_clusters.items()
+    Returns:
+        pd.DataFrame: _description_
+    """
+    orchestra = read_group_from_jsonfile(groupname, read_sounddata=False, read_spectrumdata=False)
+    summary = [
+        {
+            "type": instr.instrumenttype,
+            "code": instr.code,
+            "note": note.name,
+            "octave": note.octave.index,
+            "freq": note.partials[note.partial_index].tone.frequency,
         }
+        | ({"ombak": instr.ombaktype.value} if split_ombak else {})
+        for instr in orchestra.instruments
+        for note in instr.notes
+    ]
+    summary_df = pd.DataFrame(summary)
+    pivot = summary_df.pivot(
+        index=["type", "code", "octave"] + (["ombak"] if split_ombak else []),
+        columns="note",
+        values="freq",
     )
+    averages = pivot.groupby(["type", "octave"] + (["ombak"] if split_ombak else [])).aggregate(
+        func=np.average
+    )
+    if ratios:
+        averages = averages.div(averages[NoteName.DING], axis=0)
+    return averages
 
-    save_object_to_jsonfile(
-        aggregated, get_path(group.grouptype, FileType.ANALYSES, "partials_per_instrumenttype.json")
+
+def aggregated_partials(groupname: InstrumentGroupName):
+    aggr_partials = read_object_from_jsonfile(
+        AggregatedPartialDict, groupname, Folder.ANALYSES, AGGREGATED_PARTIALS_FILE
     )
+    aggr_dict = [
+        {
+            "instr": ap.instrument,
+            "oct": ap.octave,
+            "freq": ap.tone.frequency,
+            "ampl_db": ap.tone.amplitude,
+            "ampl": db_to_ampl(ap.tone.amplitude),
+            "nr_part": len(ap.partials),
+            "is_fund": ap.isfundamental,
+        }
+        for values in aggr_partials.root.values()
+        for ap in sorted(
+            values, key=lambda p: (p.instrument, p.octave, p.tone.amplitude), reverse=True
+        )
+    ]
+    aggr_df = pd.DataFrame(aggr_dict)
+    return aggr_df
 
 
 if __name__ == "__main__":
-    orchestra = read_group_from_jsonfile(
-        InstrumentGroupName.SEMAR_PAGULINGAN, read_sounddata=False, read_spectrumdata=False
-    )
-    summary = summarize_partials(orchestra)
+    GROUP = InstrumentGroupName.SEMAR_PAGULINGAN
+    aggr_df = aggregated_partials(GROUP)
+    print(aggr_df)

@@ -2,6 +2,7 @@ import math
 from enum import Enum, auto
 
 import matplotlib.pyplot as plt
+import numpy as np
 from matplotlib.axes import Axes
 from matplotlib.backends.backend_pdf import PdfPages
 from matplotlib.figure import Figure
@@ -20,6 +21,7 @@ class PlotType(Enum):
 
 def plot_graphs(
     *args: tuple[list[float]],
+    ncols: int = 1,
     plottype: PlotType = PlotType.PLOT,
     pagetitle: str = "",
     plottitles: list[str] = None,
@@ -27,55 +29,65 @@ def plot_graphs(
     xmax: int = None,
     ymin: int = None,
     ymax: int = None,
+    autox: bool = False,
+    autoy: bool = False,
     show: bool = False,
     pagesize: PageSizes = PageSizes.A4,
     figure: Figure = None,
     axes: Axes = None,
+    **kwargs,
 ):
     def set_axes_boundaries(x_index, y_index) -> tuple[float]:
-        x_min = xmin or min(min(args[i][x_index]) for i in range(len(args)))
-        x_max = xmax or max(max(args[i][x_index]) for i in range(len(args)))
-        y_min = ymin or min(min(args[i][y_index]) for i in range(len(args)))
-        y_max = ymax or max(max(args[i][y_index]) for i in range(len(args))) * 1.05
-        plt.setp(axes, xlim=(x_min, x_max), ylim=(y_min, y_max))
-        return x_min, x_max, y_min, y_max
+        if not autox:
+            x_min = xmin or min(min(args[i][x_index]) for i in range(len(args)))
+            x_max = xmax or max(max(args[i][x_index]) for i in range(len(args)))
+            plt.setp(axes, xlim=(x_min, x_max))
+        if not autoy:
+            y_min = ymin or min(min(args[i][y_index]) for i in range(len(args)))
+            y_max = ymax or max(max(args[i][y_index]) for i in range(len(args))) * 1.05
+            plt.setp(axes, ylim=(y_min, y_max))
+        return
 
     if not figure:
-        figure, axes = plt.subplots(len(args), figsize=pagesize.value)
+        figure, axes = plt.subplots(len(args) // ncols, ncols, figsize=pagesize.value)
         if len(args) == 1:
-            axes = [axes]
+            axes = np.array([axes])
         figure.suptitle(pagetitle)
     x_index = 0
     y_index = 1
+
+    axis_list = axes.flatten("C")
     match plottype:
         case PlotType.PLOT:
-            xmin, xmax, ymin, ymax = set_axes_boundaries(x_index, y_index)
-            vis = [axes[i].plot for i in range(len(args))]
+            set_axes_boundaries(x_index, y_index)
+            vis = [axis.plot for axis in axis_list]
         case PlotType.VLINES:
-            vis = [axes[i].vlines for i in range(len(args))]
+            vis = [axis.vlines for axis in axis_list]
             [
-                axes[i].text(x, y, f"{x:1.3f}", fontsize=6, ha="left")
-                for i in range(len(args))
-                for (x, y) in zip(args[i][0], args[i][2])
+                axis.text(x, y, f"{x:1.3f}", fontsize=6, ha="left")
+                for (axis, arg) in zip(axis_list, args)
+                for (x, y) in zip(arg[0], arg[2])
             ]
 
             y_index = 2
-            xmin, xmax, ymin, ymax = set_axes_boundaries(x_index, y_index)
+            set_axes_boundaries(x_index, y_index)
             for arg in args:
                 arg[1] = (ymin,) * len(arg[1])
         case _:
             ...
 
-    for idx in range(len(args)):
+    for idx in range(len(axis_list)):
+        vis[idx](*args[idx])
+        xmin, xmax = axis_list[idx].get_xlim()
+        ymin, ymax = axis_list[idx].get_ylim()
         if plottitles:
-            axes[idx].text(
+            axis_list[idx].text(
                 x=xmin + 0.01 * (xmax - xmin),
                 y=ymax - 0.1 * (ymax - ymin),
                 s=plottitles[idx],
                 fontsize="small",
                 color="b",
             )
-        vis[idx](*args[idx])
     if show:
         plt.show()
     return figure, axes

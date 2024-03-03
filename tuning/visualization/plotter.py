@@ -6,7 +6,7 @@ from matplotlib.figure import Figure
 
 from tuning.analysis.dissonance import dissonance_j, dissonance_s
 from tuning.common.classes import Instrument, InstrumentGroup, Tone
-from tuning.common.constants import FileType, InstrumentGroupName
+from tuning.common.constants import Folder, InstrumentGroupName
 from tuning.common.utils import get_logger, get_path, read_group_from_jsonfile
 from tuning.visualization.utils import PlotType, create_pdf, plot_graphs
 
@@ -14,9 +14,10 @@ logger = get_logger(__name__)
 
 
 def plot_dissonance_functions():
-    frequencies = [freq for freq in range(400, 850, 1)]
+    fundfreq = 100
+    frequencies = [freq for freq in range(fundfreq, int(2.15 * fundfreq), 1)]
     g_list = [Tone(frequency=freq, amplitude=1) for freq in frequencies]
-    f = Tone(frequency=400, amplitude=1)
+    f = Tone(frequency=fundfreq, amplitude=1)
     diss_j = [(dissonance_j(f, g)) for g in g_list]
     diss_s = [(dissonance_s(f, g)) for g in g_list]
     plot_graphs((frequencies, diss_j), (frequencies, diss_s), plottype=PlotType.PLOT, show=True)
@@ -93,33 +94,34 @@ def plot_notes(
 if __name__ == "__main__":
 
     plot_dissonance_functions()
+    exit()
 
-    # groupname = InstrumentGroupName.SEMAR_PAGULINGAN
-    # pdf_filename = "spectra_with_partials_ratio.pdf"
+    groupname = InstrumentGroupName.SEMAR_PAGULINGAN
+    pdf_filename = "spectra_with_partials_freq.pdf"
 
-    # filepath = get_path(
-    #     groupname=groupname,
-    #     filetype=FileType.ANALYSES,
-    #     filename=pdf_filename,
-    # )
-    # # Check if the file is closed. If not, exit.
-    # if os.path.exists(filepath):
-    #     logger.info(f"Checking if the output file is in use by another process.")
-    #     try:
-    #         with open(filepath, "r+") as file:
-    #             logger.info(f"OK, file not in use.")
-    #     except:
-    #         logger.error(f"File {filepath} is in use. Please close the file and try again.")
-    #         exit()
+    filepath = get_path(
+        groupname=groupname,
+        filetype=Folder.ANALYSES,
+        filename=pdf_filename,
+    )
+    # Check if the file is closed. If not, exit.
+    if os.path.exists(filepath):
+        logger.info(f"Checking if the output file is in use by another process.")
+        try:
+            with open(filepath, "r+") as file:
+                logger.info(f"OK, file not in use.")
+        except:
+            logger.error(f"File {filepath} is in use. Please close the file and try again.")
+            exit()
 
-    # orchestra = read_group_from_jsonfile(groupname, read_sounddata=False, read_spectrumdata=True)
+    orchestra = read_group_from_jsonfile(groupname, read_sounddata=False, read_spectrumdata=True)
 
-    # create_pdf(
-    #     group=orchestra,
-    #     plotter=plot_notes,
-    #     filepath=filepath,
-    #     instrumentcodes=None,
-    #     what=["spectra", "partials"],
-    #     ratio=True,
-    #     xmax=6,
-    # )
+    create_pdf(
+        group=orchestra,
+        plotter=plot_notes,
+        filepath=filepath,
+        instrumentcodes=None,
+        what=["spectra", "partials"],
+        ratio=False,
+        xmax=6,
+    )

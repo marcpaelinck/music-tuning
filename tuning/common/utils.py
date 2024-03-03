@@ -16,7 +16,7 @@ from tuning.common.classes import (
     Spectrum,
     Tone,
 )
-from tuning.common.constants import DATA_FOLDER, FileType, InstrumentGroupName
+from tuning.common.constants import DATA_FOLDER, Folder, InstrumentGroupName
 
 
 def get_logger(name) -> logging.Logger:
@@ -31,7 +31,7 @@ def get_logger(name) -> logging.Logger:
 logger = get_logger(__name__)
 
 
-def get_path(groupname: InstrumentGroupName, filetype: FileType, filename: str = ""):
+def get_path(groupname: InstrumentGroupName, filetype: Folder, filename: str = ""):
     return os.path.join(DATA_FOLDER, groupname.value, filetype.value, filename)
 
 
@@ -70,6 +70,12 @@ def db_to_ampl(db: float) -> float:
     return pow(10, db / 20)
 
 
+def ampl_to_loudness(amplitude: float) -> float:
+    p_e = amplitude / math.sqrt(2)
+    SPL = 20 * math.log10(p_e / 20)
+    return (1 / 16) * pow(2, SPL / 10)
+
+
 def convert_freq(value: float, from_unit: FreqUnit, to_unit: FreqUnit, ref_value=None) -> float:
     if from_unit is to_unit:
         return value
@@ -97,17 +103,17 @@ def save_object_to_jsonfile(object: BaseModel, filepath: str):
 
 
 def save_group_to_jsonfile(group: InstrumentGroup):
-    filepath = get_path(group.grouptype, FileType.SETTINGS, f"{group.grouptype.value}.json")
+    filepath = get_path(group.grouptype, Folder.SETTINGS, f"{group.grouptype.value}.json")
     save_object_to_jsonfile(group, filepath)
-    # filepath = tempfilepath.replace(".jsonx", ".json")
-    # with open(tempfilepath, "w") as outfile:
-    #     outfile.write(group.model_dump_json(indent=4, exclude={"hello world"}))
-    # if os.path.exists(filepath):
-    #     os.remove(filepath)
-    # os.rename(tempfilepath, filepath)
 
 
-def read_object_from_jsonfile(objecttype: type, filepath: str) -> BaseModel:
+def read_object_from_jsonfile(
+    objecttype: type,
+    groupname: InstrumentGroupName,
+    filetype: Folder,
+    filename: str,
+) -> BaseModel:
+    filepath = get_path(groupname, filetype, filename)
     with open(filepath, "r") as infile:
         jsonvalue = infile.read()
         return objecttype.model_validate_json(jsonvalue)
@@ -116,10 +122,10 @@ def read_object_from_jsonfile(objecttype: type, filepath: str) -> BaseModel:
 def read_group_from_jsonfile(
     groupname: InstrumentGroupName,
     read_sounddata: bool = False,
-    read_spectrumdata: bool = True,
+    read_spectrumdata: bool = False,
     save_spectrumdata: bool = False,
 ):
-    with open(get_path(groupname, FileType.SETTINGS, f"{groupname.value}.json"), "r") as infile:
+    with open(get_path(groupname, Folder.SETTINGS, f"{groupname.value}.json"), "r") as infile:
         jsonvalue = infile.read()
     return InstrumentGroup.model_validate_json(
         jsonvalue,

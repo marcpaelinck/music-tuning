@@ -23,7 +23,7 @@ from tuning.common.constants import (
     SHORT_BLANKS_DURATION_THRESHOLD,
     SOUNDFILE_CLIP_FIX,
     SOUNDFILE_EQUALIZE_NOTES,
-    FileType,
+    Folder,
     InstrumentGroupName,
 )
 from tuning.common.utils import get_logger, get_path
@@ -91,9 +91,7 @@ def process_wav_file(
     suffix: text to be added to the original file name.
     """
     logger.info(f"Processing file {instrument.soundfile}.")
-    sample_rate, data = wavfile.read(
-        get_path(group.grouptype, FileType.SOUND, instrument.soundfile)
-    )
+    sample_rate, data = wavfile.read(get_path(group.grouptype, Folder.SOUND, instrument.soundfile))
 
     if clip_fix:
         logger.info("Repairing regions that exceeded maximum recording level.")
@@ -120,7 +118,7 @@ def process_wav_file(
         data = equalize_note_amplitudes(sample_rate, data, clipranges)
 
     name, extension = os.path.splitext(instrument.soundfile)
-    save_filename = get_path(group.grouptype, FileType.SOUND, name + suffix + extension)
+    save_filename = get_path(group.grouptype, Folder.SOUND, name + suffix + extension)
 
     if save:
         logger.info("Saving the enhanced file.")

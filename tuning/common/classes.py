@@ -1,7 +1,5 @@
-import json
 from enum import Enum
-from tkinter import CENTER
-from typing import Dict, List, Optional
+from typing import Optional
 
 import numpy as np
 import pandas as pd
@@ -23,6 +21,16 @@ Amplitude = float
 Interval = float
 Filename = str
 SoundData = np.ndarray[np.ndarray[np.int16]]
+
+
+class InstrumentType(Enum):
+    GONG = "gong"
+    JEGOGAN = "jegogan"
+    JUBLAG = "jublag"
+    PEMADE = "gangsa pemade"
+    KANTILAN = "gangsa kantilan"
+    GENDERRAMBAT = "gender rambat"
+    GENDERWAYANG = "gender wayang"
 
 
 class OmbakType(Enum):
@@ -57,7 +65,7 @@ class AmplUnit(Enum):
     DB = "dB"
 
 
-class Octave(BaseModel):
+class Octave(BaseModel, frozen=True):
     index: int
     start_freq: float
     end_freq: float
@@ -102,15 +110,13 @@ class Partial(BaseModel):
     isfundamental: bool
 
 
-class AggregatedPartial(BaseModel):
-    identifier: str
-    tone: Tone
-    ratio: Ratio
-    isfundamental: bool
+class AggregatedPartial(Partial):
+    instrumenttype: InstrumentType = None
+    octave: Octave = None
     partials: Optional[list[Partial]] = Field(default=None)
 
 
-AggregatedPartialDict = RootModel[Dict[str, List[AggregatedPartial]]]
+AggregatedPartialDict = RootModel[dict[str, list[AggregatedPartial]]]
 
 
 class Spectrum(BaseModel):
@@ -171,7 +177,7 @@ class Note(BaseModel):
 
 
 class Instrument(BaseModel):
-    instrumenttype: str = None
+    instrumenttype: InstrumentType = None
     error: bool = False
     comment: str = ""
     # name: str

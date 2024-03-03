@@ -9,7 +9,7 @@ class InstrumentGroupName(Enum):
     ANGKLUNG = "angklung"
 
 
-class FileType(Enum):
+class Folder(Enum):
     # The values are the names of the data folders
     SOUND = "soundfiles"
     SPECTRUM = "spectrumfiles"

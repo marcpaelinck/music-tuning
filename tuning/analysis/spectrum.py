@@ -18,7 +18,7 @@ from tuning.common.classes import (
 from tuning.common.constants import (
     TRUNCATE_FROM,
     TRUNCATE_TO,
-    FileType,
+    Folder,
     InstrumentGroupName,
 )
 from tuning.common.utils import get_logger, get_path
@@ -58,7 +58,7 @@ def import_spectrum(
         Spectrum: truncated spectrum
     """
     spectrum_df = pd.read_csv(
-        filepath := get_path(groupname, FileType.SPECTRUM, filename),
+        filepath := get_path(groupname, Folder.SPECTRUM, filename),
         sep="\t",
     )
     spectrum_list = spectrum_df.set_axis(["frequency", "amplitude"], axis=1).to_dict(
@@ -205,7 +205,7 @@ def plot_spectra(s1: tuple[list[float]], *args):
 
 def get_spectrum_filepath(group: InstrumentGroup, instrument: Instrument, note: Note):
     filename = f"{instrument.instrumenttype.replace(" ","")}-{instrument.code}-{note.name}-{note.octave.index}.csv"
-    return get_path(group.grouptype, FileType.SPECTRUM, filename)
+    return get_path(group.grouptype, Folder.SPECTRUM, filename)
 
 
 def create_spectra(orchestra: InstrumentGroup) -> None:

@@ -2,14 +2,21 @@ from collections import defaultdict
 
 import pandas as pd
 
-from tuning.common.classes import Instrument, InstrumentGroup, Note, Octave, OmbakType
-from tuning.common.constants import INSTRUMENT_INFO_FILE, FileType, InstrumentGroupName
+from tuning.common.classes import (
+    Instrument,
+    InstrumentGroup,
+    InstrumentType,
+    Note,
+    Octave,
+    OmbakType,
+)
+from tuning.common.constants import INSTRUMENT_INFO_FILE, Folder, InstrumentGroupName
 from tuning.common.utils import get_path, note_from_shortcode
 
 
 def get_octave_dict(groupname: InstrumentGroupName) -> dict[Octave]:
     row_list = pd.read_excel(
-        get_path(groupname, FileType.SETTINGS, INSTRUMENT_INFO_FILE), sheet_name="Octaves"
+        get_path(groupname, Folder.SETTINGS, INSTRUMENT_INFO_FILE), sheet_name="Octaves"
     ).to_dict(orient="records")
     octave_collection: dict = defaultdict(dict)
     for row in row_list:
@@ -30,7 +37,7 @@ def create_group_from_info_file(
     orchestra = InstrumentGroup(grouptype=groupname, instruments=[])
     octave_dict = get_octave_dict(groupname)
     fileinfo = pd.read_excel(
-        get_path(groupname, FileType.SETTINGS, INSTRUMENT_INFO_FILE), sheet_name="Sound Files"
+        get_path(groupname, Folder.SETTINGS, INSTRUMENT_INFO_FILE), sheet_name="Sound Files"
     ).to_dict(orient="records")
     if only_included:
         fileinfo = [instr for instr in fileinfo if instr["include"]]
@@ -39,7 +46,7 @@ def create_group_from_info_file(
         shortcodes = row["notes"].split("-")
         octaves = octave_dict[row["octave group"]]
         instrument_info = Instrument(
-            name=row["instrument"],
+            instrumenttype=InstrumentType(row["instrument"]),
             code=row["code"],
             ombaktype=OmbakType(row["ombaktype"]),
             soundfile=row["filename"],

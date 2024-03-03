@@ -1,6 +1,6 @@
 from tuning.analysis.partials import create_partials
 from tuning.analysis.spectrum import create_spectra
-from tuning.common.constants import FileType, InstrumentGroupName
+from tuning.common.constants import Folder, InstrumentGroupName
 from tuning.common.utils import (
     get_path,
     read_group_from_jsonfile,
