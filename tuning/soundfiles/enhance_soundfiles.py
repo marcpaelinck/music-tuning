@@ -2,7 +2,7 @@ import numpy as np
 from scipy.interpolate import CubicSpline
 
 from tuning.common.classes import ClipRange, SoundData
-from tuning.instruments.utils import create_soundclip_ranges
+from tuning.soundfiles.utils import create_soundclip_ranges
 
 
 def reconstruct_clipped_regions(
@@ -31,14 +31,12 @@ def reconstruct_clipped_regions(
             list(range(cliprange.start - 5, cliprange.start))
             + list(range(cliprange.end + 1, cliprange.end + 6))
         )
-        # y_orig = [data[i] for i in x_orig]
         y_orig = np.take(data, x_orig, axis=0)
         # function to predict missing values
         interpolated = CubicSpline(x_orig, y_orig)
         # indices to pass through function
         x_restored = list(range(cliprange.start - 5, cliprange.end + 6))
         # new sample values
-        # y_restored = [float(int(y)) for y in interpolated(x_restored)]
         restored_data[x_restored[0] : x_restored[-1] + 1] = [interpolated(x) for x in x_restored]
 
     # scale the data so that it fits within the

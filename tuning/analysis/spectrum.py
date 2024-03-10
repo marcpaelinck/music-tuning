@@ -78,49 +78,6 @@ def import_spectrum(
     )
 
 
-# def save_spectrum(spectrum: Spectrum) -> None:
-#     """
-#     Saves spectrum data to the spectrum folder.
-
-#     Args:
-#         info (NoteInfo): _description_
-#         group (InstrumentGroupName): _description_
-#     """
-#     spectrum_df = pd.DataFrame(
-#         {
-#             "frequency": spectrum.frequencies(),
-#             "amplitude": spectrum.amplitudes(),
-#         }
-#     )
-
-#     spectrum_df.to_csv(
-#         spectrum.spectrumfilepath,
-#         sep="\t",
-#         index=False,
-#         float_format="%.5f",
-#     )
-
-
-# def save_spectrum_summary(
-#     group: InstrumentGroupName,
-#     orchestra: InstrumentGroup,
-#     filename: str = SPECTRA_INFO_FILE,
-# ) -> None:
-#     logger.info(f"Saving spectrum summary in {filename}.")
-#     dict_repr = [
-#         {header: instrument.model_dump()[attr] for attr, header in INSTRUMENT_FIELDS.items()}
-#         | {header: note.model_dump()[attr] for attr, header in NOTE_FIELDS.items()}
-#         | {header: note.octave.model_dump()[attr] for attr, header in OCTAVE_FIELDS.items()}
-#         | {header: note.spectrum.model_dump()[attr] for attr, header in SPECTRUM_FIELDS.items()}
-#         for instrument in orchestra.instruments
-#         for note in instrument.notes
-#     ]
-#     summary_df = pd.DataFrame.from_dict(dict_repr)
-#     summary_df.to_csv(
-#         get_path(group=group, filetype=FileType.SPECTRUM, filename=filename), sep="\t"
-#     )
-
-
 def create_spectrum(note_info: Note, filepath: str, truncate=(0, MAXINT)) -> Spectrum:
     """
     Creates a spectrum file for a NoteInfo object. The spectrum analysis is performed
@@ -191,28 +148,36 @@ def create_spectrum_audacity(note: Note, filepath: str, truncate=(0, MAXINT)) ->
         frequencies=freq[: max_index + 1],
         amplitudes=ampl_db,
         spectrumfilepath=filepath,
-        freq_unit=FreqUnit.HERZ,
+        freq_unit=FreqUnit.HERTZ,
         ampl_unit=AmplUnit.DB,
     )
     return truncate_spectrum(spectrum, min_freq=truncate[0], max_freq=truncate[1])
 
 
-def plot_spectra(s1: tuple[list[float]], *args):
-    fig, axs = plt.subplots(1 + len(args))
-    fig.suptitle("Plots")
+def get_spectrum_filepath(group: InstrumentGroup, instrument: Instrument, note: Note) -> str:
+    """
+    Returns the path to the file containing the frequency spectrum of the given note.
 
-    axs[0].plot(s1[0], s1[1])
-    for idx in range(len(args)):
-        axs[idx + 1].plot(args[idx][0], args[idx][1])
-    plt.show()
+    Args:
+        group (InstrumentGroup): the instrument group
+        instrument (Instrument): the instrument within the group
+        note (Note): the note of the instrument
 
-
-def get_spectrum_filepath(group: InstrumentGroup, instrument: Instrument, note: Note):
+    Returns:
+        str: relative path to the spectrum file.
+    """
     filename = f"{instrument.instrumenttype.value.replace(" ","")}-{instrument.code}-{note.name}-{note.octave.index}.csv"
     return get_path(group.grouptype, Folder.SPECTRUM, filename)
 
 
 def create_spectra(orchestra: InstrumentGroup) -> None:
+    """
+    This method creates Spectrum objects which contain the frequency spectrum 
+    of the individual notes and adds each Spectrum object to the corresponding Note object. 
+
+    Args:
+        orchestra (InstrumentGroup): The instrument group.
+    """
     if not orchestra.has_sound_samples:
         logger.warning("No sound samples available: call get_sound_samples first.")
         return

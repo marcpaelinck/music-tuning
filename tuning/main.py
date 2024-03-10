@@ -6,8 +6,8 @@ from tuning.common.utils import (
     read_group_from_jsonfile,
     save_group_to_jsonfile,
 )
-from tuning.instruments.instrumentinfo import create_group_from_info_file
-from tuning.instruments.process_soundfiles import get_sound_samples
+from tuning.soundfiles.instrumentinfo import create_group_from_info_file
+from tuning.soundfiles.process_soundfiles import get_sound_samples
 
 if __name__ == "__main__":
     GROUPNAME = InstrumentGroupName.SEMAR_PAGULINGAN

@@ -82,9 +82,9 @@ def convert_freq(value: float, from_unit: FreqUnit, to_unit: FreqUnit, ref_value
         return value
 
     match (from_unit, to_unit):
-        case (FreqUnit.HERZ, FreqUnit.CENT):
+        case (FreqUnit.HERTZ, FreqUnit.CENT):
             return 1200 * math.log2(value)
-        case (FreqUnit.CENT, FreqUnit.HERZ):
+        case (FreqUnit.CENT, FreqUnit.HERTZ):
             return math.pow(2, value / 1200)
         case _:
             logger.error(f"Conversion from {from_unit.value} to {to_unit.value} not implemented.")
@@ -162,8 +162,21 @@ def read_group_from_jsonfile(
 
 
 def convert_spectrum_freq(spectrum: Spectrum, to_unit: FreqUnit, step: float = 5) -> Spectrum:
+    """
+    Returns a new Spectrum object, in which the frequency values are converted to the new unit.
+    Currentlhy only converts from Hertz to Cent.
+
+    Args:
+        spectrum (Spectrum): The spectrum that should be converted.
+        to_unit (FreqUnit): Unit to convert to.
+        step (float, optional): The step width for the new unit. Amplitude values will be interpolated.
+                                Defaults to 5.
+
+    Returns:
+        Spectrum: New converted spectrum.
+    """
     # TODO unit test
-    if spectrum.freq_unit is FreqUnit.HERZ:
+    if spectrum.freq_unit is FreqUnit.HERTZ:
         match to_unit:
             case FreqUnit.CENT:
                 if to_unit is spectrum.freq_unit:

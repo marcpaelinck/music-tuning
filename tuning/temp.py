@@ -1,5 +1,3 @@
-import filecmp
-import itertools
 import json
 import math
 import os
@@ -64,14 +62,14 @@ def analyze_limits():
 
 
 def summarize_spectrum_files(groupname: InstrumentGroupName):
-    orchestra = get_spectrum_summary(group=groupname)
+    orchestra = read_object_from_jsonfile(
+        InstrumentGroup, groupname, Folder.SETTINGS, groupname.value + ".json"
+    )
     SEQ_LENGTH = 5
     results = []
     for instrument in orchestra.instruments:
         for note in instrument.notes:
-            amplitudes = pd.read_csv(
-                get_path(groupname, Folder.SPECTRUM, note.spectrumfilepath), sep="\t"
-            )["amplitude"]
+            amplitudes = pd.read_csv(note.spectrum.spectrumfilepath, sep="\t")["amplitude"]
             percentiles = [0.8, 0.95, 1]
             quantiles = [amplitudes.quantile(q) for q in percentiles]
             THRESHOLD = amplitudes.quantile(0.95)
@@ -84,7 +82,7 @@ def summarize_spectrum_files(groupname: InstrumentGroupName):
                 and all(sequence[i] > sequence[i + 1] for i in range(mid_seq, SEQ_LENGTH - 1))
                 and sequence[mid_seq] > THRESHOLD
             ]
-            results.append([instrument.name, note.name, THRESHOLD, len(peak_sequences)])
+            results.append([instrument.code, note.name.value, THRESHOLD, len(peak_sequences)])
     pprint(results)
     print(
         min([res[-1] for res in results]),
@@ -115,33 +113,21 @@ def dissonance_s_array(f: np.array, g: np.array, ampl_f: float, ampl_g: float) -
     return result
 
 
-if __name__ == "__main__":
-    n_orchestra = read_object_from_jsonfile(
-        InstrumentGroup,
-        InstrumentGroupName.SEMAR_PAGULINGAN,
-        Folder.SETTINGS,
-        "semarpagulingan.json",
-    )
+def compare_partials(
+    groupname: InstrumentGroupName, old: str, new: str, xls_filename: str = "compare_partials.xlsx"
+) -> None:
     o_orchestra = read_object_from_jsonfile(
         InstrumentGroup,
+        groupname,
         Folder.SETTINGS,
-        InstrumentGroupName.SEMAR_PAGULINGAN,
-        "semarpagulingan - Copy of last.json",
+        old,
     )
-    # equals = []
-    # unequals = []
-    # for instrnew in orchnew.instruments:
-    #     instrold = next(instr for instr in orchold.instruments if instr.code == instrnew.code)
-    #     for n_old, n_new in zip(instrold.notes, instrnew.notes):
-    #         if all(
-    #             po.tone == pn.tone and po.ratio == pn.ratio and po.isfundamental == pn.isfundamental
-    #             for po, pn in zip(n_old.partials, n_new.partials)
-    #         ):
-    #             equals.append(f"{instrnew.code}-{n_old}{n_old.octave.index}")
-    #         else:
-    #             unequals.append(f"{instrnew.code}-{n_old.name}{n_old.octave.index}")
-    # print(unequals)
-
+    n_orchestra = read_object_from_jsonfile(
+        InstrumentGroup,
+        groupname,
+        Folder.SETTINGS,
+        new,
+    )
     old = [
         {
             "instrument": instrument.code,
@@ -173,8 +159,14 @@ if __name__ == "__main__":
     old_df = pd.DataFrame.from_records(old, index=["instrument", "note", "oct", "partial", "ratio"])
     new_df = pd.DataFrame.from_records(new, index=["instrument", "note", "oct", "partial", "ratio"])
     compare = old_df.join(new_df, how="outer", lsuffix="_o", rsuffix="_n")
-    compare_o = old_df.join(new_df, how="left", lsuffix="_o", rsuffix="_n")
-    compare_n = new_df.join(old_df, how="left", lsuffix="_n", rsuffix="_o")
-    diff_o = compare_o[compare_o.amplitude_n.isnull()]
-    diff_n = compare_n[compare_n.amplitude_o.isnull()]
-    compare.to_excel("data\\semarpagulingan\\analyses\\compare_partials.xlsx", merge_cells=False)
+    compare.to_excel(get_path(groupname, Folder.ANALYSES, xls_filename), merge_cells=False)
+
+
+if __name__ == "__main__":
+    # compare_partials(
+    #     groupname=InstrumentGroupName.SEMAR_PAGULINGAN,
+    #     old="semarpagulingan - Copy of last.json",
+    #     new="semarpagulingan.json",
+    #     xls_filename="compare_partials.xlsx",
+    # )
+    summarize_spectrum_files(InstrumentGroupName.SEMAR_PAGULINGAN)

@@ -55,7 +55,7 @@ class NoteName(Enum):
 
 
 class FreqUnit(Enum):
-    HERZ = "Herz"
+    HERTZ = "Herz"
     CENT = "Cent"
     RATIO = "ratio"
 
@@ -121,7 +121,7 @@ AggregatedPartialDict = RootModel[dict[str, list[AggregatedPartial]]]
 
 class Spectrum(BaseModel):
     spectrumfilepath: str | None = None
-    freq_unit: FreqUnit = FreqUnit.HERZ
+    freq_unit: FreqUnit = FreqUnit.HERTZ
     ampl_unit: AmplUnit = AmplUnit.DB
     frequencies: Optional[np.ndarray[float]] = Field(default=None)
     amplitudes: Optional[np.ndarray[float]] = Field(default=None)

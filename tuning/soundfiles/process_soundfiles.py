@@ -27,11 +27,11 @@ from tuning.common.constants import (
     InstrumentGroupName,
 )
 from tuning.common.utils import get_logger, get_path
-from tuning.instruments.enhance_soundfiles import (
+from tuning.soundfiles.enhance_soundfiles import (
     equalize_note_amplitudes,
     reconstruct_clipped_regions,
 )
-from tuning.instruments.utils import create_soundclip_ranges
+from tuning.soundfiles.utils import create_soundclip_ranges
 
 logger = get_logger(__name__)
 

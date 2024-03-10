@@ -51,11 +51,30 @@ def get_partials(
     peak_window: int = PEAK_WINDOW,
     max_octaves: int = MAX_OCTAVES,
 ) -> list[Partial]:
+    """
+    Retrieves a list of "strongest" partials from the frequency spectrum of the given note.
+    The partials are selected on highest amplitude and highest peak prominence. The latter
+    is a measure of the height of the peak compared to its surrounding. See this link:
+    https://docs.scipy.org/doc/scipy/reference/generated/scipy.signal.peak_prominences.html#scipy.signal.peak_prominences
+
+    Args:
+        note (Note):
+        count (int, optional): Number of partials to retrieve. Defaults to DEFAULT_NR_OF_PARTIALS.
+        distinct (float, optional): Minimum separation of the partials in Cents. Defaults to DISTINCTIVENESS_CENT.
+        prominence (float, optional): Minimum prominence of the partials. See link above for more information.
+                                      Defaults to MIN_PROMINENCE.
+        peak_window (int, optional): Used to determine the peak prominence. Defaults to PEAK_WINDOW.
+        max_octaves (int, optional): Maximum number of octaves to consider, starting with the octave
+                                     containing the fundamental frequency. Defaults to MAX_OCTAVES.
+
+    Returns:
+        list[Partial]: The partials with highest amplitude and prominence.
+    """
     STEP = 1
     spectrum_cent = convert_spectrum_freq(spectrum=note.spectrum, to_unit=FreqUnit.CENT, step=STEP)
     base_octave_cent = (
-        convert_freq(note.octave.start_freq, from_unit=FreqUnit.HERZ, to_unit=FreqUnit.CENT),
-        convert_freq(note.octave.end_freq, from_unit=FreqUnit.HERZ, to_unit=FreqUnit.CENT),
+        convert_freq(note.octave.start_freq, from_unit=FreqUnit.HERTZ, to_unit=FreqUnit.CENT),
+        convert_freq(note.octave.end_freq, from_unit=FreqUnit.HERTZ, to_unit=FreqUnit.CENT),
     )
     minfreq_cent = base_octave_cent[0]
     maxfreq_cent = minfreq_cent + max_octaves * 1200
@@ -64,10 +83,10 @@ def get_partials(
     mid_freq = (note.octave.end_freq - note.octave.start_freq) / 2
     window_length = math.ceil(
         convert_freq(
-            mid_freq + 2 * peak_window // 2, from_unit=FreqUnit.HERZ, to_unit=FreqUnit.CENT
+            mid_freq + 2 * peak_window // 2, from_unit=FreqUnit.HERTZ, to_unit=FreqUnit.CENT
         )
         - convert_freq(
-            mid_freq - 2 * peak_window // 2, from_unit=FreqUnit.HERZ, to_unit=FreqUnit.CENT
+            mid_freq - 2 * peak_window // 2, from_unit=FreqUnit.HERTZ, to_unit=FreqUnit.CENT
         )
     )
 
@@ -93,8 +112,8 @@ def get_partials(
         for i in indices
     ]
     octave_bounds_cent = (
-        convert_freq(note.octave.start_freq, from_unit=FreqUnit.HERZ, to_unit=FreqUnit.CENT),
-        convert_freq(note.octave.end_freq, from_unit=FreqUnit.HERZ, to_unit=FreqUnit.CENT),
+        convert_freq(note.octave.start_freq, from_unit=FreqUnit.HERTZ, to_unit=FreqUnit.CENT),
+        convert_freq(note.octave.end_freq, from_unit=FreqUnit.HERTZ, to_unit=FreqUnit.CENT),
     )
     peaks_cent_within_octave = {
         peak for peak in peaks_cent if octave_bounds_cent[0] <= peak[0] <= octave_bounds_cent[1]
@@ -111,7 +130,7 @@ def get_partials(
         (
             Tone(
                 frequency=round(
-                    convert_freq(frequency, from_unit=FreqUnit.CENT, to_unit=FreqUnit.HERZ),
+                    convert_freq(frequency, from_unit=FreqUnit.CENT, to_unit=FreqUnit.HERTZ),
                     5,
                 ),
                 amplitude=round(amplitude, 5),
