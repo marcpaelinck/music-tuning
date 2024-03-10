@@ -1,5 +1,7 @@
 import math
+import os
 from enum import Enum, auto
+from typing import Any
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -15,14 +17,15 @@ logger = get_logger(__name__)
 
 
 class PlotType(Enum):
-    PLOT = auto()
+    SPECTRUMPLOT = auto()
+    CONSONANCEPLOT = auto()
     VLINES = auto()
 
 
 def plot_graphs(
     *args: tuple[list[float]],
     ncols: int = 1,
-    plottype: PlotType = PlotType.PLOT,
+    plottype: PlotType = PlotType.SPECTRUMPLOT,
     pagetitle: str = "",
     plottitles: list[str] = None,
     xmin: int = None,
@@ -37,7 +40,14 @@ def plot_graphs(
     axes: Axes = None,
     **kwargs,
 ):
+    x_index = 0
+    y_index = 1
+    ymin_index = 1
+    ymax_index = 2
+    mins_index = 2
+
     def set_axes_boundaries(x_index, y_index) -> tuple[float]:
+        x_min = x_max = y_min = y_max = None
         if not autox:
             x_min = xmin or min(min(args[i][x_index]) for i in range(len(args)))
             x_max = xmax or max(max(args[i][x_index]) for i in range(len(args)))
@@ -46,38 +56,41 @@ def plot_graphs(
             y_min = ymin or min(min(args[i][y_index]) for i in range(len(args)))
             y_max = ymax or max(max(args[i][y_index]) for i in range(len(args))) * 1.05
             plt.setp(axes, ylim=(y_min, y_max))
-        return
+        return (x_min, x_max, y_min, y_max)
 
     if not figure:
         figure, axes = plt.subplots(len(args) // ncols, ncols, figsize=pagesize.value)
         if len(args) == 1:
             axes = np.array([axes])
         figure.suptitle(pagetitle)
-    x_index = 0
-    y_index = 1
 
     axis_list = axes.flatten("C")
     match plottype:
-        case PlotType.PLOT:
+        case PlotType.SPECTRUMPLOT:
             set_axes_boundaries(x_index, y_index)
             vis = [axis.plot for axis in axis_list]
-        case PlotType.VLINES:
-            vis = [axis.vlines for axis in axis_list]
-            [
-                axis.text(x, y, f"{x:1.3f}", fontsize=6, ha="left")
-                for (axis, arg) in zip(axis_list, args)
-                for (x, y) in zip(arg[0], arg[2])
-            ]
-
-            y_index = 2
+            plotvalues = args
+        case PlotType.CONSONANCEPLOT:
             set_axes_boundaries(x_index, y_index)
+            vis = [axis.plot for axis in axis_list]
+            for axis, arg in zip(axis_list, args):
+                for x, y in arg[mins_index]:
+                    axis.text(x, y, f"{abs(x):1.3f}", fontsize="x-small", ha="center", va="top")
+            plotvalues = [(args[i][x_index], args[i][y_index]) for i in range(len(args))]
+        case PlotType.VLINES:
+            _, _, y_min, _ = set_axes_boundaries(x_index, ymax_index)
+            vis = [axis.vlines for axis in axis_list]
+            for axis, arg in zip(axis_list, args):
+                for x, y in zip(arg[x_index], arg[ymax_index]):
+                    axis.text(x, y, f"{x:1.3f}", fontsize="x-small", ha="left")
             for arg in args:
-                arg[1] = (ymin,) * len(arg[1])
+                arg[ymin_index] = (ymin,) * len(arg[ymin_index])
+            plotvalues = args
         case _:
             ...
 
     for idx in range(len(axis_list)):
-        vis[idx](*args[idx])
+        vis[idx](*plotvalues[idx])
         xmin, xmax = axis_list[idx].get_xlim()
         ymin, ymax = axis_list[idx].get_ylim()
         if plottitles:
@@ -95,44 +108,31 @@ def plot_graphs(
 
 def create_pdf(
     group: InstrumentGroup,
+    iterlist: list,  ## list of objects to iterate through
     plotter: callable,
     filepath: str,
-    instrumentcodes=None,
-    ratio: bool = False,
     **kwargs,
 ) -> bool:
+
+    # Check if the file is closed. If not, exit.
+    if os.path.exists(filepath):
+        logger.info(f"Checking if the output file is in use by another process.")
+        try:
+            with open(filepath, "r+") as file:
+                logger.info(f"OK, file not in use.")
+        except:
+            logger.error(f"File {filepath} is in use. Please close the file and try again.")
+            exit()
+
     with PdfPages(filepath) as pdf:
         logger.info("Generating graphs")
-        # Set the maximum x-axis value per instrument type, according
-        # to the maximum partial frequency for that type.
-        instrument_types = {instr.instrumenttype for instr in group.instruments}
-        xmax_dict = {
-            instrumenttype: (
-                max(
-                    math.ceil(p.ratio) if ratio else p.tone.frequency + 100
-                    for instr in group.instruments
-                    if instr.instrumenttype is instrumenttype
-                    for note in instr.notes
-                    for p in note.partials
-                )
+        for object in iterlist:
+            hasplots = plotter(
+                group=group,
+                object=object,
+                **kwargs,
             )
-            for instrumenttype in instrument_types
-        }
-        for instrument in group.instruments:
-            if not instrumentcodes or instrument.code in instrumentcodes:
-                logger.info(f"--- {group.grouptype.value} {instrument.code}")
-                for key in {"xmin", "xmax", "ymin", "ymax"}.intersection(kwargs.keys()):
-                    del kwargs[key]
-                plotter(
-                    group=group,
-                    instrument=instrument,
-                    ratio=ratio,
-                    xmin=0,
-                    xmax=xmax_dict[instrument.instrumenttype],
-                    ymin=-100,
-                    ymax=0,
-                    **kwargs,
-                )
+            if hasplots:
                 pdf.savefig()
                 plt.close()
     return True

@@ -4,6 +4,7 @@ import math
 import os
 import re
 
+import numpy as np
 from pydantic import BaseModel
 from scipy.interpolate import interp1d
 
@@ -93,18 +94,22 @@ def get_partial(note: Note) -> Tone:
     return note.partials[note.partial_index].tone
 
 
-def save_object_to_jsonfile(object: BaseModel, filepath: str):
+def save_object_to_jsonfile(
+    object: BaseModel,
+    filepath: str,
+    save_spectrumdata: bool = True,
+):
     tempfilepath = filepath + "x"
     with open(tempfilepath, "w") as outfile:
-        outfile.write(object.model_dump_json(indent=4))
+        outfile.write(object.model_dump_json(indent=4, exclude_none=save_spectrumdata))
     if os.path.exists(filepath):
         os.remove(filepath)
     os.rename(tempfilepath, filepath)
 
 
-def save_group_to_jsonfile(group: InstrumentGroup):
+def save_group_to_jsonfile(group: InstrumentGroup, save_spectrumdata=True):
     filepath = get_path(group.grouptype, Folder.SETTINGS, f"{group.grouptype.value}.json")
-    save_object_to_jsonfile(group, filepath)
+    save_object_to_jsonfile(group, filepath, save_spectrumdata=save_spectrumdata)
 
 
 def read_object_from_jsonfile(
@@ -123,8 +128,27 @@ def read_group_from_jsonfile(
     groupname: InstrumentGroupName,
     read_sounddata: bool = False,
     read_spectrumdata: bool = False,
-    save_spectrumdata: bool = False,
+    save_spectrumdata: bool = True,
 ):
+    """
+    Imports an InstrumentGroup object from json.
+
+    Args:
+        groupname (InstrumentGroupName): Name of the group to import. This determines the forlder containing the json file.
+        read_sounddata (bool, optional): If True, the .wav soundfiles will be imported. This can take several seconds. Defaults to False.
+        read_spectrumdata (bool, optional): Same for spectrum data. Defaults to False.
+        save_spectrumdata (bool, optional): Set this value to False if you don't want the spectrum data to be saved by the save_group_to_jsonfile
+                                            method.
+                                            Ideally this argument should be passed to the save_group_to_jsonfile method,
+                                            but context values can't be passed to the Pydantic serializer. As a workaround, the
+                                            value is set in Spectrum objects when they are created. Defaults to True.
+
+    Returns:
+        _type_: _description_
+    """
+    logger.info(
+        f"Reading {groupname.value} info{' with sounddata' if read_sounddata else ''}{' with spectrum data' if read_spectrumdata else ''}."
+    )
     with open(get_path(groupname, Folder.SETTINGS, f"{groupname.value}.json"), "r") as infile:
         jsonvalue = infile.read()
     return InstrumentGroup.model_validate_json(
@@ -137,44 +161,43 @@ def read_group_from_jsonfile(
     )
 
 
-def convert_spectrum_freq(spectrum: Spectrum, to_unit: FreqUnit, step: float = None) -> Spectrum:
+def convert_spectrum_freq(spectrum: Spectrum, to_unit: FreqUnit, step: float = 5) -> Spectrum:
+    # TODO unit test
     if spectrum.freq_unit is FreqUnit.HERZ:
-        freqlist = [tone.frequency for tone in spectrum.tones]
-        ampllist = [tone.amplitude for tone in spectrum.tones]
         match to_unit:
             case FreqUnit.CENT:
                 if to_unit is spectrum.freq_unit:
                     return spectrum
                 else:
-                    step = step or 5
                     minval = int(
                         convert_freq(
-                            max(5, int(spectrum.tones[0].frequency)),
+                            max(5, int(spectrum.frequencies[0])),
                             from_unit=spectrum.freq_unit,
                             to_unit=to_unit,
                         )
                     )
                     maxval = int(
                         convert_freq(
-                            int(spectrum.tones[-1].frequency),
+                            int(spectrum.frequencies[-1]),
                             from_unit=spectrum.freq_unit,
                             to_unit=to_unit,
                         )
                     )
-                func = interp1d(freqlist, ampllist, assume_sorted=True)
+                func = interp1d(spectrum.frequencies, spectrum.amplitudes, assume_sorted=True)
+                cent_freqs = np.array([cent_freq for cent_freq in range(minval, maxval, step)])
+                # Convert cent value back to hertz and find amplitude by interpolation
+                cent_ampls = np.array(
+                    [
+                        func(convert_freq(cent_freq, from_unit=to_unit, to_unit=spectrum.freq_unit))
+                        for cent_freq in cent_freqs
+                    ]
+                )
                 return Spectrum(
                     spectrumfilepath=spectrum.spectrumfilepath,
-                    freq_unit=to_unit,
+                    freq_unit=FreqUnit.CENT,
                     ampl_unit=spectrum.ampl_unit,
-                    tones=[
-                        Tone(
-                            frequency=db_freq,
-                            amplitude=func(
-                                convert_freq(db_freq, from_unit=to_unit, to_unit=spectrum.freq_unit)
-                            ),
-                        )
-                        for db_freq in range(minval, maxval, step)
-                    ],
+                    frequencies=cent_freqs,
+                    amplitudes=cent_ampls,
                 )
 
             case _:

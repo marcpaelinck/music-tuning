@@ -1,15 +1,22 @@
+import filecmp
 import itertools
 import json
 import math
+import os
 from pprint import pprint
 
 import numpy as np
 import pandas as pd
 from scipy.io import wavfile
 
-from tuning.common.classes import AggregatedPartialDict, Instrument
+from tuning.common.classes import AggregatedPartialDict, Instrument, InstrumentGroup
 from tuning.common.constants import Folder, InstrumentGroupName
-from tuning.common.utils import get_path, parse_json_file, read_group_from_jsonfile
+from tuning.common.utils import (
+    get_path,
+    parse_json_file,
+    read_group_from_jsonfile,
+    read_object_from_jsonfile,
+)
 
 
 def get_notelist_summary():
@@ -109,28 +116,65 @@ def dissonance_s_array(f: np.array, g: np.array, ampl_f: float, ampl_g: float) -
 
 
 if __name__ == "__main__":
-    f_partials = [100, 150, 246]
-    g_partials = [100, 200, 300, 400]
-    fg_combinations = np.array(np.meshgrid(f_partials, g_partials)).T.reshape(-1, 2)
-    gg_combinations = np.array(np.meshgrid(g_partials, g_partials)).T.reshape(-1, 2)
-    gg_combinations = gg_combinations[gg_combinations[:, 0] < gg_combinations[:, 1]]
-    ff_combinations = np.array(np.meshgrid(f_partials, f_partials)).T.reshape(-1, 2)
-    ff_combinations = ff_combinations[ff_combinations[:, 0] < ff_combinations[:, 1]]
-
-    STEPS = 10
-    step = 0.1
-    increments = (np.array(list(range(STEPS))) * step)[:, np.newaxis]
-    frequencies = np.sort(-(increments.flatten() + 100))
-
-    f_values = np.append(
-        np.tile(fg_combinations[:, 0], (STEPS, 1)), increments + gg_combinations[:, 0], axis=1
+    n_orchestra = read_object_from_jsonfile(
+        InstrumentGroup,
+        InstrumentGroupName.SEMAR_PAGULINGAN,
+        Folder.SETTINGS,
+        "semarpagulingan.json",
     )
-    g_values = increments + np.append(fg_combinations[:, 1], gg_combinations[:, 1])
+    o_orchestra = read_object_from_jsonfile(
+        InstrumentGroup,
+        Folder.SETTINGS,
+        InstrumentGroupName.SEMAR_PAGULINGAN,
+        "semarpagulingan - Copy of last.json",
+    )
+    # equals = []
+    # unequals = []
+    # for instrnew in orchnew.instruments:
+    #     instrold = next(instr for instr in orchold.instruments if instr.code == instrnew.code)
+    #     for n_old, n_new in zip(instrold.notes, instrnew.notes):
+    #         if all(
+    #             po.tone == pn.tone and po.ratio == pn.ratio and po.isfundamental == pn.isfundamental
+    #             for po, pn in zip(n_old.partials, n_new.partials)
+    #         ):
+    #             equals.append(f"{instrnew.code}-{n_old}{n_old.octave.index}")
+    #         else:
+    #             unequals.append(f"{instrnew.code}-{n_old.name}{n_old.octave.index}")
+    # print(unequals)
 
-    # Add internal g combinations
-
-    print(f_values)
-    print(g_values)
-    print(f"{f_values.shape=}, {g_values.shape=}")
-    print(increments.flatten())
-    print(frequencies)
+    old = [
+        {
+            "instrument": instrument.code,
+            "note": note.name.value,
+            "oct": note.octave.index,
+            "partial": partial.tone.frequency,
+            "ratio": partial.ratio,
+            "amplitude": partial.tone.amplitude,
+            "prominence": partial.prominence,
+        }
+        for instrument in o_orchestra.instruments
+        for note in instrument.notes
+        for partial in note.partials
+    ]
+    new = [
+        {
+            "instrument": instrument.code,
+            "note": note.name.value,
+            "oct": note.octave.index,
+            "partial": partial.tone.frequency,
+            "ratio": partial.ratio,
+            "amplitude": partial.tone.amplitude,
+            "prominence": partial.prominence,
+        }
+        for instrument in n_orchestra.instruments
+        for note in instrument.notes
+        for partial in note.partials
+    ]
+    old_df = pd.DataFrame.from_records(old, index=["instrument", "note", "oct", "partial", "ratio"])
+    new_df = pd.DataFrame.from_records(new, index=["instrument", "note", "oct", "partial", "ratio"])
+    compare = old_df.join(new_df, how="outer", lsuffix="_o", rsuffix="_n")
+    compare_o = old_df.join(new_df, how="left", lsuffix="_o", rsuffix="_n")
+    compare_n = new_df.join(old_df, how="left", lsuffix="_n", rsuffix="_o")
+    diff_o = compare_o[compare_o.amplitude_n.isnull()]
+    diff_n = compare_n[compare_n.amplitude_o.isnull()]
+    compare.to_excel("data\\semarpagulingan\\analyses\\compare_partials.xlsx", merge_cells=False)

@@ -93,11 +93,11 @@ class Sample(BaseModel):
     # the JSON serialization file. During deserialization the data is read from the
     # sound file using the cliprange values to determine the sample range.
     def read_sounddata(self, info: ValidationInfo):
-        if info.context and not info.context.get("read_sounddata", True):
+        if info.context and info.context.get("read_sounddata", True):
             if self.soundfilepath and self.cliprange is not None and self.data is None:
                 _, data = wavfile.read(self.soundfilepath)
                 self.data = data[self.cliprange.start : self.cliprange.end + 1]
-            return self
+        return self
 
     class Config:
         arbitrary_types_allowed = True
@@ -123,7 +123,9 @@ class Spectrum(BaseModel):
     spectrumfilepath: str | None = None
     freq_unit: FreqUnit = FreqUnit.HERZ
     ampl_unit: AmplUnit = AmplUnit.DB
-    tones: Optional[list[Tone]] = Field(default=None)
+    frequencies: Optional[np.ndarray[float]] = Field(default=None)
+    amplitudes: Optional[np.ndarray[float]] = Field(default=None)
+    save_spectrum_data: bool = Field(exclude=True, default=True)
 
     @model_validator(mode="after")
     # Reads the spectrum data from file.
@@ -131,23 +133,26 @@ class Spectrum(BaseModel):
     def read_spectrumdata(self, info: ValidationInfo):
         # Skip if tones attribute already has a value
         if info.context and info.context.get("read_spectrumdata", True):
-            if self.spectrumfilepath and self.tones == None:
+            if self.spectrumfilepath and self.frequencies == None:
                 spectrum_df = pd.read_csv(self.spectrumfilepath, sep="\t")
-                spectrum_list = spectrum_df.set_axis(["frequency", "amplitude"], axis=1).to_dict(
-                    orient="records"
-                )
-                self.tones = [Tone(**record) for record in spectrum_list]
+                self.frequencies = np.array(spectrum_df["frequency"])
+                self.amplitudes = np.array(spectrum_df["amplitude"])
+        if info.context and "save_spectrumdata" in info.context.keys():
+            self.save_spectrum_data = info.context["save_spectrumdata"]
         return self
 
-    @field_serializer("tones")
+    @field_serializer("frequencies", "amplitudes")
     # when serializing this class the spectrum data is saved to a separate file
     # to avoid cluttering the json serialization file.
-    def serialize_tones(self, data: list[Tone], _info):
-        if True:  # _info.context.get("save_spectrumdata", True):
+    def serialize_tones(self, data: np.ndarray[float], _info):
+        if (
+            _info.field_name == "frequencies" and self.save_spectrum_data
+        ):  # _info.context.get("save_spectrumdata", True):
+            print("saving spectrum")
             spectrum_df = pd.DataFrame(
                 {
-                    "frequency": self.frequencies(),
-                    "amplitude": self.amplitudes(),
+                    "frequency": self.frequencies,
+                    "amplitude": self.amplitudes,
                 }
             )
             spectrum_df.to_csv(
@@ -158,11 +163,8 @@ class Spectrum(BaseModel):
             )
         return None
 
-    def frequencies(self):
-        return [tone.frequency for tone in self.tones]
-
-    def amplitudes(self):
-        return [tone.amplitude for tone in self.tones]
+    class Config:
+        arbitrary_types_allowed = True
 
 
 class Note(BaseModel):

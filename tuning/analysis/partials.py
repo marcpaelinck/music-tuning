@@ -8,6 +8,7 @@ import math
 
 from scipy.signal import find_peaks
 
+from tuning.analysis.spectrum import truncate_spectrum
 from tuning.common.classes import (
     FreqUnit,
     InstrumentGroup,
@@ -58,19 +59,20 @@ def get_partials(
     )
     minfreq_cent = base_octave_cent[0]
     maxfreq_cent = minfreq_cent + max_octaves * 1200
-    spectrum_cent.tones = [
-        tone for tone in spectrum_cent.tones if minfreq_cent <= tone.frequency <= maxfreq_cent
-    ]
-    yvals = [tone.amplitude for tone in spectrum_cent.tones]
+    spectrum_cent = truncate_spectrum(spectrum_cent, min_freq=minfreq_cent, max_freq=maxfreq_cent)
     minheight = -100
     mid_freq = (note.octave.end_freq - note.octave.start_freq) / 2
     window_length = math.ceil(
-        convert_freq(mid_freq + peak_window // 2, from_unit=FreqUnit.HERZ, to_unit=FreqUnit.CENT)
-        - convert_freq(mid_freq - peak_window // 2, from_unit=FreqUnit.HERZ, to_unit=FreqUnit.CENT)
+        convert_freq(
+            mid_freq + 2 * peak_window // 2, from_unit=FreqUnit.HERZ, to_unit=FreqUnit.CENT
+        )
+        - convert_freq(
+            mid_freq - 2 * peak_window // 2, from_unit=FreqUnit.HERZ, to_unit=FreqUnit.CENT
+        )
     )
 
     indices, properties = find_peaks(
-        yvals,
+        spectrum_cent.amplitudes,
         height=minheight,
         threshold=None,
         distance=int(distinct / STEP),
@@ -83,25 +85,40 @@ def get_partials(
 
     indices = list(indices)
     peaks_cent = [
-        (spectrum_cent.tones[i], properties["prominences"][indices.index(i)]) for i in indices
+        (
+            spectrum_cent.frequencies[i],
+            spectrum_cent.amplitudes[i],
+            properties["prominences"][indices.index(i)],
+        )
+        for i in indices
     ]
-    peaks_best_prominence_cent = sorted(peaks_cent, key=lambda p: p[1], reverse=True)[: 2 * count]
-    best_peaks_cent = sorted(
-        peaks_best_prominence_cent, key=lambda p: p[0].amplitude, reverse=True
-    )[:count]
+    octave_bounds_cent = (
+        convert_freq(note.octave.start_freq, from_unit=FreqUnit.HERZ, to_unit=FreqUnit.CENT),
+        convert_freq(note.octave.end_freq, from_unit=FreqUnit.HERZ, to_unit=FreqUnit.CENT),
+    )
+    peaks_cent_within_octave = {
+        peak for peak in peaks_cent if octave_bounds_cent[0] <= peak[0] <= octave_bounds_cent[1]
+    }
+    # Find the [2*count] most prominent peaks
+    peaks_best_prominence_cent = sorted(peaks_cent, key=lambda p: p[-1], reverse=True)[: 2 * count]
+    # Add all peaks within the octave. These might have a low prominence if they are
+    # wider than the prominence window length.
+    peaks_best_prominence_cent = list(set(peaks_best_prominence_cent) | peaks_cent_within_octave)
+    # Select the [count] peaks with highest amplitude
+    best_peaks_cent = sorted(peaks_best_prominence_cent, key=lambda p: p[1], reverse=True)[:count]
 
     peaks_herz = [
         (
             Tone(
                 frequency=round(
-                    convert_freq(tone.frequency, from_unit=FreqUnit.CENT, to_unit=FreqUnit.HERZ),
+                    convert_freq(frequency, from_unit=FreqUnit.CENT, to_unit=FreqUnit.HERZ),
                     5,
                 ),
-                amplitude=round(tone.amplitude, 5),
+                amplitude=round(amplitude, 5),
             ),
             prominence,
         )
-        for tone, prominence in best_peaks_cent
+        for frequency, amplitude, prominence in best_peaks_cent
     ]
 
     # Determine the fundamental: the partial within the octave range with the highest amplitude.
@@ -163,10 +180,12 @@ INSTR_NOTE = ("JEG1", NoteName.DING)
 
 if __name__ == "__main__":
     GROUPNAME = InstrumentGroupName.SEMAR_PAGULINGAN
-    orchestra = read_group_from_jsonfile(groupname=GROUPNAME, read_sounddata=False)
+    orchestra = read_group_from_jsonfile(
+        groupname=GROUPNAME, read_spectrumdata=True, save_spectrumdata=False
+    )
     create_partials(orchestra)
     print("saving results")
-    save_group_to_jsonfile(orchestra)
+    save_group_to_jsonfile(orchestra, save_spectrumdata=False)
 
     # with open(
     #     get_path(

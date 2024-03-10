@@ -21,7 +21,12 @@ from tuning.common.constants import (
     Folder,
     InstrumentGroupName,
 )
-from tuning.common.utils import get_logger, get_path
+from tuning.common.utils import (
+    get_logger,
+    get_path,
+    read_group_from_jsonfile,
+    save_group_to_jsonfile,
+)
 
 logger = get_logger(__name__)
 
@@ -29,15 +34,13 @@ logger = get_logger(__name__)
 def truncate_spectrum(spectrum: Spectrum, min_freq: int = 0, max_freq: int = 10000) -> Spectrum:
     """
     truncates a spectrum to the given range
+    Note: argmax will stop at the first True ("In case of multiple occurrences of the maximum values, 
+          the indices corresponding to the first occurrence are returned.") and doesn't save another list. 
     """
-    tones = spectrum.tones
-    last_freq = tones[-1]
-    index1, index2 = (
-        tones.index(next((x for x in tones if x.frequency >= min_freq), last_freq)),
-        tones.index(next((x for x in tones if x.frequency > max_freq), last_freq)),
-    )
-    index2 = max(index2 - 1, 0) if tones[index2].frequency > max_freq else index2
-    spectrum.tones = spectrum.tones[index1:index2]
+    index1 = np.argmax(spectrum.frequencies >= min_freq)
+    index2 = -1 if spectrum.frequencies[-1] < max_freq else np.argmax(spectrum.frequencies >= max_freq)
+    spectrum.frequencies = spectrum.frequencies[index1:index2]
+    spectrum.amplitudes = spectrum.amplitudes[index1:index2]
     return spectrum
 
 
@@ -146,6 +149,8 @@ def create_spectrum(note_info: Note, filepath: str, truncate=(0, MAXINT)) -> Spe
     spectrum = Spectrum(
         tones=[Tone(amplitude=ampl_db[i], frequency=freq[i]) for i in range(max_index + 1)],
         spectrumfilepath=filepath,
+        frequencies=freq,
+        amplitudes=ampl_db,
     )
     return truncate_spectrum(spectrum, min_freq=truncate[0], max_freq=truncate[1])
 
@@ -180,16 +185,15 @@ def create_spectrum_audacity(note: Note, filepath: str, truncate=(0, MAXINT)) ->
         max_index = np.argmax(freq)
         results.append(ampl[: max_index + 1])
     avg_ampl = np.average(np.asarray(results), axis=0)
-    # maxvalue = np.iinfo(np.int16).max
     maxvalue = np.max(avg_ampl)
     ampl_db = 20 * np.log10(avg_ampl / maxvalue)
     spectrum = Spectrum(
-        tones=[Tone(amplitude=ampl_db[i], frequency=freq[i]) for i in range(max_index + 1)],
+        frequencies=freq[: max_index + 1],
+        amplitudes=ampl_db,
         spectrumfilepath=filepath,
         freq_unit=FreqUnit.HERZ,
         ampl_unit=AmplUnit.DB,
     )
-    # spectrum = Spectrum(amplitudes=ampl_db[: max_index + 1], frequencies=freq[: max_index + 1])
     return truncate_spectrum(spectrum, min_freq=truncate[0], max_freq=truncate[1])
 
 
@@ -204,7 +208,7 @@ def plot_spectra(s1: tuple[list[float]], *args):
 
 
 def get_spectrum_filepath(group: InstrumentGroup, instrument: Instrument, note: Note):
-    filename = f"{instrument.instrumenttype.replace(" ","")}-{instrument.code}-{note.name}-{note.octave.index}.csv"
+    filename = f"{instrument.instrumenttype.value.replace(" ","")}-{instrument.code}-{note.name}-{note.octave.index}.csv"
     return get_path(group.grouptype, Folder.SPECTRUM, filename)
 
 
@@ -223,7 +227,6 @@ def create_spectra(orchestra: InstrumentGroup) -> None:
                 note, filepath=get_spectrum_filepath(orchestra, instrument, note)
             )
             # save_spectrum(note.spectrum)
-    # save_spectrum_summary(group=orchestra.grouptype, orchestra=orchestra)
     for instrument in orchestra.instruments:
         if instrument.error:
             print(f"{instrument.soundfile}: {instrument.comment}")
@@ -231,19 +234,7 @@ def create_spectra(orchestra: InstrumentGroup) -> None:
 
 
 if __name__ == "__main__":
-    group = InstrumentGroupName.TEST
-    # x, amplitudes = create_spectrum(
-    #     get_path(group, FileType.SOUND, "ding.wav"),
-    #     cutoff_limits=(CUTOFF_FREQUENCY_LOW, CUTOFF_FREQUENCY_HIGH),
-    # )
-    # yfdb = 20 * np.log10(amplitudes / np.max(amplitudes))
-
-    # spectrum_df = pd.DataFrame({"frequency": x, "amplitude": yfdb})
-    # spectrum_df.to_csv(
-    #     get_path(group, FileType.SPECTRUM, "spectrum-pemade-penumbang-ding-2.txt"),
-    #     sep="\t",
-    #     index=False,
-    #     float_format="%.5f",
-    # )
-
-    # plot_spectra((x, amplitudes), (x, yfdb), (spectrum_gk.frequencies, spectrum_gk.amplitudes)
+    groupname = InstrumentGroupName.SEMAR_PAGULINGAN
+    orchestra = read_group_from_jsonfile(groupname, read_sounddata=True)
+    create_spectra(orchestra)
+    save_group_to_jsonfile(orchestra)

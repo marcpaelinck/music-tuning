@@ -46,6 +46,7 @@ def aggregated_partials(
 ) -> AggregatedPartial:
     avg_freq = np.average([p.tone.frequency for p in partials])
     avg_ampl = np.average([p.tone.amplitude for p in partials])
+    # Note: avg_ratio will be recalculated later, based on average fundamental freq.
     avg_ratio = np.average([p.ratio for p in partials])
     isfundamental = partials[0].isfundamental
     return AggregatedPartial(
@@ -121,6 +122,13 @@ def summarize_partials(
             for (itype, octave), clusters in largest_clusters.items()
         }
     )
+    # Recalculate the ratio, based on average frequencies
+    for key, agglist in aggregated.root.items():
+        fundamental = next(agg for agg in agglist if agg.isfundamental)
+        for aggregate in agglist:
+            oldratio = aggregate.ratio
+            aggregate.ratio = aggregate.tone.frequency / fundamental.tone.frequency
+            print(f"{key}: ratio {oldratio} corrected to {aggregate.ratio}")
 
     save_object_to_jsonfile(
         aggregated, get_path(group.grouptype, Folder.ANALYSES, AGGREGATED_PARTIALS_FILE)
