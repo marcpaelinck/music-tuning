@@ -14,6 +14,7 @@ from tuning.common.classes import (
 )
 from tuning.common.constants import (
     AGGREGATED_PARTIALS_FILE,
+    DISTINCTIVENESS_CENT,
     KEEP_NR_PARTIALS,
     Folder,
     InstrumentGroupName,
@@ -57,41 +58,37 @@ def aggregated_partials(
     )
 
 
-def summarize_partials(
-    group: InstrumentGroup, keyvalues: str = "instrumenttype"
-) -> dict[str, dict[int, list[Partial]]]:
-    # collect the partials and convert the ratios to cents
+def summarize_partials(group: InstrumentGroup) -> dict[str, dict[int, list[Partial]]]:
+    # Grouping by instrument type, ombaktype and octave
     keyvalues = {
-        (instrument.instrumenttype, octave_idx)
+        (instrument.instrumenttype, instrument.ombaktype, octave_idx)
         for instrument in group.instruments
         for octave_idx in {note.octave for note in instrument.notes}
     }
     cents_collections = {
-        (itype, octave): [
+        (itype, ombak, octave): [
             ratio_to_cents(partial.ratio)
             for instrument in group.instruments
-            if instrument.instrumenttype == itype
+            if instrument.instrumenttype == itype and instrument.ombaktype == ombak
             for note in instrument.notes
             if note.octave == octave
             for partial in note.partials
-            # TODO check why partial can have negative frequency (should be solved)
             if partial.ratio > 0
         ]
-        for (itype, octave) in keyvalues
+        for (itype, ombak, octave) in keyvalues
     }
     partial_collections = {
-        (itype, octave): [
+        (itype, ombak, octave): [
             partial
             for instrument in group.instruments
-            if instrument.instrumenttype == itype
+            if instrument.instrumenttype == itype and instrument.ombaktype == ombak
             for note in instrument.notes
             if note.octave == octave
             for partial in note.partials
-            # TODO check why partial can have negative frequency (should be solved)
         ]
-        for (itype, octave) in keyvalues
+        for (itype, ombak, octave) in keyvalues
     }
-    thresh = 50  # 3/4 of a semitone
+    thresh = DISTINCTIVENESS_CENT  # 1/2 of a semitone
     clusters = {
         key: hcluster.fclusterdata(
             np.array(partials).reshape(-1, 1),
@@ -114,10 +111,10 @@ def summarize_partials(
     }
     aggregated = AggregatedPartialDict(
         root={
-            f"{itype.value}-{octave.index}": [
+            f"{itype.value}#{ombak.value}-octave {octave.index}": [
                 aggregated_partials(cluster, itype, octave) for cluster in clusters
             ]
-            for (itype, octave), clusters in largest_clusters.items()
+            for (itype, ombak, octave), clusters in largest_clusters.items()
         }
     )
     # Recalculate the ratio, based on average frequencies

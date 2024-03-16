@@ -90,6 +90,28 @@ def summarize_spectrum_files(groupname: InstrumentGroupName):
     )
 
 
+def summarize_instrument_info(groupname: InstrumentGroupName):
+    orchestra = read_object_from_jsonfile(
+        InstrumentGroup, groupname, Folder.SETTINGS, groupname.value + ".json"
+    )
+    instr_info = [
+        {
+            "instrument": instrument.instrumenttype.value,
+            "type": instrument.ombaktype.value,
+            "code": instrument.code,
+            "note": note.name.value,
+            "frequency": note.partials[note.partial_index].tone.frequency,
+            "octave": note.octave.index,
+        }
+        for instrument in orchestra.instruments
+        for note in instrument.notes
+    ]
+    instr_df = pd.DataFrame.from_records(instr_info).pivot(
+        index=["instrument", "type", "code", "octave"], columns="note", values="frequency"
+    )
+    print(instr_df)
+
+
 def inspect_wav_file(groupname: InstrumentGroupName, file: str, start: float, stop: float):
     sample_rate, data = wavfile.read(get_path(groupname, Folder.SOUND, file))
     amplitudes = pd.DataFrame(data)
@@ -169,4 +191,4 @@ if __name__ == "__main__":
     #     new="semarpagulingan.json",
     #     xls_filename="compare_partials.xlsx",
     # )
-    summarize_spectrum_files(InstrumentGroupName.SEMAR_PAGULINGAN)
+    summarize_instrument_info(InstrumentGroupName.SEMAR_PAGULINGAN)

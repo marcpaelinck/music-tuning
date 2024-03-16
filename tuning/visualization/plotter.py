@@ -35,7 +35,7 @@ from tuning.visualization.utils import PlotType, create_pdf, plot_graphs
 logger = get_logger(__name__)
 
 
-class PlotType(Enum):
+class Graph(Enum):
     SPECTRUM = auto()
     DISSONANCE = auto()
 
@@ -72,7 +72,7 @@ def plot_note_spectra(
             max(
                 partial.ratio if ratio else partial.tone.frequency
                 for note in object.notes
-                for partial in note.partials
+                for partial in note.partials[:max_partials]
             )
             * 1.05
         )
@@ -130,9 +130,9 @@ if __name__ == "__main__":
 
     # Set these values before running
     GROUPNAME = InstrumentGroupName.SEMAR_PAGULINGAN
-    PLOTTYPE = PlotType.SPECTRUM  # SPECTRUM or DISSONANCE
+    GRAPH = Graph.SPECTRUM  # SPECTRUM or DISSONANCE
 
-    if PLOTTYPE == PlotType.SPECTRUM:
+    if GRAPH == Graph.SPECTRUM:
         group = read_group_from_jsonfile(
             GROUPNAME, read_sounddata=False, read_spectrumdata=True, save_spectrumdata=False
         )
@@ -140,10 +140,10 @@ if __name__ == "__main__":
         create_pdf(
             group=group,
             iterlist=group.instruments,
-            plotter=plot_note_spectra,
+            plotter=partial(plot_note_spectra, max_partials=7),
             filepath=get_path(groupname=GROUPNAME, filetype=Folder.ANALYSES, filename=pdf_filename),
         )
-    elif PLOTTYPE == PlotType.DISSONANCE:
+    elif GRAPH == Graph.DISSONANCE:
         group = read_object_from_jsonfile(
             AggregatedPartialDict, GROUPNAME, Folder.ANALYSES, AGGREGATED_PARTIALS_FILE
         )

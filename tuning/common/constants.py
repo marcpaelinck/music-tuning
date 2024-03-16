@@ -56,7 +56,7 @@ PEAK_WINDOW = 21  # default window width for the peak selection
 MIN_PROMINENCE = 10  # default minimum value for the prominence of amplitude peaks
 # Frequencies whose difference is less than the distinctiveness
 # will be considered equal when aggregating partials
-DISTINCTIVENESS_CENT = 75  # 3/4 of a semitone, expressed in Cents.
+DISTINCTIVENESS_CENT = 75  # 1/2 of a semitone, expressed in Cents.
 DISTINCTIVENESS = pow(2, DISTINCTIVENESS_CENT / 1200)  # as a frequency ratio
 MAX_OCTAVES = 6  # maximum number of octaves to consider when selecting partials
 

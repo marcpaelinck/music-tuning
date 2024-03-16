@@ -208,13 +208,14 @@ def plot_dissonance_graphs(
 ):
     MAX_DB = 50  # For conversion of DB relative to max. ampl, to DB relative to min. amplitude
     # TODO retrieving dict entry by using string literal is error prone
+    # Key should be a string of the form "instrumenttype#subgroup"
     keys = [key for key in list(group.root.keys()) if key.startswith(object.value)]
     if not keys:
         return False
     partial_harmonic_pairs = []
     plottitles = []
     for key in keys:
-        plottitles.extend([f"octave {key.split('-')[1]}", ""])
+        plottitles.extend([key.split("#")[-1], ""])
         partials = group.root[key]
         # for p in partials:
         #     p.tone.amplitude = MAX_DB - p.tone.amplitude  ##################
