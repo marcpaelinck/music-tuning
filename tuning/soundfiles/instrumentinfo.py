@@ -10,7 +10,20 @@ from tuning.common.classes import (
     Octave,
     OmbakType,
 )
-from tuning.common.constants import INSTRUMENT_INFO_FILE, Folder, InstrumentGroupName
+from tuning.common.constants import (
+    CODE,
+    END_FREQ,
+    FILENAME,
+    INSTRUMENT,
+    INSTRUMENT_GROUP,
+    INSTRUMENT_INFO_FILE,
+    NOTES,
+    OCTAVE_SEQ,
+    OMBAKTYPE,
+    START_FREQ,
+    Folder,
+    InstrumentGroupName,
+)
 from tuning.common.utils import get_path, note_from_shortcode
 
 
@@ -20,17 +33,15 @@ def get_octave_dict(groupname: InstrumentGroupName) -> dict[Octave]:
     ).to_dict(orient="records")
     octave_collection: dict = defaultdict(dict)
     for row in row_list:
-        octave_collection[row["octave group"]][row["octave seq"]] = Octave(
-            index=row["octave seq"],
-            start_freq=row["start freq"],
-            end_freq=row["end freq"],
+        octave_collection[row[INSTRUMENT_GROUP]][row[OCTAVE_SEQ]] = Octave(
+            index=row[OCTAVE_SEQ],
+            start_freq=row[START_FREQ],
+            end_freq=row[END_FREQ],
         )
     return octave_collection
 
 
-def create_group_from_info_file(
-    groupname: InstrumentGroupName, only_included=False
-) -> InstrumentGroup:
+def create_group_from_info_file(groupname: InstrumentGroupName) -> InstrumentGroup:
     """
     Parses the excel document containing information about the instruments files.
     """
@@ -39,17 +50,15 @@ def create_group_from_info_file(
     fileinfo = pd.read_excel(
         get_path(groupname, Folder.SETTINGS, INSTRUMENT_INFO_FILE), sheet_name="Sound Files"
     ).to_dict(orient="records")
-    if only_included:
-        fileinfo = [instr for instr in fileinfo if instr["include"]]
 
     for row in fileinfo:
-        shortcodes = row["notes"].split("-")
-        octaves = octave_dict[row["octave group"]]
+        shortcodes = row[NOTES].split("-")
+        octaves = octave_dict[row[INSTRUMENT_GROUP]]
         instrument_info = Instrument(
-            instrumenttype=InstrumentType(row["instrument"]),
-            code=row["code"],
-            ombaktype=OmbakType(row["ombaktype"]),
-            soundfile=row["filename"],
+            instrumenttype=InstrumentType(row[INSTRUMENT]),
+            code=row[CODE],
+            ombaktype=OmbakType(row[OMBAKTYPE]),
+            soundfile=row[FILENAME],
             notes=[
                 Note(
                     name=note_from_shortcode(shortcode),

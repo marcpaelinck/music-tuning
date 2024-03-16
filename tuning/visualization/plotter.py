@@ -1,5 +1,6 @@
 import math
 import os
+from enum import Enum, auto
 from functools import partial
 
 import numpy as np
@@ -32,6 +33,11 @@ from tuning.common.utils import (
 from tuning.visualization.utils import PlotType, create_pdf, plot_graphs
 
 logger = get_logger(__name__)
+
+
+class PlotType(Enum):
+    SPECTRUM = auto()
+    DISSONANCE = auto()
 
 
 def plot_dissonance_functions():
@@ -122,25 +128,30 @@ def plot_note_spectra(
 
 if __name__ == "__main__":
 
-    groupname = InstrumentGroupName.SEMAR_PAGULINGAN
-    group = read_object_from_jsonfile(
-        AggregatedPartialDict, groupname, Folder.ANALYSES, AGGREGATED_PARTIALS_FILE
-    )
+    # Set these values before running
+    GROUPNAME = InstrumentGroupName.SEMAR_PAGULINGAN
+    PLOTTYPE = PlotType.SPECTRUM  # SPECTRUM or DISSONANCE
 
-    pdf_filename = "dissonance_graph.pdf"
-    create_pdf(
-        group=group,
-        iterlist=InstrumentType,
-        plotter=plot_dissonance_graphs,
-        filepath=get_path(groupname=groupname, filetype=Folder.ANALYSES, filename=pdf_filename),
-        groupname=InstrumentGroupName.SEMAR_PAGULINGAN,
-    )
-
-    # group = read_group_from_jsonfile(groupname, read_sounddata=False, read_spectrumdata=True)
-    # pdf_filename = "spectra_with_partials_ratio.pdf"
-    # create_pdf(
-    #     group=group,
-    #     iterlist=group.instruments,
-    #     plotter=plot_note_spectra,
-    #     filepath=get_path(groupname=groupname, filetype=Folder.ANALYSES, filename=pdf_filename),
-    # )
+    if PLOTTYPE == PlotType.SPECTRUM:
+        group = read_group_from_jsonfile(
+            GROUPNAME, read_sounddata=False, read_spectrumdata=True, save_spectrumdata=False
+        )
+        pdf_filename = "spectra_with_partials_ratio.pdf"
+        create_pdf(
+            group=group,
+            iterlist=group.instruments,
+            plotter=plot_note_spectra,
+            filepath=get_path(groupname=GROUPNAME, filetype=Folder.ANALYSES, filename=pdf_filename),
+        )
+    elif PLOTTYPE == PlotType.DISSONANCE:
+        group = read_object_from_jsonfile(
+            AggregatedPartialDict, GROUPNAME, Folder.ANALYSES, AGGREGATED_PARTIALS_FILE
+        )
+        pdf_filename = "dissonance_graph.pdf"
+        create_pdf(
+            group=group,
+            iterlist=InstrumentType,
+            plotter=plot_dissonance_graphs,
+            filepath=get_path(groupname=GROUPNAME, filetype=Folder.ANALYSES, filename=pdf_filename),
+            groupname=InstrumentGroupName.SEMAR_PAGULINGAN,
+        )

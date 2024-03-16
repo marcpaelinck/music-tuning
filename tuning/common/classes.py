@@ -124,6 +124,7 @@ class Spectrum(BaseModel):
     freq_unit: FreqUnit = FreqUnit.HERTZ
     ampl_unit: AmplUnit = AmplUnit.DB
     frequencies: Optional[np.ndarray[float]] = Field(default=None)
+    reference_amplitude: float = None
     amplitudes: Optional[np.ndarray[float]] = Field(default=None)
     save_spectrum_data: bool = Field(exclude=True, default=True)
 
@@ -148,7 +149,7 @@ class Spectrum(BaseModel):
         if (
             _info.field_name == "frequencies" and self.save_spectrum_data
         ):  # _info.context.get("save_spectrumdata", True):
-            print("saving spectrum")
+            print(f"saving spectrum {self.spectrumfilepath}")
             spectrum_df = pd.DataFrame(
                 {
                     "frequency": self.frequencies,

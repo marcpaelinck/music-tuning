@@ -78,8 +78,8 @@ def process_wav_file(
     instrument: Instrument,
     clip_fix: bool = SOUNDFILE_CLIP_FIX,
     equalize_notes: bool = SOUNDFILE_EQUALIZE_NOTES,
-    save: bool = ENHANCED_SOUNDFILE_SUFFIX,
-    suffix: str = "-ENHANCED",
+    save: bool = True,
+    suffix: str = ENHANCED_SOUNDFILE_SUFFIX,
 ) -> list[Sample]:
     """
     Performs several modifications to a .wav file.
@@ -87,7 +87,7 @@ def process_wav_file(
               Clipping will be performed for each note separately.
     equalize_notes: increases the amplitude of each separate note so that all their maximum values
                       are equal. Ignored if parse_ranges is False.
-    save: saves the processed data.
+    save: saves the processed data if True.
     suffix: text to be added to the original file name.
     """
     logger.info(f"Processing file {instrument.soundfile}.")
@@ -137,13 +137,9 @@ def process_wav_file(
     return clippings
 
 
-def get_sound_samples(group: InstrumentGroup) -> InstrumentGroup:
+def process_sound_files(group: InstrumentGroup) -> InstrumentGroup:
     for instrument in group.instruments:
-        samples = process_wav_file(group, instrument)
-        for note in instrument.notes:
-            note.sample = samples[note.order_in_soundfile]
-    group.has_sound_samples = True
-    return group
+        process_wav_file(group=group, instrument=instrument)
 
 
 def add_subplot(
@@ -160,36 +156,8 @@ def add_subplot(
         axs.axvline(x=cliprange.end, color="r")
 
 
-GROUP = InstrumentGroupName.TEST
-
 if __name__ == "__main__":
-    ...
-    # orchestra = read_soundfile_info(GROUP)
-    # instrument = next((instr for instr in orchestra.instruments if instr.code == "PEM1"), None)
-    # process_wav_file(group=GROUP, instrument=instrument)
-    # for note in instrument.notes:
-    #     note.spectrum = create_spectrum(note)
-    #     note.spectrumfile = (
-    #         f"{instrument.name}-{instrument.code}-{note.name}-{note.octave.index}.csv"
-    #     )
-    #     save_spectrum(
-    #         note.spectrum,
-    #         filename=note.spectrumfile,
-    #         group=GROUP,
-    #     )
+    # Set this value before running
+    GROUPNAME = InstrumentGroupName.SEMAR_PAGULINGAN
 
-    # figure = plt.figure()
-    # offset = 0.1
-    # for instrument in orchestra:
-    #     instrument, sample_rate, amplitudes, clipranges = parse_individual_notes(
-    #         group=GROUP, instrument=instrument
-    #     )
-    #     add_subplot(
-    #         figure,
-    #         x=[t / sample_rate for t in range(len(amplitudes))],
-    #         y=amplitudes,
-    #         ranges=[(rng.start / sample_rate, rng.end / sample_rate) for rng in clipranges],
-    #         offset=offset,
-    #     )
-    #     offset += 0.3
-    # plt.show()
+    process_sound_files(GROUPNAME)

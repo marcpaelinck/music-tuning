@@ -134,7 +134,8 @@ def summarize_partials(
 
 
 if __name__ == "__main__":
-    orchestra = read_group_from_jsonfile(
-        InstrumentGroupName.SEMAR_PAGULINGAN, read_sounddata=False, read_spectrumdata=False
-    )
+    # Set this value before running
+    GROUPNAME = InstrumentGroupName.SEMAR_PAGULINGAN
+
+    orchestra = read_group_from_jsonfile(GROUPNAME, read_sounddata=False, read_spectrumdata=False)
     summary = summarize_partials(orchestra)

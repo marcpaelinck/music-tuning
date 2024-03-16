@@ -216,8 +216,8 @@ def plot_dissonance_graphs(
     for key in keys:
         plottitles.extend([f"octave {key.split('-')[1]}", ""])
         partials = group.root[key]
-        for p in partials:
-            p.tone.amplitude = MAX_DB - p.tone.amplitude  ##################
+        # for p in partials:
+        #     p.tone.amplitude = MAX_DB - p.tone.amplitude  ##################
         fundamental = next((p for p in partials if p.isfundamental), None)
         f_freq = fundamental.tone.frequency
         harmonics = create_partials([(f_freq * i, MAX_DB) for i in range(1, 5)])
@@ -252,13 +252,15 @@ def test_dissonance_h_graph(**kwargs):
 
 
 if __name__ == "__main__":
-    groupname = InstrumentGroupName.SEMAR_PAGULINGAN
+    # Set this value before running
+    GROUPNAME = InstrumentGroupName.SEMAR_PAGULINGAN
+
     aggregated_partials = read_object_from_jsonfile(
-        AggregatedPartialDict, groupname, Folder.ANALYSES, AGGREGATED_PARTIALS_FILE
+        AggregatedPartialDict, GROUPNAME, Folder.ANALYSES, AGGREGATED_PARTIALS_FILE
     )
     plot_dissonance_graphs(
         group=aggregated_partials,
-        groupname=groupname,
+        groupname=GROUPNAME,
         object=InstrumentType.JUBLAG,
         amplitude=None,
         show=True,

@@ -78,7 +78,7 @@ def import_spectrum(
     )
 
 
-def create_spectrum(note_info: Note, filepath: str, truncate=(0, MAXINT)) -> Spectrum:
+def create_spectrum(note: Note, filepath: str, truncate=(0, MAXINT)) -> Spectrum:
     """
     Creates a spectrum file for a NoteInfo object. The spectrum analysis is performed
     on a single channel.
@@ -92,22 +92,28 @@ def create_spectrum(note_info: Note, filepath: str, truncate=(0, MAXINT)) -> Spe
         NoteInfoList: _description_
     """
     # amplitudes = np.float64(pd.DataFrame(note_info.sample.data)[track])
-    amplitudes = np.float64(np.concatenate(note_info.sample.data))
+    amplitudes = np.concatenate(note.sample.data.T)
     # normalize between 0 and 1
     ampl_normalized = amplitudes / np.max(amplitudes)
     # Calculate fourier transform (returns complex numbers list).
     # Discard the imaginary part.
     ampl = np.abs(fft(ampl_normalized))
-    ampl_db = 20 * np.log10(ampl / abs(ampl).max())
-    freq = fftfreq(len(ampl), 1 / note_info.sample.sample_rate)
+    freq = fftfreq(len(ampl), 1 / note.sample.sample_rate)
     # Remove negative frequencies.
     # Note that fftfreq generates [0, minfreq, .., maxfreq, -maxfreq, ..., -minfreq]
     max_index = np.argmax(freq)
+    ampl = ampl[: max_index + 1]
+    freq = freq[: max_index + 1]
+    # Convert to dB
+    reference_amplitude = abs(ampl).max()
+    ampl_db = 20 * np.log10(ampl / abs(ampl).max())
     spectrum = Spectrum(
-        tones=[Tone(amplitude=ampl_db[i], frequency=freq[i]) for i in range(max_index + 1)],
-        spectrumfilepath=filepath,
         frequencies=freq,
         amplitudes=ampl_db,
+        reference_amplitude = reference_amplitude,
+        spectrumfilepath=filepath,
+        freq_unit=FreqUnit.HERTZ,
+        ampl_unit=AmplUnit.DB,
     )
     return truncate_spectrum(spectrum, min_freq=truncate[0], max_freq=truncate[1])
 
@@ -131,7 +137,8 @@ def create_spectrum_audacity(note: Note, filepath: str, truncate=(0, MAXINT)) ->
     ampl_normalized = amplitudes / np.max(amplitudes)
     # Calculate fourier transform (returns complex numbers list).
     # Discard the imaginary part.
-    BINSIZE = 65536
+    # BINSIZE = 65536
+    BINSIZE = 16384
     # cut up into bins
     results = list()
     for bin in range(len(ampl_normalized) // BINSIZE):
@@ -142,10 +149,12 @@ def create_spectrum_audacity(note: Note, filepath: str, truncate=(0, MAXINT)) ->
         max_index = np.argmax(freq)
         results.append(ampl[: max_index + 1])
     avg_ampl = np.average(np.asarray(results), axis=0)
-    maxvalue = np.max(avg_ampl)
-    ampl_db = 20 * np.log10(avg_ampl / maxvalue)
+    # reference_amplitude = np.max(avg_ampl)
+    reference_amplitude = np.percentile(avg_ampl, .05)
+    ampl_db = 20 * np.log10(avg_ampl / reference_amplitude)
     spectrum = Spectrum(
         frequencies=freq[: max_index + 1],
+        reference_amplitude = reference_amplitude,
         amplitudes=ampl_db,
         spectrumfilepath=filepath,
         freq_unit=FreqUnit.HERTZ,
@@ -194,12 +203,14 @@ def create_spectra(orchestra: InstrumentGroup) -> None:
             # save_spectrum(note.spectrum)
     for instrument in orchestra.instruments:
         if instrument.error:
-            print(f"{instrument.soundfile}: {instrument.comment}")
+            logger.error(f"{instrument.soundfile}: {instrument.comment}")
     orchestra.has_spectra = True
 
 
 if __name__ == "__main__":
-    groupname = InstrumentGroupName.SEMAR_PAGULINGAN
-    orchestra = read_group_from_jsonfile(groupname, read_sounddata=True)
+    # Set this value before running
+    GROUPNAME = InstrumentGroupName.SEMAR_PAGULINGAN
+
+    orchestra = read_group_from_jsonfile(GROUPNAME, read_sounddata=True)
     create_spectra(orchestra)
     save_group_to_jsonfile(orchestra)

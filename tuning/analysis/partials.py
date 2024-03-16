@@ -90,17 +90,23 @@ def get_partials(
         )
     )
 
-    indices, properties = find_peaks(
-        spectrum_cent.amplitudes,
-        height=minheight,
-        threshold=None,
-        distance=int(distinct / STEP),
-        prominence=prominence,
-        width=None,
-        wlen=window_length,
-        rel_height=0.5,
-        plateau_size=None,
-    )
+    indices = set()
+    while (prominence > 1) and (len(indices) < count):
+        indices_, properties = find_peaks(
+            spectrum_cent.amplitudes,
+            height=minheight,
+            threshold=None,
+            distance=int(distinct / STEP),
+            prominence=prominence,
+            width=None,
+            wlen=window_length,
+            rel_height=0.5,
+            plateau_size=None,
+        )
+        indices = indices | set(indices_)
+        total_found = len(indices)
+        if total_found < count:
+            prominence -= 1
 
     indices = list(indices)
     peaks_cent = [
@@ -120,6 +126,7 @@ def get_partials(
     }
     # Find the [2*count] most prominent peaks
     peaks_best_prominence_cent = sorted(peaks_cent, key=lambda p: p[-1], reverse=True)[: 2 * count]
+
     # Add all peaks within the octave. These might have a low prominence if they are
     # wider than the prominence window length.
     peaks_best_prominence_cent = list(set(peaks_best_prominence_cent) | peaks_cent_within_octave)
@@ -198,19 +205,12 @@ DEBUG = False
 INSTR_NOTE = ("JEG1", NoteName.DING)
 
 if __name__ == "__main__":
+    # Set this value before running
     GROUPNAME = InstrumentGroupName.SEMAR_PAGULINGAN
+
     orchestra = read_group_from_jsonfile(
         groupname=GROUPNAME, read_spectrumdata=True, save_spectrumdata=False
     )
     create_partials(orchestra)
     print("saving results")
     save_group_to_jsonfile(orchestra, save_spectrumdata=False)
-
-    # with open(
-    #     get_path(
-    #         InstrumentGroup.GONG_KEBYAR, FileType.OUTPUT, "partials_per_note.json"
-    #     ),
-    #     "r",
-    # ) as infile:
-    #     json_repr = json.load(infile)
-    # note_list = NoteList.model_validate_json(json_data=json.dumps(json_repr))
