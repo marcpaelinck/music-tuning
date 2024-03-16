@@ -6,7 +6,7 @@ Code for analyzing the spectrum of (gamelan) instruments.
 - Create a dissonance profile to determine the most consonant frequencies
 
 ## installation
-1.  I strongly advise to create a Python virtual environment, either venv, virtualenv or pyenv.
+1.  I strongly recommend to create a Python virtual environment, either venv, virtualenv or pyenv.
     This project uses pyenv-win and pyenv-win-venv for Windows
     See https://pyenv-win.github.io/pyenv-win/ and https://github.com/pyenv-win/pyenv-win-venv
     To create and activate an environment:
