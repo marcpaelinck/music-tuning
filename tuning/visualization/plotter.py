@@ -130,7 +130,7 @@ if __name__ == "__main__":
 
     # Set these values before running
     GROUPNAME = InstrumentGroupName.SEMAR_PAGULINGAN
-    GRAPH = Graph.SPECTRUM  # SPECTRUM or DISSONANCE
+    GRAPH = Graph.DISSONANCE  # SPECTRUM or DISSONANCE
 
     if GRAPH == Graph.SPECTRUM:
         group = read_group_from_jsonfile(

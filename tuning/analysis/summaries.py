@@ -1,7 +1,7 @@
 import numpy as np
 import pandas as pd
 
-from tuning.common.classes import AggregatedPartialDict, NoteName
+from tuning.common.classes import AggregatedPartialDict, InstrumentGroup, NoteName
 from tuning.common.constants import (
     AGGREGATED_PARTIALS_FILE,
     Folder,
@@ -9,9 +9,32 @@ from tuning.common.constants import (
 )
 from tuning.common.utils import (
     db_to_ampl,
+    get_path,
     read_group_from_jsonfile,
     read_object_from_jsonfile,
 )
+
+
+def summarize_instrument_info(groupname: InstrumentGroupName, filepath: str):
+    orchestra = read_object_from_jsonfile(
+        InstrumentGroup, groupname, Folder.SETTINGS, groupname.value + ".json"
+    )
+    instr_info = [
+        {
+            "instrument": instrument.instrumenttype.value,
+            "type": instrument.ombaktype.value,
+            "code": instrument.code,
+            "note": note.name,
+            "frequency": note.partials[note.partial_index].tone.frequency,
+            "octave": note.octave.index,
+        }
+        for instrument in orchestra.instruments
+        for note in instrument.notes
+    ]
+    instr_df = pd.DataFrame.from_records(instr_info).pivot(
+        index=["instrument", "type", "code", "octave"], columns="note", values="frequency"
+    )
+    instr_df.to_excel(filepath, merge_cells=False)
 
 
 def avg_note_freq_per_instrument_type(
@@ -83,5 +106,4 @@ def aggregated_partials(groupname: InstrumentGroupName):
 
 if __name__ == "__main__":
     GROUP = InstrumentGroupName.SEMAR_PAGULINGAN
-    aggr_df = aggregated_partials(GROUP)
-    print(aggr_df)
+    summarize_instrument_info(GROUP, get_path(GROUP, Folder.ANALYSES, "note_frequencies.xlsx"))

@@ -34,7 +34,7 @@ class InstrumentType(Enum):
 
 
 class OmbakType(Enum):
-    PENUMBANG = "penumbang"
+    PENGUMBANG = "pengumbang"
     PENGISEP = "pengisep"
 
     def __str__(self):
@@ -112,6 +112,7 @@ class Partial(BaseModel):
 
 class AggregatedPartial(Partial):
     instrumenttype: InstrumentType = None
+    ombaktype: OmbakType = None
     octave: Octave = None
     partials: Optional[list[Partial]] = Field(default=None)
 

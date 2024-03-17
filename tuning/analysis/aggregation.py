@@ -9,6 +9,7 @@ from tuning.common.classes import (
     InstrumentGroup,
     InstrumentType,
     Octave,
+    OmbakType,
     Partial,
     Tone,
 )
@@ -41,6 +42,7 @@ def average_ratio(partials: list[Partial]) -> float:
 def aggregated_partials(
     partials: list[Partial],
     instrumenttype: InstrumentType,
+    ombaktype: OmbakType,
     octave: Octave,
 ) -> AggregatedPartial:
     avg_freq = np.average([p.tone.frequency for p in partials])
@@ -50,6 +52,7 @@ def aggregated_partials(
     isfundamental = partials[0].isfundamental
     return AggregatedPartial(
         instrumenttype=instrumenttype,
+        ombaktype=ombaktype,
         octave=octave,
         tone=Tone(frequency=avg_freq, amplitude=avg_ampl),
         isfundamental=isfundamental,
@@ -112,7 +115,13 @@ def summarize_partials(group: InstrumentGroup) -> dict[str, dict[int, list[Parti
     aggregated = AggregatedPartialDict(
         root={
             f"{itype.value}#{ombak.value}-octave {octave.index}": [
-                aggregated_partials(cluster, itype, octave) for cluster in clusters
+                aggregated_partials(
+                    partials=cluster,
+                    instrumenttype=itype,
+                    ombaktype=ombak,
+                    octave=octave,
+                )
+                for cluster in clusters
             ]
             for (itype, ombak, octave), clusters in largest_clusters.items()
         }
