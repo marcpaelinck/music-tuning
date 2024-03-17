@@ -16,13 +16,11 @@ from tuning.common.utils import (
 
 
 def summarize_instrument_info(groupname: InstrumentGroupName, filepath: str):
-    orchestra = read_object_from_jsonfile(
-        InstrumentGroup, groupname, Folder.SETTINGS, groupname.value + ".json"
-    )
+    orchestra = read_group_from_jsonfile(groupname)
     instr_info = [
         {
             "instrument": instrument.instrumenttype.value,
-            "type": instrument.ombaktype.value,
+            "type": instrument.ombaktype,
             "code": instrument.code,
             "note": note.name,
             "frequency": note.partials[note.partial_index].tone.frequency,
