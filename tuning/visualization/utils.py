@@ -1,5 +1,6 @@
 import math
 import os
+import pathlib
 from enum import Enum, auto
 from typing import Any
 
@@ -116,16 +117,17 @@ def create_pdf(
 
     # Check if the file is closed. If not, exit.
     if os.path.exists(filepath):
-        logger.info(f"Checking if the output file is in use by another process.")
         try:
             with open(filepath, "r+") as file:
-                logger.info(f"OK, file not in use.")
+                ...
         except:
             logger.error(f"File {filepath} is in use. Please close the file and try again.")
             exit()
 
     with PdfPages(filepath) as pdf:
-        logger.info("Generating graphs")
+        logger.info(
+            f"Generating PDF plots of {pathlib.Path(filepath).stem.replace("_", " ")}."
+        )
         for object in iterlist:
             hasplots = plotter(
                 group=group,

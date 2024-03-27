@@ -58,7 +58,8 @@ def create_group_from_info_file(groupname: InstrumentGroupName) -> InstrumentGro
             instrumenttype=InstrumentType(row[INSTRUMENT]),
             code=row[CODE],
             ombaktype=OmbakType(row[OMBAKTYPE]),
-            soundfile=row[FILENAME],
+            original_soundfilename=row[FILENAME],
+            soundfilename=row[FILENAME],
             notes=[
                 Note(
                     name=note_from_shortcode(shortcode),

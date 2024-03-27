@@ -1,4 +1,5 @@
 import math
+from xmlrpc.client import MAXINT
 
 import numpy as np
 import scipy.cluster.hierarchy as hcluster
@@ -21,10 +22,13 @@ from tuning.common.constants import (
     InstrumentGroupName,
 )
 from tuning.common.utils import (
+    get_logger,
     get_path,
     read_group_from_jsonfile,
     save_object_to_jsonfile,
 )
+
+logger = get_logger(__name__)
 
 
 def ratio_to_cents(ratio) -> int:
@@ -109,7 +113,9 @@ def summarize_partials(group: InstrumentGroup) -> dict[str, dict[int, list[Parti
         for key, partials in partial_collections.items()
     }
     largest_clusters = {
-        group: sorted(clusters, key=lambda c: len(c), reverse=True)[:KEEP_NR_PARTIALS]
+        group: sorted(clusters, key=lambda c: MAXINT * c[0].isfundamental + len(c), reverse=True)[
+            :KEEP_NR_PARTIALS
+        ]
         for group, clusters in clustering.items()
     }
     aggregated = AggregatedPartialDict(
@@ -128,15 +134,17 @@ def summarize_partials(group: InstrumentGroup) -> dict[str, dict[int, list[Parti
     )
     # Recalculate the ratio, based on average frequencies
     for key, agglist in aggregated.root.items():
-        fundamental = next(agg for agg in agglist if agg.isfundamental)
+        fundamental = next((agg for agg in agglist if agg.isfundamental), None)
+        if not fundamental:
+            raise Exception(
+                f"Fundamental is missing for {key}, aggr partials are {[(agg.tone.frequency, (agg.octave.start_freq, agg.octave.end_freq)) for agg in agglist]}"
+            )
         for aggregate in agglist:
             oldratio = aggregate.ratio
             aggregate.ratio = aggregate.tone.frequency / fundamental.tone.frequency
-            print(f"{key}: ratio {oldratio} corrected to {aggregate.ratio}")
+            logger.info(f"{key}: ratio {oldratio} corrected to {aggregate.ratio}")
 
-    save_object_to_jsonfile(
-        aggregated, get_path(group.grouptype, Folder.ANALYSES, AGGREGATED_PARTIALS_FILE)
-    )
+    return aggregated
 
 
 if __name__ == "__main__":
@@ -144,4 +152,8 @@ if __name__ == "__main__":
     GROUPNAME = InstrumentGroupName.SEMAR_PAGULINGAN
 
     orchestra = read_group_from_jsonfile(GROUPNAME, read_sounddata=False, read_spectrumdata=False)
-    summary = summarize_partials(orchestra)
+    aggregated_partials = summarize_partials(orchestra)
+    save_object_to_jsonfile(
+        aggregated_partials,
+        get_path(orchestra.grouptype, Folder.ANALYSES, AGGREGATED_PARTIALS_FILE),
+    )

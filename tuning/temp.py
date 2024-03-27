@@ -162,5 +162,19 @@ def compare_partials(
     compare.to_excel(get_path(groupname, Folder.ANALYSES, xls_filename), merge_cells=False)
 
 
+def rolling_maximum(arr: np.ndarray, width: int) -> np.ndarray:
+    shape = arr.shape[:-1] + (arr.shape[0] - width + 1, width)
+    strides = arr.strides + (arr.strides[-1],)
+    # Calculate rolling maximum
+    rolling_max = np.max(np.lib.stride_tricks.as_strided(arr, shape=shape, strides=strides), axis=1)
+    # Extend rolling_max to the length of arr by repeating the last value.
+    rolling_max = np.append(rolling_max, np.ones(len(arr) - len(rolling_max)) * rolling_max[-1])
+    return rolling_max
+
+
 if __name__ == "__main__":
-    ...
+    values = np.array([x for x in range(10, 0, -1)])
+    max = rolling_maximum(values, 3)
+    print(values)
+    factors = 10 / max
+    print(factors.T * values)

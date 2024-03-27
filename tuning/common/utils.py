@@ -97,19 +97,24 @@ def get_partial(note: Note) -> Tone:
 def save_object_to_jsonfile(
     object: BaseModel,
     filepath: str,
-    save_spectrumdata: bool = True,
 ):
     tempfilepath = filepath + "x"
     with open(tempfilepath, "w") as outfile:
-        outfile.write(object.model_dump_json(indent=4, exclude_none=save_spectrumdata))
+        outfile.write(object.model_dump_json(indent=4))
     if os.path.exists(filepath):
         os.remove(filepath)
     os.rename(tempfilepath, filepath)
 
 
-def save_group_to_jsonfile(group: InstrumentGroup, save_spectrumdata=True):
+def save_group_to_jsonfile(group: InstrumentGroup, save_spectrumdata=False):
+    if save_spectrumdata:
+        # set save flag of Spectrum objects
+        logger.info("Saving spectra")
+        for instrument in group.instruments:
+            for note in instrument.notes:
+                note.spectrum.save_spectrum_data = True
     filepath = get_path(group.grouptype, Folder.SETTINGS, f"{group.grouptype.value}.json")
-    save_object_to_jsonfile(group, filepath, save_spectrumdata=save_spectrumdata)
+    save_object_to_jsonfile(group, filepath)
 
 
 def read_object_from_jsonfile(
@@ -128,7 +133,6 @@ def read_group_from_jsonfile(
     groupname: InstrumentGroupName,
     read_sounddata: bool = False,
     read_spectrumdata: bool = False,
-    save_spectrumdata: bool = True,
 ):
     """
     Imports an InstrumentGroup object from json.

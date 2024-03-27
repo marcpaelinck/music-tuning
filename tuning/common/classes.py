@@ -127,7 +127,7 @@ class Spectrum(BaseModel):
     frequencies: Optional[np.ndarray[float]] = Field(default=None)
     reference_amplitude: float = None
     amplitudes: Optional[np.ndarray[float]] = Field(default=None)
-    save_spectrum_data: bool = Field(exclude=True, default=True)
+    save_spectrum_data: bool = Field(exclude=True, default=False)
 
     @model_validator(mode="after")
     # Reads the spectrum data from file.
@@ -139,8 +139,8 @@ class Spectrum(BaseModel):
                 spectrum_df = pd.read_csv(self.spectrumfilepath, sep="\t")
                 self.frequencies = np.array(spectrum_df["frequency"])
                 self.amplitudes = np.array(spectrum_df["amplitude"])
-        if info.context and "save_spectrumdata" in info.context.keys():
-            self.save_spectrum_data = info.context["save_spectrumdata"]
+        # if info.context and "save_spectrumdata" in info.context.keys():
+        #     self.save_spectrum_data = info.context["save_spectrumdata"]
         return self
 
     @field_serializer("frequencies", "amplitudes")
@@ -150,7 +150,7 @@ class Spectrum(BaseModel):
         if (
             _info.field_name == "frequencies" and self.save_spectrum_data
         ):  # _info.context.get("save_spectrumdata", True):
-            print(f"saving spectrum {self.spectrumfilepath}")
+            # print(f"saving spectrum {self.spectrumfilepath}")
             spectrum_df = pd.DataFrame(
                 {
                     "frequency": self.frequencies,
@@ -187,7 +187,8 @@ class Instrument(BaseModel):
     # name: str
     code: str
     ombaktype: OmbakType
-    soundfile: str = ""
+    original_soundfilename: str
+    soundfilename: str
     notes: list[Note]
 
 

@@ -203,7 +203,7 @@ def create_spectra(orchestra: InstrumentGroup) -> None:
             # save_spectrum(note.spectrum)
     for instrument in orchestra.instruments:
         if instrument.error:
-            logger.error(f"{instrument.soundfile}: {instrument.comment}")
+            logger.error(f"{instrument.soundfilename}: {instrument.comment}")
     orchestra.has_spectra = True
 
 
@@ -213,4 +213,4 @@ if __name__ == "__main__":
 
     orchestra = read_group_from_jsonfile(GROUPNAME, read_sounddata=True)
     create_spectra(orchestra)
-    save_group_to_jsonfile(orchestra)
+    save_group_to_jsonfile(orchestra, save_spectrumdata=True)

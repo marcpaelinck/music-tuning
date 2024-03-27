@@ -190,7 +190,7 @@ def create_partials(orchestra: InstrumentGroup, count: int = DEFAULT_NR_OF_PARTI
             if DEBUG and note.name is not INSTR_NOTE[1]:
                 continue
             logger.info(
-                f"Creating partials for {instrument.instrumenttype} {instrument.code} {note.name.value} {note.order_in_soundfile}"
+                f"Determining partials for {instrument.instrumenttype} {instrument.code} {note.name.value} {note.order_in_soundfile}"
             )
             idx = f"{instrument.code}-{note.name.value}"  ###########
             note.partials, properties[idx] = get_partials(

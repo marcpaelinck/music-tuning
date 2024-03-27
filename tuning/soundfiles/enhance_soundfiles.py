@@ -1,4 +1,5 @@
 import numpy as np
+from numpy.lib.stride_tricks import sliding_window_view
 from scipy.interpolate import CubicSpline
 
 from tuning.common.classes import ClipRange, SoundData
@@ -46,6 +47,20 @@ def reconstruct_clipped_regions(
     return restored_data
 
 
+def rolling_maximum(arr: np.ndarray, width: int) -> np.ndarray:
+    # shape = arr.shape[:-1] + (arr.shape[0] - width + 1, width)
+    # strides = arr.strides + (arr.strides[-1],)
+    # Calculate rolling maximum
+    arr_flat = np.max(arr, axis=1)
+    rolling_max = np.max(sliding_window_view(arr_flat, width, axis=0), axis=1).copy()
+    # rolling_max = np.max(np.lib.stride_tricks.as_strided(arr, shape=shape, strides=strides), axis=1)
+    # Extend rolling_max to the length of arr by repeating the last value.
+    rolling_max = np.append(rolling_max, np.repeat(rolling_max[-1], len(arr) - len(rolling_max)))
+    rolling_max[rolling_max == 0] = max(rolling_max)
+    # rolling_max = np.append(rolling_max, np.ones(len(arr) - len(rolling_max)) * rolling_max[-1])
+    return rolling_max
+
+
 def equalize_note_amplitudes(
     sample_rate: float, data: SoundData, clipranges: list[ClipRange]
 ) -> SoundData:
@@ -61,14 +76,16 @@ def equalize_note_amplitudes(
         np.ndarray: equalized data.
     """
     maxvalue = np.int16(np.iinfo(data.dtype).max * 0.95)
-    strike_duration = int(sample_rate * 0.05)
+    stroke_duration = int(sample_rate * 0.05)
     for span in clipranges:
-        if span.start + strike_duration < span.end:
-            start = span.start + strike_duration
+        if span.start + stroke_duration < span.end:
+            start = span.start + stroke_duration
             data[span.start : start] = 0
         else:
             start = span.start
         values = data[start : span.end + 1]
-        ratio = maxvalue / np.abs(values).max()
-        data[start : span.end + 1] = np.int16(values * ratio)
+        window = sample_rate // 10
+        rolling_max = rolling_maximum(values, window)
+        factors = maxvalue / rolling_max[:, None]
+        data[start : span.end + 1] = np.int16(values * factors)
     return data

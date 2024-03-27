@@ -153,7 +153,7 @@ def dissonance_profile(
     return [list(frequencies), list(total_dissonances)]
 
 
-def create_partials(p_list: list[tuple[float, float]]) -> list[Partial]:
+def create_partials_from_list(p_list: list[tuple[float, float]]) -> list[Partial]:
     # Creates AggregatedPartials from a list of tuples (freq, ampl).
     # The first partial should be the fundamental.
     return [
@@ -186,8 +186,8 @@ def plot_diss_graph(pairs: list[tuple[list[Partial], list[Partial]]], **kwargs):
         ph_peaks = get_minima(*ph_result)
         pp_peaks = get_minima(*pp_result)
         results.extend([pp_result + [pp_peaks], ph_result + [ph_peaks]])
-        print(ph_peaks + pp_peaks)
-    logger.info(f"total dissonance calculation time: {time.time() - start_time} seconds")
+        # print(ph_peaks + pp_peaks)
+    # logger.info(f"total dissonance calculation time: {time.time() - start_time} seconds")
     plot_graphs(
         *results,
         nrows=len(results) // 2,
@@ -221,7 +221,7 @@ def plot_dissonance_graphs(
         #     p.tone.amplitude = MAX_DB - p.tone.amplitude  ##################
         fundamental = next((p for p in partials if p.isfundamental), None)
         f_freq = fundamental.tone.frequency
-        harmonics = create_partials([(f_freq * i, MAX_DB) for i in range(1, 5)])
+        harmonics = create_partials_from_list([(f_freq * i, MAX_DB) for i in range(1, 5)])
         partial_harmonic_pairs.append((partials, harmonics))
     pagetitle = f"Dissonance graph for {groupname.value} {object.value}" + (
         " (same amplitude for all partials)" if amplitude else ""
@@ -241,13 +241,13 @@ def test_dissonance_graph(**kwargs):
     fundfreq = 500
     f_freqs = [(fundfreq * ratio, 1) for ratio in (1, 1.52, 3.46, 3.92)]
     g_freqs = [(fundfreq * ratio, 1) for ratio in (1, 2, 3, 4)]
-    f_partials = create_partials(f_freqs)
-    g_partials = create_partials(g_freqs)
+    f_partials = create_partials_from_list(f_freqs)
+    g_partials = create_partials_from_list(g_freqs)
     plot_diss_graph(f_partials, g_partials, **kwargs)
 
 
 def test_dissonance_h_graph(**kwargs):
-    f_partials = create_partials([(500 * i, 1) for i in range(1, 7)])
+    f_partials = create_partials_from_list([(500 * i, 1) for i in range(1, 7)])
     ph_result = dissonance_profile(f_partials, f_partials, is_decibel=False)
     plot_graphs(ph_result, plottype=PlotType.SPECTRUMPLOT, show=True, **kwargs)
 
