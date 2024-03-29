@@ -15,6 +15,7 @@ import pandas as pd
 from tuning.analysis.utils import get_minima
 from tuning.common.classes import (
     AggregatedPartialDict,
+    Frequency,
     Instrument,
     InstrumentType,
     Partial,
@@ -76,8 +77,7 @@ def dissonance_profile(
     g_partials: list[Partial],
     fixed_ampl=None,
     is_reverse=False,
-    test_save=False,
-):
+) -> list[list[Frequency], list[float]]:
 
     # Determine the fundamental (should be the same for both lists of partials)
     fundamental = next(
@@ -166,33 +166,65 @@ def create_partials_from_list(p_list: list[tuple[float, float]]) -> list[Partial
     ]
 
 
-def plot_diss_graph(pairs: list[tuple[list[Partial], list[Partial]]], **kwargs):
+def plot_diss_graph(pairs: dict[str, tuple[list[Partial], list[Partial]]], **kwargs):
     profiler = dissonance_profile
-    start_time = time.time()
-    results = []
-    for pair in pairs:
-        ph_result = profiler(
-            pair[0],
-            pair[1],
-            fixed_ampl=kwargs.get("amplitude", None),
-        )
+    # start_time = time.time()
+    plotdata_list = list()
+    graph_titles = list()
+    for group, pair in pairs.items():
         pp_result = profiler(
             pair[1],
             pair[0],
             fixed_ampl=kwargs.get("amplitude", None),
             is_reverse=True,
-            test_save=True if pair == pairs[-1] else False,
         )
-        ph_peaks = get_minima(*ph_result)
+        ph_result = profiler(
+            pair[0],
+            pair[1],
+            fixed_ampl=kwargs.get("amplitude", None),
+        )
         pp_peaks = get_minima(*pp_result)
-        results.extend([pp_result + [pp_peaks], ph_result + [ph_peaks]])
-        # print(ph_peaks + pp_peaks)
+        ph_peaks = get_minima(*ph_result)
+        plotdata_list.extend([pp_result + [pp_peaks], ph_result + [ph_peaks]])
+        graph_titles.extend([group + " - partial-partial", group + " - partial-harmonic"])
+
+    ymin = min(min(result[1]) for result in plotdata_list)
+    ymax = max(max(result[1]) for result in plotdata_list)
+
+    plottexts = list()
+    for plotdata, title in zip(plotdata_list, graph_titles):
+        plottexts.extend(
+            [
+                [
+                    {
+                        "x": x,
+                        "y": y,
+                        "s": f"{abs(x):1.3f}",
+                        "fontsize": "x-small",
+                        "ha": "center",
+                        "va": "top",
+                    }
+                    for x, y in plotdata[2]
+                ]
+                + [
+                    {
+                        "x": min(plotdata[0]) + 0.01 * (max(plotdata[0]) - min(plotdata[0])),
+                        "y": ymax - 0.05 * (ymax - ymin),
+                        "s": title,
+                        "fontsize": "small",
+                        "color": "b",
+                    }
+                ]
+            ]
+        )
+
     # logger.info(f"total dissonance calculation time: {time.time() - start_time} seconds")
     plot_graphs(
-        *results,
-        nrows=len(results) // 2,
+        *plotdata_list,
+        nrows=len(plotdata_list) // 2,
         ncols=2,
         plottype=PlotType.CONSONANCEPLOT,
+        plottexts=plottexts,
         autox=True,
         **kwargs,
     )
@@ -212,25 +244,22 @@ def plot_dissonance_graphs(
     keys = [key for key in list(group.root.keys()) if key.startswith(object.value)]
     if not keys:
         return False
-    partial_harmonic_pairs = []
-    plottitles = []
+    partial_harmonic_pairs = dict()
     for key in keys:
-        plottitles.extend([key.split("#")[-1], ""])
+        instrument_group = key.split("#")[-1]
         partials = group.root[key]
-        # for p in partials:
-        #     p.tone.amplitude = MAX_DB - p.tone.amplitude  ##################
         fundamental = next((p for p in partials if p.isfundamental), None)
         f_freq = fundamental.tone.frequency
         harmonics = create_partials_from_list([(f_freq * i, MAX_DB) for i in range(1, 5)])
-        partial_harmonic_pairs.append((partials, harmonics))
+        partial_harmonic_pairs[instrument_group] = (partials, harmonics)
     pagetitle = f"Dissonance graph for {groupname.value} {object.value}" + (
         " (same amplitude for all partials)" if amplitude else ""
     )
     plot_diss_graph(
-        partial_harmonic_pairs,
+        pairs=partial_harmonic_pairs,
         is_decibel=True,
         amplitude=amplitude,
-        plottitles=plottitles,
+        plottitles=instrument_group,
         pagetitle=pagetitle,
         **kwargs,
     )

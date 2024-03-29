@@ -8,7 +8,7 @@ import pandas as pd
 from scipy.io import wavfile
 
 from tuning.common.classes import AggregatedPartialDict, Instrument, InstrumentGroup
-from tuning.common.constants import Folder, InstrumentGroupName
+from tuning.common.constants import NOTE_PATTERN, Folder, InstrumentGroupName
 from tuning.common.utils import (
     get_path,
     parse_json_file,
@@ -173,8 +173,10 @@ def rolling_maximum(arr: np.ndarray, width: int) -> np.ndarray:
 
 
 if __name__ == "__main__":
-    values = np.array([x for x in range(10, 0, -1)])
-    max = rolling_maximum(values, 3)
-    print(values)
-    factors = 10 / max
-    print(factors.T * values)
+    data = [i + 1 for i in range(1000)]
+    l = len(data)
+    limits = [
+        (int(sum(NOTE_PATTERN[:i] * l)), int(sum(NOTE_PATTERN[: i + 1] * l)) - 1)
+        for i in range(len(NOTE_PATTERN))
+    ]
+    print(limits)

@@ -16,6 +16,8 @@ from scipy.io import wavfile
 from tuning.common.constants import InstrumentGroupName
 
 Frequency = float
+IntFrequency = int
+OctaveNbr = int
 Ratio = float
 Amplitude = float
 Interval = float

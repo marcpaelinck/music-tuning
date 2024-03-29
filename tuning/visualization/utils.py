@@ -18,6 +18,7 @@ logger = get_logger(__name__)
 
 
 class PlotType(Enum):
+    SOUNDDATAPLOT = auto()
     SPECTRUMPLOT = auto()
     CONSONANCEPLOT = auto()
     VLINES = auto()
@@ -28,7 +29,7 @@ def plot_graphs(
     ncols: int = 1,
     plottype: PlotType = PlotType.SPECTRUMPLOT,
     pagetitle: str = "",
-    plottitles: list[str] = None,
+    plottexts: list[list[dict[str, Any]]] = None,
     xmin: int = None,
     xmax: int = None,
     ymin: int = None,
@@ -50,12 +51,12 @@ def plot_graphs(
     def set_axes_boundaries(x_index, y_index) -> tuple[float]:
         x_min = x_max = y_min = y_max = None
         if not autox:
-            x_min = xmin or min(min(args[i][x_index]) for i in range(len(args)))
-            x_max = xmax or max(max(args[i][x_index]) for i in range(len(args)))
+            x_min = xmin if xmin != None else min(min(args[i][x_index]) for i in range(len(args)))
+            x_max = xmax if xmax != None else  max(max(args[i][x_index]) for i in range(len(args)))
             plt.setp(axes, xlim=(x_min, x_max))
         if not autoy:
-            y_min = ymin or min(min(args[i][y_index]) for i in range(len(args)))
-            y_max = ymax or max(max(args[i][y_index]) for i in range(len(args))) * 1.05
+            y_min = ymin if ymin != None else  min(min(args[i][y_index]) for i in range(len(args)))
+            y_max = ymax if ymax != None else  max(max(args[i][y_index]) for i in range(len(args))) * 1.05
             plt.setp(axes, ylim=(y_min, y_max))
         return (x_min, x_max, y_min, y_max)
 
@@ -67,23 +68,17 @@ def plot_graphs(
 
     axis_list = axes.flatten("C")
     match plottype:
-        case PlotType.SPECTRUMPLOT:
+        case PlotType.SOUNDDATAPLOT | PlotType.SPECTRUMPLOT:
             set_axes_boundaries(x_index, y_index)
             vis = [axis.plot for axis in axis_list]
             plotvalues = args
         case PlotType.CONSONANCEPLOT:
             set_axes_boundaries(x_index, y_index)
             vis = [axis.plot for axis in axis_list]
-            for axis, arg in zip(axis_list, args):
-                for x, y in arg[mins_index]:
-                    axis.text(x, y, f"{abs(x):1.3f}", fontsize="x-small", ha="center", va="top")
             plotvalues = [(args[i][x_index], args[i][y_index]) for i in range(len(args))]
         case PlotType.VLINES:
             _, _, y_min, _ = set_axes_boundaries(x_index, ymax_index)
             vis = [axis.vlines for axis in axis_list]
-            for axis, arg in zip(axis_list, args):
-                for x, y in zip(arg[x_index], arg[ymax_index]):
-                    axis.text(x, y, f"{x:1.3f}", fontsize="x-small", ha="left")
             for arg in args:
                 arg[ymin_index] = (ymin,) * len(arg[ymin_index])
             plotvalues = args
@@ -94,14 +89,9 @@ def plot_graphs(
         vis[idx](*plotvalues[idx])
         xmin, xmax = axis_list[idx].get_xlim()
         ymin, ymax = axis_list[idx].get_ylim()
-        if plottitles:
-            axis_list[idx].text(
-                x=xmin + 0.01 * (xmax - xmin),
-                y=ymax - 0.1 * (ymax - ymin),
-                s=plottitles[idx],
-                fontsize="small",
-                color="b",
-            )
+        if plottexts:
+            for text in plottexts[idx]:
+                axis_list[idx].text(**text)
     if show:
         plt.show()
     return figure, axes

@@ -13,7 +13,7 @@ def remove_min_region(index, x_vector, y_vector) -> tuple[np.array]:
     )
 
 
-def get_minima(x_vector, y_vector) -> list[float]:
+def get_minima(x_vector, y_vector) -> list[tuple[float, float]]:
     x_vect = np.copy(x_vector)
     y_vect = np.copy(y_vector)
     minima = []

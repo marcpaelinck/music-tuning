@@ -47,12 +47,16 @@ def pipeline(groupname: InstrumentGroupName):
     )
     # ---------------------------------------------------------------------------
     # orchestra = read_group_from_jsonfile(groupname)
-    pdf_filename = "spectra_with_partials_ratio.pdf"
+    pdf_filename = "spectra_with_partials_{type}.pdf"
     create_pdf(
         group=orchestra,
         iterlist=orchestra.instruments,
-        plotter=partial(plot_note_spectra, max_partials=7),
-        filepath=get_path(groupname=groupname, filetype=Folder.ANALYSES, filename=pdf_filename),
+        plotter=partial(plot_note_spectra, max_partials=7, ratio=(is_ratio := False)),
+        filepath=get_path(
+            groupname=groupname,
+            filetype=Folder.ANALYSES,
+            filename=pdf_filename.format(type="ratio" if is_ratio else "frequency"),
+        ),
     )
     # ---------------------------------------------------------------------------
     aggregated_partials = read_object_from_jsonfile(
