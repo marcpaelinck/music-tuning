@@ -1,0 +1,43 @@
+general:
+  - data_folder = ".\\data"
+  - instrument_info_file = "info.xlsx"
+  - spectra_info_file = "info.csv"
+  - octave_range_file = "octave_ranges.json"
+  - aggregated_partials_file = "partials_per_instrumenttype.json"
+
+info_file_columns:
+  - filename = "filename"
+  - instrument_group = "instrument group"
+  - instrument = "instrument"
+  - code = "code"
+  - ombaktype = "ombaktype"
+  - notes = "notes"
+  - octave_seq = "octave seq"
+  - start_freq = "start freq"
+  - end_freq = "end freq"
+
+soundfiles:
+  - amplitude_threshold_to_average_ratio = 0.5  # minimum amplitude for note detection
+  - short_blanks_duration_threshold = 0.1  # low amplitude periods within a note that should not be considered as note ending, in seconds
+  - minimum_sample_duration = 1  # minimum duration of a note, in seconds (to filter out random sounds)
+  - soundfile_clip_fix = true  # default value for the option to fix clipped amplitudes
+  - soundfile_equalize_notes = true  # default value for the option to equalize amplitudes
+  - enhanced_soundfile_suffix = "-ENHANCED"
+
+spectra:
+  - truncate_from = 0
+  - truncate_to = 10000
+
+partials:
+  - default_nr_of_partials = 10  # default number of partials to retrieve from the frequency spectrum
+  - top_prominent_partials = 20  # default number of partials to pre-select on prominence
+  - peak_window = 21  # default window width for the peak selection
+  - min_prominence = 10  # default minimum value for the prominence of amplitude peaks
+    # frequencies whose difference is less than the distinctiveness
+    # will be considered equal when aggregating partials
+  - distinctiveness_cent = 75  # 1/2 of a semitone, expressed in cents.
+  - distinctiveness = pow(2, distinctiveness_cent / 1200)  # as a frequency ratio
+  - max_octaves = 6  # maximum number of octaves to consider when selecting partials
+
+aggregate:
+  - keep_nr_partials = 4

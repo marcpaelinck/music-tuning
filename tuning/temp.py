@@ -1,13 +1,19 @@
 import json
 import math
 import os
+from functools import partial
 from pprint import pprint
 
 import numpy as np
 import pandas as pd
 from scipy.io import wavfile
 
-from tuning.common.classes import AggregatedPartialDict, Instrument, InstrumentGroup
+from tuning.common.classes import (
+    AggregatedPartialDict,
+    Instrument,
+    InstrumentGroup,
+    Octave,
+)
 from tuning.common.constants import NOTE_PATTERN, Folder, InstrumentGroupName
 from tuning.common.utils import (
     get_path,
@@ -62,9 +68,7 @@ def analyze_limits():
 
 
 def summarize_spectrum_files(groupname: InstrumentGroupName):
-    orchestra = read_object_from_jsonfile(
-        InstrumentGroup, groupname, Folder.SETTINGS, groupname.value + ".json"
-    )
+    orchestra = read_object_from_jsonfile(InstrumentGroup, groupname, Folder.SETTINGS, groupname.value + ".json")
     SEQ_LENGTH = 5
     results = []
     for instrument in orchestra.instruments:
@@ -172,11 +176,12 @@ def rolling_maximum(arr: np.ndarray, width: int) -> np.ndarray:
     return rolling_max
 
 
+def func(oct: Octave, b: int):
+    return oct.index + b
+
+
 if __name__ == "__main__":
-    data = [i + 1 for i in range(1000)]
-    l = len(data)
-    limits = [
-        (int(sum(NOTE_PATTERN[:i] * l)), int(sum(NOTE_PATTERN[: i + 1] * l)) - 1)
-        for i in range(len(NOTE_PATTERN))
-    ]
-    print(limits)
+    oct = Octave(index=2, start_freq=100, end_freq=200)
+    p = partial(func, b=5)
+    q = p(oct)
+    print(q)

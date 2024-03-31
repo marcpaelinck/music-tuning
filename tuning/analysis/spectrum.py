@@ -1,3 +1,4 @@
+from typing import Callable
 from xmlrpc.client import MAXINT
 
 import matplotlib.pyplot as plt
@@ -34,8 +35,8 @@ logger = get_logger(__name__)
 def truncate_spectrum(spectrum: Spectrum, min_freq: int = 0, max_freq: int = 10000) -> Spectrum:
     """
     truncates a spectrum to the given range
-    Note: argmax will stop at the first True ("In case of multiple occurrences of the maximum values, 
-          the indices corresponding to the first occurrence are returned.") and doesn't save another list. 
+    Note: argmax will stop at the first True ("In case of multiple occurrences of the maximum values,
+          the indices corresponding to the first occurrence are returned.") and doesn't save another list.
     """
     index1 = np.argmax(spectrum.frequencies >= min_freq)
     index2 = -1 if spectrum.frequencies[-1] < max_freq else np.argmax(spectrum.frequencies >= max_freq)
@@ -64,9 +65,7 @@ def import_spectrum(
         filepath := get_path(groupname, Folder.SPECTRUM, filename),
         sep="\t",
     )
-    spectrum_list = spectrum_df.set_axis(["frequency", "amplitude"], axis=1).to_dict(
-        orient="records"
-    )
+    spectrum_list = spectrum_df.set_axis(["frequency", "amplitude"], axis=1).to_dict(orient="records")
 
     return truncate_spectrum(
         spectrum=Spectrum(
@@ -80,7 +79,7 @@ def import_spectrum(
 
 def create_spectrum(note: Note, filepath: str, truncate=(0, MAXINT)) -> Spectrum:
     """
-    Creates a spectrum file for a NoteInfo object. The spectrum analysis is performed
+    Creates a spectrum file for a Note object. The spectrum analysis is performed
     on a single channel.
 
     Args:
@@ -105,12 +104,12 @@ def create_spectrum(note: Note, filepath: str, truncate=(0, MAXINT)) -> Spectrum
     ampl = ampl[: max_index + 1]
     freq = freq[: max_index + 1]
     # Convert to dB
-    reference_amplitude = abs(ampl).max()
-    ampl_db = 20 * np.log10(ampl / abs(ampl).max())
+    reference_amplitude = np.percentile(ampl, 0.05)
+    ampl_db = 20 * np.log10(ampl / reference_amplitude)
     spectrum = Spectrum(
         frequencies=freq,
         amplitudes=ampl_db,
-        reference_amplitude = reference_amplitude,
+        reference_amplitude=reference_amplitude,
         spectrumfilepath=filepath,
         freq_unit=FreqUnit.HERTZ,
         ampl_unit=AmplUnit.DB,
@@ -121,7 +120,8 @@ def create_spectrum(note: Note, filepath: str, truncate=(0, MAXINT)) -> Spectrum
 def create_spectrum_audacity(note: Note, filepath: str, truncate=(0, MAXINT)) -> Spectrum:
     """
     Creates a spectrum file for a NoteInfo object. The spectrum analysis is performed
-    on a single channel.
+    on a single channel. The data is divided into 'bins' and spectra are created for each
+    bin, then averaged.
 
     Args:
         note (Note): note object.
@@ -150,11 +150,11 @@ def create_spectrum_audacity(note: Note, filepath: str, truncate=(0, MAXINT)) ->
         results.append(ampl[: max_index + 1])
     avg_ampl = np.average(np.asarray(results), axis=0)
     # reference_amplitude = np.max(avg_ampl)
-    reference_amplitude = np.percentile(avg_ampl, .05)
+    reference_amplitude = np.percentile(avg_ampl, 0.05)
     ampl_db = 20 * np.log10(avg_ampl / reference_amplitude)
     spectrum = Spectrum(
         frequencies=freq[: max_index + 1],
-        reference_amplitude = reference_amplitude,
+        reference_amplitude=reference_amplitude,
         amplitudes=ampl_db,
         spectrumfilepath=filepath,
         freq_unit=FreqUnit.HERTZ,
@@ -175,14 +175,16 @@ def get_spectrum_filepath(group: InstrumentGroup, instrument: Instrument, note: 
     Returns:
         str: relative path to the spectrum file.
     """
-    filename = f"{instrument.instrumenttype.value.replace(" ","")}-{instrument.code}-{note.name}-{note.octave.index}.csv"
+    filename = (
+        f"{instrument.instrumenttype.value.replace(" "," ")}-{instrument.code}-{note.name}-{note.octave.index}.csv"
+    )
     return get_path(group.grouptype, Folder.SPECTRUM, filename)
 
 
-def create_spectra(orchestra: InstrumentGroup) -> None:
+def create_spectra(orchestra: InstrumentGroup, spectrum_method: Callable = create_spectrum_audacity) -> InstrumentGroup:
     """
-    This method creates Spectrum objects which contain the frequency spectrum 
-    of the individual notes and adds each Spectrum object to the corresponding Note object. 
+    This method creates Spectrum objects which contain the frequency spectrum
+    of the individual notes and adds each Spectrum object to the corresponding Note object.
 
     Args:
         orchestra (InstrumentGroup): The instrument group.
@@ -197,14 +199,13 @@ def create_spectra(orchestra: InstrumentGroup) -> None:
             continue
         logger.info(f"Generating spectrum files.")
         for note in instrument.notes:
-            note.spectrum = create_spectrum_audacity(
-                note, filepath=get_spectrum_filepath(orchestra, instrument, note)
-            )
+            note.spectrum = spectrum_method(note, filepath=get_spectrum_filepath(orchestra, instrument, note))
             # save_spectrum(note.spectrum)
     for instrument in orchestra.instruments:
         if instrument.error:
             logger.error(f"{instrument.soundfilename}: {instrument.comment}")
     orchestra.has_spectra = True
+    return orchestra
 
 
 if __name__ == "__main__":

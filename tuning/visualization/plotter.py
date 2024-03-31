@@ -1,10 +1,12 @@
 import math
 from enum import Enum, auto
 from functools import partial
+from typing import Callable, Iterable
 
 import numpy as np
 from matplotlib.axes import Axes
 from matplotlib.figure import Figure
+from pydantic import BaseModel
 from scipy.io import wavfile
 
 from tuning.analysis.dissonance import (
@@ -48,9 +50,7 @@ def plot_dissonance_functions():
     f = Tone(frequency=fundfreq, amplitude=1)
     diss_j = [(dissonance_j(f, g)) for g in g_list]
     diss_s = [(dissonance_s(f, g)) for g in g_list]
-    plot_graphs(
-        (frequencies, diss_j), (frequencies, diss_s), plottype=PlotType.SPECTRUMPLOT, show=True
-    )
+    plot_graphs((frequencies, diss_j), (frequencies, diss_s), plottype=PlotType.SPECTRUMPLOT, show=True)
 
 
 def plot_note_spectra(
@@ -85,7 +85,7 @@ def plot_note_spectra(
                             p.ratio if ratio else p.tone.frequency,
                             0,
                             p.tone.amplitude,
-                            "r" if p.isfundamental else "y",
+                            "r" if p.isfundamental else "y" if note.partials.index(p) < 4 else "c",
                         )
                         for p in note.partials[:max_partials]
                     ]
@@ -131,9 +131,7 @@ def plot_note_spectra(
             *content[0],
             plottype=content[1],
             pagetitle=title,
-            plottexts=(
-                plottexts if is_last else None
-            ),  # [note.name.value for note in object.notes] if is_last else None,
+            plottexts=(plottexts if is_last else None),
             show=show if is_last else False,
             figure=figure,
             axes=axes,
@@ -167,10 +165,7 @@ def plot_sounddata(
 
     plot_content = []
 
-    sounddata = [
-        ([i / sample_rate for i in range(len(data[:, channel]))], data[:, channel])
-        for channel in channels
-    ]
+    sounddata = [([i / sample_rate for i in range(len(data[:, channel]))], data[:, channel]) for channel in channels]
     plot_content.append((sounddata, PlotType.SOUNDDATAPLOT))
     cliprange_borders = [
         list(
@@ -247,9 +242,7 @@ if __name__ == "__main__":
             filepath=get_path(groupname=GROUPNAME, filetype=Folder.ANALYSES, filename=pdf_filename),
         )
     elif GRAPH == Graph.DISSONANCE:
-        group = read_object_from_jsonfile(
-            AggregatedPartialDict, GROUPNAME, Folder.ANALYSES, AGGREGATED_PARTIALS_FILE
-        )
+        group = read_object_from_jsonfile(AggregatedPartialDict, GROUPNAME, Folder.ANALYSES, AGGREGATED_PARTIALS_FILE)
         pdf_filename = "dissonance_graph.pdf"
         create_pdf(
             group=group,

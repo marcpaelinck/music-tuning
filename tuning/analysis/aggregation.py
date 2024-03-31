@@ -65,7 +65,7 @@ def aggregated_partials(
     )
 
 
-def summarize_partials(group: InstrumentGroup) -> dict[str, dict[int, list[Partial]]]:
+def create_aggregated_partials(group: InstrumentGroup) -> AggregatedPartialDict:
     # Grouping by instrument type, ombaktype and octave
     keyvalues = {
         (instrument.instrumenttype, instrument.ombaktype, octave_idx)
@@ -152,7 +152,7 @@ if __name__ == "__main__":
     GROUPNAME = InstrumentGroupName.SEMAR_PAGULINGAN
 
     orchestra = read_group_from_jsonfile(GROUPNAME, read_sounddata=False, read_spectrumdata=False)
-    aggregated_partials = summarize_partials(orchestra)
+    aggregated_partials = create_aggregated_partials(orchestra)
     save_object_to_jsonfile(
         aggregated_partials,
         get_path(orchestra.grouptype, Folder.ANALYSES, AGGREGATED_PARTIALS_FILE),

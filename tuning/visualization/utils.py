@@ -99,9 +99,9 @@ def plot_graphs(
 
 def create_pdf(
     group: InstrumentGroup,
-    iterlist: list,  ## list of objects to iterate through
     plotter: callable,
     filepath: str,
+    iterlist: list = None,  ## list of objects to iterate through
     **kwargs,
 ) -> bool:
 
@@ -113,6 +113,9 @@ def create_pdf(
         except:
             logger.error(f"File {filepath} is in use. Please close the file and try again.")
             exit()
+
+    if iterlist is None:
+        iterlist = group.instruments
 
     with PdfPages(filepath) as pdf:
         logger.info(
@@ -127,7 +130,7 @@ def create_pdf(
             if hasplots:
                 pdf.savefig()
                 plt.close()
-    return True
+    return group
 
 
 if __name__ == "__main__":

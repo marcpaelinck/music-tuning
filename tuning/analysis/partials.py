@@ -170,7 +170,9 @@ def get_partials(
     return partials, properties
 
 
-def create_partials(orchestra: InstrumentGroup, count: int = DEFAULT_NR_OF_PARTIALS) -> None:
+def create_partials(
+    orchestra: InstrumentGroup, count: int = DEFAULT_NR_OF_PARTIALS
+) -> InstrumentGroup:
     """
     Determines frequency peaks for all files in the given folder
     Args:

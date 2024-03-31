@@ -243,6 +243,7 @@ def process_sound_files(group: InstrumentGroup) -> InstrumentGroup:
     for instrument in group.instruments:
         process_wav_file(group=group, instrument=instrument, notefreq_dict=notefreq_dict)
     group.has_sound_samples = True
+    return group
 
 
 def add_subplot(

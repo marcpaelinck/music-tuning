@@ -63,11 +63,7 @@ def get_path(groupname: InstrumentGroupName, filetype: Folder, filename: str = "
 
 
 def get_filenames(folder: str, regex: str = ".*") -> list[str]:
-    return [
-        f
-        for f in os.listdir(folder)
-        if os.path.isfile(os.path.join(folder, f)) and re.match(regex, f)
-    ]
+    return [f for f in os.listdir(folder) if os.path.isfile(os.path.join(folder, f)) and re.match(regex, f)]
 
 
 def parse_json_file(pydantic_type: type[BaseModel], filepath: str) -> BaseModel:
@@ -123,16 +119,17 @@ def get_partial(note: Note) -> Tone:
 def save_object_to_jsonfile(
     object: BaseModel,
     filepath: str,
-):
+) -> BaseModel:
     tempfilepath = filepath + "x"
     with open(tempfilepath, "w") as outfile:
         outfile.write(object.model_dump_json(indent=4))
     if os.path.exists(filepath):
         os.remove(filepath)
     os.rename(tempfilepath, filepath)
+    return object
 
 
-def save_group_to_jsonfile(group: InstrumentGroup, save_spectrumdata=False):
+def save_group_to_jsonfile(group: InstrumentGroup, save_spectrumdata=False) -> InstrumentGroup:
     if save_spectrumdata:
         # set save flag of Spectrum objects
         logger.info("Saving spectra")
@@ -141,11 +138,12 @@ def save_group_to_jsonfile(group: InstrumentGroup, save_spectrumdata=False):
                 note.spectrum.save_spectrum_data = True
     filepath = get_path(group.grouptype, Folder.SETTINGS, f"{group.grouptype.value}.json")
     save_object_to_jsonfile(group, filepath)
+    return group
 
 
 def read_object_from_jsonfile(
-    objecttype: type,
     groupname: InstrumentGroupName,
+    objecttype: type,
     filetype: Folder,
     filename: str,
 ) -> BaseModel:
@@ -159,7 +157,7 @@ def read_group_from_jsonfile(
     groupname: InstrumentGroupName,
     read_sounddata: bool = False,
     read_spectrumdata: bool = False,
-):
+) -> InstrumentGroup:
     """
     Imports an InstrumentGroup object from json.
 
@@ -245,9 +243,7 @@ def convert_spectrum_freq(spectrum: Spectrum, to_unit: FreqUnit, step: float = 5
             case _:
                 ...
 
-    logger.error(
-        f"Method not implemented for conversion from {spectrum.freq_unit.value} to {to_unit.value}"
-    )
+    logger.error(f"Method not implemented for conversion from {spectrum.freq_unit.value} to {to_unit.value}")
 
 
 def get_instrument_by_id(group: InstrumentGroup, code: str) -> Instrument:
