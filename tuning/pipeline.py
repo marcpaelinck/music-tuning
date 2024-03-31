@@ -129,7 +129,7 @@ class PipeLine:
         # Each step function should expect exactly one argument. Pre-assign all other arguments here.
         self.step_read_group_with_sounddata = partial(read_group_from_jsonfile, read_sounddata=True)
         self.step_read_group_with_spectrumdata = partial(read_group_from_jsonfile, read_spectrumdata=True)
-        self.step_create_spectra = partial(create_spectra, method=create_spectrum)
+        self.step_create_spectra = partial(create_spectra, spectrum_method=create_spectrum)
         self.step_create_spectra_audacity = partial(create_spectra, spectrum_method=create_spectrum_audacity)
         self.step_save_json_and_spectra = partial(save_group_to_jsonfile, save_spectrumdata=True)
         self.step_save_aggregated_partials = partial(
