@@ -82,13 +82,17 @@ class PipeLine:
         self.actions = {
             Step.CREATE_GROUP: (create_group_from_info_file, InstrumentGroupName, InstrumentGroup),
             Step.READ_GROUP: (read_group_from_jsonfile, InstrumentGroupName, InstrumentGroup),
-            Step.READ_GROUP_WITH_SOUNDDATA: (self.step_read_group_with_sounddata, InstrumentGroup, InstrumentGroup),
+            Step.READ_GROUP_WITH_SOUNDDATA: (self.step_read_group_with_sounddata, InstrumentGroupName, InstrumentGroup),
             Step.READ_GROUP_WITH_SPECTRUMDATA: (
                 self.step_read_group_with_spectrumdata,
-                InstrumentGroup,
+                InstrumentGroupName,
                 InstrumentGroup,
             ),
-            Step.READ_AGGREGATED_PARTIALS: (self.step_read_aggregated_partials, InstrumentGroup, AggregatedPartialDict),
+            Step.READ_AGGREGATED_PARTIALS: (
+                self.step_read_aggregated_partials,
+                InstrumentGroupName,
+                AggregatedPartialDict,
+            ),
             Step.PROCESS_SOUNDFILES: (process_sound_files, InstrumentGroup, InstrumentGroup),
             Step.CREATE_SPECTRA: (self.step_create_spectra, InstrumentGroup, InstrumentGroup),
             Step.CREATE_SPECTRA_AUDACITY: (self.step_create_spectra_audacity, InstrumentGroup, InstrumentGroup),
@@ -194,6 +198,7 @@ if __name__ == "__main__":
         Step.CREATE_GROUP,
         Step.PROCESS_SOUNDFILES,
         # Step.SAVE_JSON_ONLY,
+        # Step.READ_GROUP_WITH_SPECTRUMDATA,
         # Step.READ_GROUP_WITH_SOUNDDATA,
         Step.CREATE_SPECTRA_AUDACITY,
         # Step.CREATE_SPECTRA,

@@ -138,7 +138,7 @@ def create_spectrum_audacity(note: Note, filepath: str, truncate=(0, MAXINT)) ->
     # Calculate fourier transform (returns complex numbers list).
     # Discard the imaginary part.
     # BINSIZE = 65536
-    BINSIZE = 16384
+    BINSIZE = 32768
     # cut up into bins
     results = list()
     for bin in range(len(ampl_normalized) // BINSIZE):
