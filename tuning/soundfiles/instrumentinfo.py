@@ -59,7 +59,7 @@ def get_notefreq_dict(groupname: InstrumentGroupName) -> dict[Frequency, (NoteNa
     return note_dict
 
 
-def create_group_from_info_file(groupname: InstrumentGroupName) -> InstrumentGroup:
+def step_create_group_from_info_file(groupname: InstrumentGroupName) -> InstrumentGroup:
     """
     Parses the excel document containing information about the instruments files.
     """

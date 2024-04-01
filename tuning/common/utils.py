@@ -129,7 +129,7 @@ def save_object_to_jsonfile(
     return object
 
 
-def save_group_to_jsonfile(group: InstrumentGroup, save_spectrumdata=False) -> InstrumentGroup:
+def step_save_group_to_jsonfile(group: InstrumentGroup, save_spectrumdata=False) -> InstrumentGroup:
     if save_spectrumdata:
         # set save flag of Spectrum objects
         logger.info("Saving spectra")
@@ -154,7 +154,7 @@ def read_object_from_jsonfile(
         return objecttype.model_validate_json(jsonvalue)
 
 
-def read_group_from_jsonfile(
+def step_read_group_from_jsonfile(
     groupname: InstrumentGroupName,
     read_sounddata: bool = False,
     read_spectrumdata: bool = False,

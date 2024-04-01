@@ -29,8 +29,8 @@ from tuning.common.constants import (
 from tuning.common.utils import (
     get_logger,
     get_path,
-    read_group_from_jsonfile,
     read_object_from_jsonfile,
+    step_read_group_from_jsonfile,
 )
 from tuning.visualization.utils import PlotType, create_pdf, plot_graphs
 
@@ -226,7 +226,7 @@ if __name__ == "__main__":
     GRAPH = Graph.SOUNDFILE  # SOUNDFILE, SPECTRUM or DISSONANCE
 
     if GRAPH == Graph.SOUNDFILE:
-        group = read_group_from_jsonfile(GROUPNAME, read_sounddata=True)
+        group = step_read_group_from_jsonfile(GROUPNAME, read_sounddata=True)
         pdf_filename = "sounddata.pdf"
         create_pdf(
             group=group,
@@ -235,7 +235,7 @@ if __name__ == "__main__":
             filepath=get_path(groupname=GROUPNAME, filetype=Folder.ANALYSES, filename=pdf_filename),
         )
     elif GRAPH == Graph.SPECTRUM:
-        group = read_group_from_jsonfile(GROUPNAME, read_sounddata=False, read_spectrumdata=True)
+        group = step_read_group_from_jsonfile(GROUPNAME, read_sounddata=False, read_spectrumdata=True)
         pdf_filename = "spectra_with_partials_ratio.pdf"
         create_pdf(
             group=group,

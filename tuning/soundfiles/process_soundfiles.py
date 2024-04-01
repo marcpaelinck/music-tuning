@@ -38,16 +38,16 @@ from tuning.common.constants import (
 from tuning.common.utils import (
     get_logger,
     get_path,
-    read_group_from_jsonfile,
-    save_group_to_jsonfile,
+    step_read_group_from_jsonfile,
+    step_save_group_to_jsonfile,
 )
 from tuning.soundfiles.enhance_soundfiles import (
     equalize_note_amplitudes,
     reconstruct_clipped_regions,
 )
 from tuning.soundfiles.instrumentinfo import (
-    create_group_from_info_file,
     get_notefreq_dict,
+    step_create_group_from_info_file,
 )
 from tuning.soundfiles.utils import create_soundclip_ranges
 
@@ -245,7 +245,7 @@ def process_wav_file(
             note.frequency = freq_sum / len(freq_clip_list)
 
 
-def process_sound_files(group: InstrumentGroup) -> InstrumentGroup:
+def step_process_sound_files(group: InstrumentGroup) -> InstrumentGroup:
     notefreq_dict = get_notefreq_dict(group.grouptype)
     for instrument in group.instruments:
         process_wav_file(group=group, instrument=instrument, notefreq_dict=notefreq_dict)

@@ -18,8 +18,8 @@ from tuning.common.constants import NOTE_PATTERN, Folder, InstrumentGroupName
 from tuning.common.utils import (
     get_path,
     parse_json_file,
-    read_group_from_jsonfile,
     read_object_from_jsonfile,
+    step_read_group_from_jsonfile,
 )
 
 

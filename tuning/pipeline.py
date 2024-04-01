@@ -2,9 +2,9 @@ from enum import Enum, auto
 from functools import partial
 from itertools import pairwise
 
-from tuning.analysis.aggregation import create_aggregated_partials_dict
+from tuning.analysis.aggregation import step_create_aggregated_partials_dict
 from tuning.analysis.dissonance import plot_dissonance_graphs
-from tuning.analysis.partials import create_partials
+from tuning.analysis.partials import step_create_partials
 from tuning.analysis.spectrum import (
     create_spectra,
     create_spectrum,
@@ -18,13 +18,13 @@ from tuning.common.constants import (
 )
 from tuning.common.utils import (
     get_path,
-    read_group_from_jsonfile,
     read_object_from_jsonfile,
-    save_group_to_jsonfile,
     save_object_to_jsonfile,
+    step_read_group_from_jsonfile,
+    step_save_group_to_jsonfile,
 )
-from tuning.soundfiles.instrumentinfo import create_group_from_info_file
-from tuning.soundfiles.process_soundfiles import process_sound_files
+from tuning.soundfiles.instrumentinfo import step_create_group_from_info_file
+from tuning.soundfiles.process_soundfiles import step_process_sound_files
 from tuning.visualization.plotter import plot_note_spectra, plot_sounddata
 from tuning.visualization.utils import create_pdf
 
@@ -80,8 +80,8 @@ class PipeLine:
         by the next function.
         """
         self.actions = {
-            Step.CREATE_GROUP: (create_group_from_info_file, InstrumentGroupName, InstrumentGroup),
-            Step.READ_GROUP: (read_group_from_jsonfile, InstrumentGroupName, InstrumentGroup),
+            Step.CREATE_GROUP: (step_create_group_from_info_file, InstrumentGroupName, InstrumentGroup),
+            Step.READ_GROUP: (step_read_group_from_jsonfile, InstrumentGroupName, InstrumentGroup),
             Step.READ_GROUP_WITH_SOUNDDATA: (self.step_read_group_with_sounddata, InstrumentGroupName, InstrumentGroup),
             Step.READ_GROUP_WITH_SPECTRUMDATA: (
                 self.step_read_group_with_spectrumdata,
@@ -93,12 +93,12 @@ class PipeLine:
                 InstrumentGroupName,
                 AggregatedPartialDict,
             ),
-            Step.PROCESS_SOUNDFILES: (process_sound_files, InstrumentGroup, InstrumentGroup),
+            Step.PROCESS_SOUNDFILES: (step_process_sound_files, InstrumentGroup, InstrumentGroup),
             Step.CREATE_SPECTRA: (self.step_create_spectra, InstrumentGroup, InstrumentGroup),
             Step.CREATE_SPECTRA_AUDACITY: (self.step_create_spectra_audacity, InstrumentGroup, InstrumentGroup),
-            Step.CREATE_PARTIALS: (create_partials, InstrumentGroup, InstrumentGroup),
-            Step.AGGREGATE_PARTIALS: (create_aggregated_partials_dict, InstrumentGroup, AggregatedPartialDict),
-            Step.SAVE_JSON_ONLY: (save_group_to_jsonfile, InstrumentGroup, InstrumentGroup),
+            Step.CREATE_PARTIALS: (step_create_partials, InstrumentGroup, InstrumentGroup),
+            Step.AGGREGATE_PARTIALS: (step_create_aggregated_partials_dict, InstrumentGroup, AggregatedPartialDict),
+            Step.SAVE_JSON_ONLY: (step_save_group_to_jsonfile, InstrumentGroup, InstrumentGroup),
             Step.SAVE_JSON_AND_SPECTRA: (self.step_save_json_and_spectra, InstrumentGroup, InstrumentGroup),
             Step.SAVE_AGGREGATED_PARTIALS: (
                 self.step_save_aggregated_partials,
@@ -131,11 +131,11 @@ class PipeLine:
         self.pipe = pipe
 
         # Each step function should expect exactly one argument. Pre-assign all other arguments here.
-        self.step_read_group_with_sounddata = partial(read_group_from_jsonfile, read_sounddata=True)
-        self.step_read_group_with_spectrumdata = partial(read_group_from_jsonfile, read_spectrumdata=True)
+        self.step_read_group_with_sounddata = partial(step_read_group_from_jsonfile, read_sounddata=True)
+        self.step_read_group_with_spectrumdata = partial(step_read_group_from_jsonfile, read_spectrumdata=True)
         self.step_create_spectra = partial(create_spectra, spectrum_method=create_spectrum)
         self.step_create_spectra_audacity = partial(create_spectra, spectrum_method=create_spectrum_audacity)
-        self.step_save_json_and_spectra = partial(save_group_to_jsonfile, save_spectrumdata=True)
+        self.step_save_json_and_spectra = partial(step_save_group_to_jsonfile, save_spectrumdata=True)
         self.step_save_aggregated_partials = partial(
             save_object_to_jsonfile,
             filepath=get_path(groupname, Folder.ANALYSES, AGGREGATED_PARTIALS_FILE),

@@ -36,8 +36,8 @@ from tuning.common.utils import (
     convert_spectrum_freq,
     get_logger,
     get_path,
-    read_group_from_jsonfile,
-    save_group_to_jsonfile,
+    step_read_group_from_jsonfile,
+    step_save_group_to_jsonfile,
 )
 
 logger = get_logger(__name__)
@@ -170,7 +170,7 @@ def get_partials(
     return partials, properties
 
 
-def create_partials(orchestra: InstrumentGroup, count: int = DEFAULT_NR_OF_PARTIALS) -> InstrumentGroup:
+def step_create_partials(orchestra: InstrumentGroup, count: int = DEFAULT_NR_OF_PARTIALS) -> InstrumentGroup:
     """
     Determines frequency peaks for all files in the given folder
     Args:
@@ -219,7 +219,7 @@ if __name__ == "__main__":
     # Set this value before running
     GROUPNAME = InstrumentGroupName.SEMAR_PAGULINGAN
 
-    orchestra = read_group_from_jsonfile(groupname=GROUPNAME, read_spectrumdata=True, save_spectrumdata=False)
-    create_partials(orchestra)
+    orchestra = step_read_group_from_jsonfile(groupname=GROUPNAME, read_spectrumdata=True, save_spectrumdata=False)
+    step_create_partials(orchestra)
     print("saving results")
-    save_group_to_jsonfile(orchestra, save_spectrumdata=False)
+    step_save_group_to_jsonfile(orchestra, save_spectrumdata=False)

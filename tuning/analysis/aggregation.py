@@ -22,8 +22,8 @@ from tuning.common.constants import (
 from tuning.common.utils import (
     get_logger,
     get_path,
-    read_group_from_jsonfile,
     save_object_to_jsonfile,
+    step_read_group_from_jsonfile,
 )
 
 logger = get_logger(__name__)
@@ -85,7 +85,7 @@ def aggregated_partials_list(
     ]
 
 
-def create_aggregated_partials_dict(group: InstrumentGroup) -> AggregatedPartialDict:
+def step_create_aggregated_partials_dict(group: InstrumentGroup) -> AggregatedPartialDict:
     """
     Creates a dictionary with lists of aggregated partials. Aggregation is performed
     for each instrumenttype - ombaktype - octave combination.
@@ -132,8 +132,8 @@ if __name__ == "__main__":
     # Set this value before running
     GROUPNAME = InstrumentGroupName.SEMAR_PAGULINGAN
 
-    orchestra = read_group_from_jsonfile(GROUPNAME, read_sounddata=False, read_spectrumdata=False)
-    aggr_partials = create_aggregated_partials_dict(orchestra)
+    orchestra = step_read_group_from_jsonfile(GROUPNAME, read_sounddata=False, read_spectrumdata=False)
+    aggr_partials = step_create_aggregated_partials_dict(orchestra)
     save_object_to_jsonfile(
         aggr_partials,
         get_path(orchestra.grouptype, Folder.ANALYSES, AGGREGATED_PARTIALS_FILE),

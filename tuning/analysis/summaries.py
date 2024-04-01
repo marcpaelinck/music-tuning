@@ -10,13 +10,13 @@ from tuning.common.constants import (
 from tuning.common.utils import (
     db_to_ampl,
     get_path,
-    read_group_from_jsonfile,
     read_object_from_jsonfile,
+    step_read_group_from_jsonfile,
 )
 
 
 def summarize_instrument_info(groupname: InstrumentGroupName, filepath: str):
-    orchestra = read_group_from_jsonfile(groupname)
+    orchestra = step_read_group_from_jsonfile(groupname)
     instr_info = [
         {
             "instrument": instrument.instrumenttype.value,
@@ -52,7 +52,7 @@ def avg_note_freq_per_instrument_type(
     Returns:
         pd.DataFrame: _description_
     """
-    orchestra = read_group_from_jsonfile(groupname, read_sounddata=False, read_spectrumdata=False)
+    orchestra = step_read_group_from_jsonfile(groupname, read_sounddata=False, read_spectrumdata=False)
     summary = [
         {
             "type": instr.instrumenttype,

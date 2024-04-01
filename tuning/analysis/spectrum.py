@@ -26,8 +26,8 @@ from tuning.common.constants import (
 from tuning.common.utils import (
     get_logger,
     get_path,
-    read_group_from_jsonfile,
-    save_group_to_jsonfile,
+    step_read_group_from_jsonfile,
+    step_save_group_to_jsonfile,
 )
 
 logger = get_logger(__name__)
@@ -218,6 +218,6 @@ if __name__ == "__main__":
     # Set this value before running
     GROUPNAME = InstrumentGroupName.SEMAR_PAGULINGAN
 
-    orchestra = read_group_from_jsonfile(GROUPNAME, read_sounddata=True)
+    orchestra = step_read_group_from_jsonfile(GROUPNAME, read_sounddata=True)
     create_spectra(orchestra)
-    save_group_to_jsonfile(orchestra, save_spectrumdata=True)
+    step_save_group_to_jsonfile(orchestra, save_spectrumdata=True)

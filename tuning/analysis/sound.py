@@ -8,11 +8,11 @@ from scipy.io import wavfile
 
 from tuning.common.classes import NoteName, Ratio
 from tuning.common.constants import InstrumentGroupName
-from tuning.common.utils import read_group_from_jsonfile
+from tuning.common.utils import step_read_group_from_jsonfile
 
 
 def average_freq_per_type(groupname: InstrumentGroupName, asdict: bool = True) -> dict:
-    orchestra = read_group_from_jsonfile(groupname, read_sounddata=False, read_spectrumdata=False)
+    orchestra = step_read_group_from_jsonfile(groupname, read_sounddata=False, read_spectrumdata=False)
     summary = [
         {
             "type": instr.instrumenttype.value,
