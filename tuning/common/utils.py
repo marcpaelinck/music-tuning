@@ -112,8 +112,8 @@ def convert_freq(value: float, from_unit: FreqUnit, to_unit: FreqUnit, ref_value
             logger.error(f"Conversion from {from_unit.value} to {to_unit.value} not implemented.")
 
 
-def get_partial(note: Note) -> Tone:
-    return note.partials[note.partial_index].tone
+def get_fundamental(note: Note) -> Tone:
+    return note.aggr_partials[note.fundamental_index].tone
 
 
 def save_object_to_jsonfile(
@@ -135,7 +135,8 @@ def save_group_to_jsonfile(group: InstrumentGroup, save_spectrumdata=False) -> I
         logger.info("Saving spectra")
         for instrument in group.instruments:
             for note in instrument.notes:
-                note.spectrum.save_spectrum_data = True
+                for spectrum in note.spectra:
+                    spectrum.save_spectrum_data = True
     filepath = get_path(group.grouptype, Folder.SETTINGS, f"{group.grouptype.value}.json")
     save_object_to_jsonfile(group, filepath)
     return group

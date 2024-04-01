@@ -1,5 +1,6 @@
 import math
-from xmlrpc.client import MAXINT
+import sys
+from collections import defaultdict
 
 import numpy as np
 import scipy.cluster.hierarchy as hcluster
@@ -8,9 +9,6 @@ from tuning.common.classes import (
     AggregatedPartial,
     AggregatedPartialDict,
     InstrumentGroup,
-    InstrumentType,
-    Octave,
-    OmbakType,
     Partial,
     Tone,
 )
@@ -43,101 +41,84 @@ def average_ratio(partials: list[Partial]) -> float:
     return np.average(p.ratio for p in partials)
 
 
-def aggregated_partials(
-    partials: list[Partial],
-    instrumenttype: InstrumentType,
-    ombaktype: OmbakType,
-    octave: Octave,
-) -> AggregatedPartial:
-    avg_freq = np.average([p.tone.frequency for p in partials])
-    avg_ampl = np.average([p.tone.amplitude for p in partials])
-    # Note: avg_ratio will be recalculated later, based on average fundamental freq.
-    avg_ratio = np.average([p.ratio for p in partials])
-    isfundamental = partials[0].isfundamental
-    return AggregatedPartial(
-        instrumenttype=instrumenttype,
-        ombaktype=ombaktype,
-        octave=octave,
-        tone=Tone(frequency=avg_freq, amplitude=avg_ampl),
-        isfundamental=isfundamental,
-        partials=partials,
-        ratio=avg_ratio,
+def aggregated_partials_list(
+    partials: list[Partial], dist_cent: int = DISTINCTIVENESS_CENT, keep_nr: int = KEEP_NR_PARTIALS
+) -> list[AggregatedPartial]:
+    """
+    Creates clusters from a list of partials and returns a list of AggregatedPartial objects.
+    The clusters are created by grouping partials with similar frequencies. The constant
+    DISTINCTIVENESS_CENT determines the maximum width of each cluster.
+
+    Args:
+        partials (list[Partial]): The partials that should be clustered
+        dist_cent (int): Threshold for clustering, in cents
+        keep_nr (int): Number of partials to keep
+
+    Returns:
+        list[AggregatedPartial]: Partials, aggregated by cluster
+    """
+    cents_collection = [ratio_to_cents(partial.ratio) for partial in partials if partial.ratio > 0]
+    threshold = dist_cent
+    clusters = hcluster.fclusterdata(
+        np.array(cents_collection).reshape(-1, 1),
+        threshold,
+        criterion="distance",
+        method="centroid",
     )
-
-
-def create_aggregated_partials(group: InstrumentGroup) -> AggregatedPartialDict:
-    # Grouping by instrument type, ombaktype and octave
-    keyvalues = {
-        (instrument.instrumenttype, instrument.ombaktype, octave_idx)
-        for instrument in group.instruments
-        for octave_idx in {note.octave for note in instrument.notes}
-    }
-    cents_collections = {
-        (itype, ombak, octave): [
-            ratio_to_cents(partial.ratio)
-            for instrument in group.instruments
-            if instrument.instrumenttype == itype and instrument.ombaktype == ombak
-            for note in instrument.notes
-            if note.octave == octave
-            for partial in note.partials
-            if partial.ratio > 0
-        ]
-        for (itype, ombak, octave) in keyvalues
-    }
-    partial_collections = {
-        (itype, ombak, octave): [
-            partial
-            for instrument in group.instruments
-            if instrument.instrumenttype == itype and instrument.ombaktype == ombak
-            for note in instrument.notes
-            if note.octave == octave
-            for partial in note.partials
-        ]
-        for (itype, ombak, octave) in keyvalues
-    }
-    thresh = DISTINCTIVENESS_CENT  # 1/2 of a semitone
-    clusters = {
-        key: hcluster.fclusterdata(
-            np.array(partials).reshape(-1, 1),
-            thresh,
-            criterion="distance",
-            method="centroid",
+    clustering = [[partials[i] for i in range(len(partials)) if clusters[i] == cl] for cl in set(clusters)]
+    largest_clusters = sorted(clustering, key=lambda c: sys.maxsize * c[0].isfundamental + len(c), reverse=True)[
+        :keep_nr
+    ]
+    # Note: avg_ratio should be recalculated later, based on average fundamental freq.
+    return [
+        AggregatedPartial(
+            tone=Tone(
+                frequency=np.average([p.tone.frequency for p in cluster]),
+                amplitude=np.average([p.tone.amplitude for p in cluster]),
+            ),
+            isfundamental=cluster[0].isfundamental,
+            ratio=np.average([p.ratio for p in cluster]),
+            prominence=np.average([p.prominence for p in cluster]),
+            partials=cluster,
         )
-        for key, partials in cents_collections.items()
-    }
-    clustering = {
-        key: [
-            [partials[i] for i in range(len(partials)) if clusters[key][i] == cl]
-            for cl in set(clusters[key])
-        ]
-        for key, partials in partial_collections.items()
-    }
-    largest_clusters = {
-        group: sorted(clusters, key=lambda c: MAXINT * c[0].isfundamental + len(c), reverse=True)[
-            :KEEP_NR_PARTIALS
-        ]
-        for group, clusters in clustering.items()
-    }
-    aggregated = AggregatedPartialDict(
-        root={
-            f"{itype.value}#{ombak.value}-octave {octave.index}": [
-                aggregated_partials(
-                    partials=cluster,
-                    instrumenttype=itype,
-                    ombaktype=ombak,
-                    octave=octave,
-                )
-                for cluster in clusters
-            ]
-            for (itype, ombak, octave), clusters in largest_clusters.items()
-        }
-    )
+        for cluster in largest_clusters
+    ]
+
+
+def create_aggregated_partials_dict(group: InstrumentGroup) -> AggregatedPartialDict:
+    """
+    Creates a dictionary with lists of aggregated partials. Aggregation is performed
+    for each instrumenttype - ombaktype - octave combination.
+
+    Args:
+        group (InstrumentGroup): Group of instruments to analyze
+
+    Raises:
+        Exception: If a fundamental is missing in one of the aggregations.
+
+    Returns:
+        AggregatedPartialDict:
+    """
+    partials_dict = defaultdict(list)
+    for instrument in group.instruments:
+        for note in instrument.notes:
+            partials_dict[(instrument.instrumenttype, instrument.ombaktype, note.octave)].extend(
+                [partial for p_list in note.partials for partial in p_list]
+            )
+
+    aggregated_dict = defaultdict(list)
+    for (instrumenttype, ombaktype, octave), partials in partials_dict.items():
+        aggregated_dict[f"{instrumenttype.value}#{ombaktype.value}-octave {octave.index}"] = aggregated_partials_list(
+            partials
+        )
+
+    aggregated = AggregatedPartialDict(root=aggregated_dict)
     # Recalculate the ratio, based on average frequencies
     for key, agglist in aggregated.root.items():
         fundamental = next((agg for agg in agglist if agg.isfundamental), None)
         if not fundamental:
             raise Exception(
-                f"Fundamental is missing for {key}, aggr partials are {[(agg.tone.frequency, (agg.octave.start_freq, agg.octave.end_freq)) for agg in agglist]}"
+                f"Fundamental is missing for {key}, aggr partials are {[(agg.tone.frequency, (agg.octave.start_frequency, agg.octave.end_frequency)) for agg in agglist]}"
             )
         for aggregate in agglist:
             oldratio = aggregate.ratio
@@ -152,8 +133,8 @@ if __name__ == "__main__":
     GROUPNAME = InstrumentGroupName.SEMAR_PAGULINGAN
 
     orchestra = read_group_from_jsonfile(GROUPNAME, read_sounddata=False, read_spectrumdata=False)
-    aggregated_partials = create_aggregated_partials(orchestra)
+    aggr_partials = create_aggregated_partials_dict(orchestra)
     save_object_to_jsonfile(
-        aggregated_partials,
+        aggr_partials,
         get_path(orchestra.grouptype, Folder.ANALYSES, AGGREGATED_PARTIALS_FILE),
     )

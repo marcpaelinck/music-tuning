@@ -2,7 +2,7 @@ from enum import Enum, auto
 from functools import partial
 from itertools import pairwise
 
-from tuning.analysis.aggregation import create_aggregated_partials
+from tuning.analysis.aggregation import create_aggregated_partials_dict
 from tuning.analysis.dissonance import plot_dissonance_graphs
 from tuning.analysis.partials import create_partials
 from tuning.analysis.spectrum import (
@@ -30,11 +30,11 @@ from tuning.visualization.utils import create_pdf
 
 
 class Step(Enum):
-    READ_GROUP = 1
+    CREATE_GROUP = 1
+    READ_GROUP = auto()
     READ_GROUP_WITH_SOUNDDATA = auto()
     READ_GROUP_WITH_SPECTRUMDATA = auto()
     READ_AGGREGATED_PARTIALS = auto()
-    CREATE_GROUP = auto()
     PROCESS_SOUNDFILES = 100
     CREATE_SPECTRA = auto()
     CREATE_SPECTRA_AUDACITY = auto()
@@ -97,7 +97,7 @@ class PipeLine:
             Step.CREATE_SPECTRA: (self.step_create_spectra, InstrumentGroup, InstrumentGroup),
             Step.CREATE_SPECTRA_AUDACITY: (self.step_create_spectra_audacity, InstrumentGroup, InstrumentGroup),
             Step.CREATE_PARTIALS: (create_partials, InstrumentGroup, InstrumentGroup),
-            Step.AGGREGATE_PARTIALS: (create_aggregated_partials, InstrumentGroup, AggregatedPartialDict),
+            Step.AGGREGATE_PARTIALS: (create_aggregated_partials_dict, InstrumentGroup, AggregatedPartialDict),
             Step.SAVE_JSON_ONLY: (save_group_to_jsonfile, InstrumentGroup, InstrumentGroup),
             Step.SAVE_JSON_AND_SPECTRA: (self.step_save_json_and_spectra, InstrumentGroup, InstrumentGroup),
             Step.SAVE_AGGREGATED_PARTIALS: (
@@ -195,21 +195,23 @@ class PipeLine:
 
 if __name__ == "__main__":
     pipe = [
-        Step.CREATE_GROUP,
-        Step.PROCESS_SOUNDFILES,
+        # Step.CREATE_GROUP,
+        # Step.PROCESS_SOUNDFILES,
         # Step.SAVE_JSON_ONLY,
-        # Step.READ_GROUP_WITH_SPECTRUMDATA,
+        Step.READ_GROUP_WITH_SPECTRUMDATA,
         # Step.READ_GROUP_WITH_SOUNDDATA,
-        Step.CREATE_SPECTRA_AUDACITY,
+        # Step.READ_GROUP,
+        # Step.CREATE_SPECTRA_AUDACITY,
         # Step.CREATE_SPECTRA,
-        Step.CREATE_PARTIALS,
-        Step.SAVE_JSON_AND_SPECTRA,
-        Step.PLOT_SOUNDDATA,
+        # Step.CREATE_PARTIALS,
+        # Step.SAVE_JSON_ONLY,
+        # Step.SAVE_JSON_AND_SPECTRA,
+        # Step.PLOT_SOUNDDATA,
         Step.PLOT_NOTE_SPECTRA,
-        Step.AGGREGATE_PARTIALS,
-        Step.SAVE_AGGREGATED_PARTIALS,
+        # Step.AGGREGATE_PARTIALS,
+        # Step.SAVE_AGGREGATED_PARTIALS,
         # Step.READ_AGGREGATED_PARTIALS,
-        Step.PLOT_DISSONANCE_GRAPHS,
+        # Step.PLOT_DISSONANCE_GRAPHS,
     ]
     pipeline = PipeLine(InstrumentGroupName.SEMAR_PAGULINGAN, pipe)
     pipeline.execute()

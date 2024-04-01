@@ -1,5 +1,5 @@
+import sys
 from typing import Callable
-from xmlrpc.client import MAXINT
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -13,6 +13,7 @@ from tuning.common.classes import (
     Instrument,
     InstrumentGroup,
     Note,
+    Sample,
     Spectrum,
     Tone,
 )
@@ -77,7 +78,7 @@ def import_spectrum(
     )
 
 
-def create_spectrum(note: Note, filepath: str, truncate=(0, MAXINT)) -> Spectrum:
+def create_spectrum(sample: Sample, filepath: str, truncate=(0, sys.maxsize)) -> Spectrum:
     """
     Creates a spectrum file for a Note object. The spectrum analysis is performed
     on a single channel.
@@ -91,13 +92,13 @@ def create_spectrum(note: Note, filepath: str, truncate=(0, MAXINT)) -> Spectrum
         NoteInfoList: _description_
     """
     # amplitudes = np.float64(pd.DataFrame(note_info.sample.data)[track])
-    amplitudes = np.concatenate(note.sample.data.T)
+    amplitudes = np.concatenate(sample.data.T)
     # normalize between 0 and 1
     ampl_normalized = amplitudes / np.max(amplitudes)
     # Calculate fourier transform (returns complex numbers list).
     # Discard the imaginary part.
     ampl = np.abs(fft(ampl_normalized))
-    freq = fftfreq(len(ampl), 1 / note.sample.sample_rate)
+    freq = fftfreq(len(ampl), 1 / sample.sample_rate)
     # Remove negative frequencies.
     # Note that fftfreq generates [0, minfreq, .., maxfreq, -maxfreq, ..., -minfreq]
     max_index = np.argmax(freq)
@@ -117,7 +118,7 @@ def create_spectrum(note: Note, filepath: str, truncate=(0, MAXINT)) -> Spectrum
     return truncate_spectrum(spectrum, min_freq=truncate[0], max_freq=truncate[1])
 
 
-def create_spectrum_audacity(note: Note, filepath: str, truncate=(0, MAXINT)) -> Spectrum:
+def create_spectrum_audacity(sample: Sample, filepath: str, truncate=(0, sys.maxsize)) -> Spectrum:
     """
     Creates a spectrum file for a NoteInfo object. The spectrum analysis is performed
     on a single channel. The data is divided into 'bins' and spectra are created for each
@@ -132,7 +133,7 @@ def create_spectrum_audacity(note: Note, filepath: str, truncate=(0, MAXINT)) ->
         NoteInfoList: _description_
     """
     # concatenate all channels into one data stream
-    amplitudes = np.concatenate(note.sample.data.T)
+    amplitudes = np.concatenate(sample.data.T)
     # normalize between 0 and 1
     ampl_normalized = amplitudes / np.max(amplitudes)
     # Calculate fourier transform (returns complex numbers list).
@@ -143,7 +144,7 @@ def create_spectrum_audacity(note: Note, filepath: str, truncate=(0, MAXINT)) ->
     results = list()
     for bin in range(len(ampl_normalized) // BINSIZE):
         ampl = np.abs(fft(ampl_normalized[bin * BINSIZE : (bin + 1) * BINSIZE]))
-        freq = fftfreq(len(ampl), 1 / note.sample.sample_rate)
+        freq = fftfreq(len(ampl), 1 / sample.sample_rate)
         # Remove negative frequencies.
         # Remark that fftfreq generates [0, minfreq, .., maxfreq, -maxfreq, ..., -minfreq]
         max_index = np.argmax(freq)
@@ -163,7 +164,7 @@ def create_spectrum_audacity(note: Note, filepath: str, truncate=(0, MAXINT)) ->
     return truncate_spectrum(spectrum, min_freq=truncate[0], max_freq=truncate[1])
 
 
-def get_spectrum_filepath(group: InstrumentGroup, instrument: Instrument, note: Note) -> str:
+def get_spectrum_filepath(group: InstrumentGroup, instrument: Instrument, note: Note, id: int) -> str:
     """
     Returns the path to the file containing the frequency spectrum of the given note.
 
@@ -171,13 +172,12 @@ def get_spectrum_filepath(group: InstrumentGroup, instrument: Instrument, note: 
         group (InstrumentGroup): the instrument group
         instrument (Instrument): the instrument within the group
         note (Note): the note of the instrument
+        id (int): the sample sequence of the note
 
     Returns:
         str: relative path to the spectrum file.
     """
-    filename = (
-        f"{instrument.instrumenttype.value.replace(" "," ")}-{instrument.code}-{note.name}-{note.octave.index}.csv"
-    )
+    filename = f"{instrument.instrumenttype.value}-{instrument.code}-{note.name}-{note.octave.index}-({id:0>2}).csv"
     return get_path(group.grouptype, Folder.SPECTRUM, filename)
 
 
@@ -199,7 +199,13 @@ def create_spectra(orchestra: InstrumentGroup, spectrum_method: Callable = creat
             continue
         logger.info(f"Generating spectrum files.")
         for note in instrument.notes:
-            note.spectrum = spectrum_method(note, filepath=get_spectrum_filepath(orchestra, instrument, note))
+            note.spectra = list()
+            for sample in note.samples:
+                note.spectra.append(
+                    spectrum_method(
+                        sample, filepath=get_spectrum_filepath(orchestra, instrument, note, note.samples.index(sample))
+                    )
+                )
             # save_spectrum(note.spectrum)
     for instrument in orchestra.instruments:
         if instrument.error:

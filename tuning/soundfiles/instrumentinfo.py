@@ -34,32 +34,24 @@ from tuning.common.utils import get_path, note_from_shortcode
 
 
 def get_octave_dict(groupname: InstrumentGroupName) -> dict[int, Octave]:
-    oct_df = pd.read_excel(
-        get_path(groupname, Folder.SETTINGS, INSTRUMENT_INFO_FILE), sheet_name="Octaves"
-    )
+    oct_df = pd.read_excel(get_path(groupname, Folder.SETTINGS, INSTRUMENT_INFO_FILE), sheet_name="Octaves")
     row_list = (
-        oct_df[oct_df[INSTRUMENT_GROUP] == groupname.value]
-        .drop(INSTRUMENT_GROUP, axis=1)
-        .to_dict(orient="records")
+        oct_df[oct_df[INSTRUMENT_GROUP] == groupname.value].drop(INSTRUMENT_GROUP, axis=1).to_dict(orient="records")
     )
     octave_dict = dict()
     for row in row_list:
         octave_dict[row[OCTAVE_SEQ]] = Octave(
             index=row[OCTAVE_SEQ],
-            start_freq=row[START_FREQ],
-            end_freq=row[END_FREQ],
+            start_frequency=row[START_FREQ],
+            end_frequency=row[END_FREQ],
         )
     return octave_dict
 
 
 def get_notefreq_dict(groupname: InstrumentGroupName) -> dict[Frequency, (NoteName, OctaveNbr)]:
-    note_df = pd.read_excel(
-        get_path(groupname, Folder.SETTINGS, INSTRUMENT_INFO_FILE), sheet_name="Notes"
-    )
+    note_df = pd.read_excel(get_path(groupname, Folder.SETTINGS, INSTRUMENT_INFO_FILE), sheet_name="Notes")
     row_list = (
-        note_df[note_df[INSTRUMENT_GROUP] == groupname.value]
-        .drop(INSTRUMENT_GROUP, axis=1)
-        .to_dict(orient="records")
+        note_df[note_df[INSTRUMENT_GROUP] == groupname.value].drop(INSTRUMENT_GROUP, axis=1).to_dict(orient="records")
     )
     note_dict = dict()
     for row in row_list:
@@ -90,8 +82,8 @@ def create_group_from_info_file(groupname: InstrumentGroupName) -> InstrumentGro
                     name=note_from_shortcode(shortcode),
                     octave=octave_dict[int(shortcode[-1])],
                     order_in_soundfile=shortcodes.index(shortcode),
-                    freq=0,
-                    partial_index=0,
+                    frequency=0,
+                    fundamental_index=0,
                     partials=[],
                 )
                 for shortcode in shortcodes

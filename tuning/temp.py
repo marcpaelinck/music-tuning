@@ -181,7 +181,7 @@ def func(oct: Octave, b: int):
 
 
 if __name__ == "__main__":
-    oct = Octave(index=2, start_freq=100, end_freq=200)
+    oct = Octave(index=2, start_frequency=100, end_frequency=200)
     p = partial(func, b=5)
     q = p(oct)
     print(q)

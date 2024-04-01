@@ -63,9 +63,9 @@ def plot_note_spectra(
     show: bool = False,
 ) -> bool:
     xmin = 0
-    xmax = max(np.max(note.spectrum.frequencies) for note in object.notes)
+    xmax = max(np.max(spectrum.frequencies) for note in object.notes for spectrum in note.spectra)
     ymin = -100
-    ymax = max(np.max(note.spectrum.amplitudes) for note in object.notes)
+    ymax = max(np.max(spectrum.amplitudes) for note in object.notes for spectrum in note.spectra)
 
     plot_content = []
     if "partials" in what:
@@ -73,7 +73,7 @@ def plot_note_spectra(
             max(
                 partial.ratio if ratio else partial.tone.frequency
                 for note in object.notes
-                for partial in note.partials[:max_partials]
+                for partial in note.aggr_partials[:max_partials]
             )
             * 1.05
         )
@@ -85,9 +85,9 @@ def plot_note_spectra(
                             p.ratio if ratio else p.tone.frequency,
                             0,
                             p.tone.amplitude,
-                            "r" if p.isfundamental else "y" if note.partials.index(p) < 4 else "c",
+                            "r" if p.isfundamental else "y" if note.aggr_partials.index(p) < 4 else "c",
                         )
-                        for p in note.partials[:max_partials]
+                        for p in note.aggr_partials[:max_partials]
                     ]
                 )
             )
@@ -96,9 +96,9 @@ def plot_note_spectra(
         plot_content.append((note_partials, PlotType.VLINES))
 
     if "spectra" in what:
-        spectra = [(note.spectrum.frequencies, note.spectrum.amplitudes) for note in object.notes]
+        spectra = [(spectrum.frequencies, spectrum.amplitudes) for note in object.notes for spectrum in note.spectra]
         if ratio:
-            fund_freqs = [note.partials[note.partial_index].tone.frequency for note in object.notes]
+            fund_freqs = [note.aggr_partials[note.fundamental_index].tone.frequency for note in object.notes]
             spectra = [
                 ([freq / fund_freq for freq in spectrum[0]], spectrum[1])
                 for spectrum, fund_freq in zip(spectra, fund_freqs)
@@ -173,7 +173,8 @@ def plot_sounddata(
                 *[
                     (border / sample_rate, ymin, ymax, "r")
                     for note in object.notes
-                    for border in (note.sample.cliprange.start, note.sample.cliprange.end)
+                    for sample in note.samples
+                    for border in (sample.cliprange.start, sample.cliprange.end)
                 ]
             )
         )
@@ -185,7 +186,7 @@ def plot_sounddata(
     plottexts = [
         [
             {
-                "x": (note.sample.cliprange.start + note.sample.cliprange.end) / (2 * sample_rate),
+                "x": (sample.cliprange.start + sample.cliprange.end) / (2 * sample_rate),
                 "y": ymax - 0.1 * (ymax - ymin),
                 "s": note.name.value,
                 "horizontalalignment": "center",
@@ -193,6 +194,7 @@ def plot_sounddata(
                 "color": "b",
             }
             for note in object.notes
+            for sample in note.samples
         ],
         [],
     ]

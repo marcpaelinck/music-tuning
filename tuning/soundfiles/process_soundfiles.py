@@ -4,6 +4,8 @@ a separate wave pattern for each note.
 """
 
 import os
+import statistics
+from collections import defaultdict
 
 import numpy as np
 from matplotlib.figure import Figure
@@ -52,9 +54,7 @@ from tuning.soundfiles.utils import create_soundclip_ranges
 logger = get_logger(__name__)
 
 
-def determine_fundamental_freq(
-    sample: SoundData, sample_rate: float, freq_range: tuple[float, float]
-) -> int:
+def determine_fundamental_freq(sample: SoundData, sample_rate: float, freq_range: tuple[float, float]) -> int:
     """
     Searches for the frequency of the fundamental
 
@@ -94,8 +94,8 @@ def matches_note_pattern(clip: SoundData) -> bool:
 
 
 def detect_individual_notes(
-    sample_rate: int, data: SoundData, notefreq_dict: dict[(NoteName, int), Frequency]
-) -> list[tuple[tuple[NoteName, OctaveNbr], IntFrequency, ClipRange]]:
+    sample_rate: int, data: SoundData, notefreq_dict: dict[Frequency, (NoteName, OctaveNbr)]
+) -> dict[tuple[NoteName, OctaveNbr], list[tuple[Frequency, ClipRange]]]:
     """
     Detects the separate notes in the sound file, then creates WavePattern objects
     for each note and adds them to the given NoteInfoList.
@@ -110,20 +110,18 @@ def detect_individual_notes(
         return None
 
     logger.info(f"- Parsing individual notes.")
-    clipranges = create_soundclip_ranges(
-        data, float(AMPLITUDE_THRESHOLD_TO_AVERAGE_RATIO * abs(data).mean())
-    )
+    cliprange_list = create_soundclip_ranges(data, float(AMPLITUDE_THRESHOLD_TO_AVERAGE_RATIO * abs(data).mean()))
 
     # Merge clip ranges that are separated by less than 0.1 second
     logger.info("--- Merging sound ranges.")
     minimum_length = SHORT_BLANKS_DURATION_THRESHOLD * sample_rate
     idx = 0
-    while idx < len(clipranges) - 1:
-        range1 = clipranges[idx]
-        range2 = clipranges[idx + 1]
+    while idx < len(cliprange_list) - 1:
+        range1 = cliprange_list[idx]
+        range2 = cliprange_list[idx + 1]
         if range2.start - range1.end < minimum_length:
             range1.end = range2.end
-            clipranges.remove(range2)
+            cliprange_list.remove(range2)
         else:
             idx += 1
 
@@ -135,28 +133,32 @@ def detect_individual_notes(
     note_freqs = list(notefreq_dict.keys())
     freq_range = (min(note_freqs) * 0.9, max(note_freqs) * 1.1)
 
-    clipranges = [
+    cliprange_list = [
         block
-        for block in clipranges
+        for block in cliprange_list
         if (block.end - block.start > minimum_length)
-        and (
-            (block.end - block.start > expected_length)
-            or matches_note_pattern(data[block.start : block.end])
-        )
+        and ((block.end - block.start > expected_length) or matches_note_pattern(data[block.start : block.end]))
     ]
-    frequencies = [
-        determine_fundamental_freq(data[block.start : block.end], sample_rate, freq_range)
-        for block in clipranges
+    frequency_list = [
+        determine_fundamental_freq(data[block.start : block.end], sample_rate, freq_range) for block in cliprange_list
     ]
-    noteinfo = [find_note_by_freq(freq) for freq in frequencies]
+    noteinfo_list = [find_note_by_freq(freq) for freq in frequency_list]
+
+    # create a dictionary with entries per note
+    notedict: dict[tuple[NoteName, OctaveNbr], list[tuple[Frequency, ClipRange]]] = defaultdict(list)
+    for noteinfo, frequency, cliprange in zip(noteinfo_list, frequency_list, cliprange_list):
+        notedict[noteinfo].append((frequency, cliprange))
 
     # Check that the number of series corresponds with the given info.
     logger.info("--- The following clip ranges were detected:")
-    for i in range(len(clipranges)):
-        logger.info(
-            f"---    ({(clipranges[i].start/sample_rate):.2f} sec., {(clipranges[i].end/sample_rate):.2f} sec.) freq={(frequencies[i])} note={noteinfo[i]}"
-        )
-    return noteinfo, frequencies, clipranges
+    for noteinfo, freq_clip_list in notedict.items():
+        # for i in range(len(cliprange_list)):
+        logger.info(f"---    note={noteinfo}:")
+        for frequency, cliprange in freq_clip_list:
+            logger.info(
+                f"---        ({(cliprange.start/sample_rate):.2f} sec., {(cliprange.end/sample_rate):.2f} sec.) freq={(frequency)}"
+            )
+    return notedict
 
 
 def process_wav_file(
@@ -178,32 +180,30 @@ def process_wav_file(
     suffix: text to be added to the original file name.
     """
     logger.info(f"Processing file {instrument.soundfilename}.")
-    sample_rate, data = wavfile.read(
-        get_path(group.grouptype, Folder.SOUND, instrument.soundfilename)
-    )
+    sample_rate, data = wavfile.read(get_path(group.grouptype, Folder.SOUND, instrument.soundfilename))
 
     if clip_fix:
         logger.info("Repairing regions that exceeded maximum recording level.")
         data = reconstruct_clipped_regions(data)
 
     logger.info("--- Detecting note boundaries.")
-    noteinfo, frequencies, clipranges = detect_individual_notes(sample_rate, data, notefreq_dict)
+    noteinfo_dict = detect_individual_notes(sample_rate, data, notefreq_dict)
 
-    if len(noteinfo) != len(instrument.notes):
+    # TODO remove this test after modifications to enable multiple samples for the same note
+    if len(noteinfo_dict) != len(instrument.notes):
         logger.error(
             f"--- {group.grouptype} .wav file {instrument.soundfilename}: {len(instrument.notes)} "
-            + f"notes are given, but {len(noteinfo)} were detected."
+            + f"notes are given, but {len(noteinfo_dict)} were detected."
         )
-        instrument.comment = (
-            f"ERROR: {len(instrument.notes)} notes are given, but {len(noteinfo)} were detected."
-        )
+        instrument.comment = f"ERROR: {len(instrument.notes)} notes are given, but {len(noteinfo_dict)} were detected."
         instrument.error = True
     else:
         logger.info("Number of clip ranges matches with expected number of notes.")
 
     if equalize_notes:
-        logger.info("Equalizing the amplitude of the individual noise.")
-        data = equalize_note_amplitudes(sample_rate, data, clipranges)
+        logger.info("Equalizing the amplitude of the individual notes.")
+        cliprange_list = [clip for clip_list in noteinfo_dict.values() for _, clip in clip_list]
+        data = equalize_note_amplitudes(sample_rate, data, cliprange_list)
 
     name, extension = os.path.splitext(instrument.soundfilename)
     save_filename = name + suffix + extension
@@ -215,27 +215,34 @@ def process_wav_file(
         wavfile.write(save_filepath, sample_rate, data)
 
     # Clip data into separate notes
-    for i in range(len(clipranges)):
-        note = next(
-            (
-                note
-                for note in instrument.notes
-                if note.name == noteinfo[i][0] and note.octave.index == noteinfo[i][1]
-            ),
-            None,
+    for noteinfo, freq_clip_list in noteinfo_dict.items():
+        # for i in range(len(cliprange_list)):
+        note = (
+            None
+            if not noteinfo
+            else next(
+                (note for note in instrument.notes if note.name == noteinfo[0] and note.octave.index == noteinfo[1]),
+                None,
+            )
         )
         if not note:
             logger.warning(
-                f"({noteinfo[i][0].name}, {noteinfo[i][1]}) detected but does occur in {instrument.instrumenttype.value}. Clip range will be ignored."
+                f"{noteinfo} detected but does occur in {instrument.instrumenttype.value}. Clip range will be ignored."
             )
         else:
-            note.sample = Sample(
-                data=data[clipranges[i].start : clipranges[i].end],
-                sample_rate=sample_rate,
-                soundfilepath=save_filepath,
-                cliprange=clipranges[i],
-            )
-            note.freq = frequencies[i]
+            note.samples = list()
+            freq_sum = 0
+            for frequency, cliprange in freq_clip_list:
+                note.samples.append(
+                    Sample(
+                        data=data[cliprange.start : cliprange.end],
+                        sample_rate=sample_rate,
+                        soundfilepath=save_filepath,
+                        cliprange=cliprange,
+                    )
+                )
+                freq_sum += frequency
+            note.frequency = freq_sum / len(freq_clip_list)
 
 
 def process_sound_files(group: InstrumentGroup) -> InstrumentGroup:

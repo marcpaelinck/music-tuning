@@ -45,11 +45,11 @@ END_FREQ = "end freq"
 
 # SOUNDFILES
 AMPLITUDE_THRESHOLD_TO_AVERAGE_RATIO = 0.5  # minimum amplitude for note detection
-SHORT_BLANKS_DURATION_THRESHOLD = 0.1  # low amplitude periods within a note that should not be considered as note ending, in seconds
-EXPECTED_SAMPLE_DURATION = 1  # minimum duration of a note, in seconds (to filter out random sounds)
-MINIMUM_SAMPLE_DURATION = (
-    0.4  # minimum duration of a note, in seconds (to filter out random sounds)
+SHORT_BLANKS_DURATION_THRESHOLD = (
+    0.1  # low amplitude periods within a note that should not be considered as note ending, in seconds
 )
+EXPECTED_SAMPLE_DURATION = 1  # minimum duration of a note, in seconds (to filter out random sounds)
+MINIMUM_SAMPLE_DURATION = 0.4  # minimum duration of a note, in seconds (to filter out random sounds)
 NOTE_PATTERN = [0.1, 0.15, 0.25, 0.25, 0.25]
 
 SOUNDFILE_CLIP_FIX = True  # default value for the option to fix clipped amplitudes

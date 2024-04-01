@@ -5,17 +5,22 @@ Then aggregates all 'similar' partial ratios using a DISTINCTIVENESS value.
 """
 
 import math
+import sys
+from itertools import chain
 
 from scipy.signal import find_peaks
 
+from tuning.analysis.aggregation import aggregated_partials_list
 from tuning.analysis.spectrum import truncate_spectrum
 from tuning.common.classes import (
     FreqUnit,
     InstrumentGroup,
     Note,
     NoteName,
+    Octave,
     Partial,
     Ratio,
+    Spectrum,
     Tone,
 )
 from tuning.common.constants import (
@@ -44,7 +49,8 @@ def reduce_to_octave(ratio: Ratio) -> Ratio:
 
 
 def get_partials(
-    note: Note,
+    spectrum: Spectrum,
+    octave: Octave,
     count: int = DEFAULT_NR_OF_PARTIALS,
     distinct: float = DISTINCTIVENESS_CENT,
     prominence: float = MIN_PROMINENCE,
@@ -71,23 +77,19 @@ def get_partials(
         list[Partial]: The partials with highest amplitude and prominence.
     """
     STEP = 1
-    spectrum_cent = convert_spectrum_freq(spectrum=note.spectrum, to_unit=FreqUnit.CENT, step=STEP)
+    spectrum_cent = convert_spectrum_freq(spectrum=spectrum, to_unit=FreqUnit.CENT, step=STEP)
     base_octave_cent = (
-        convert_freq(note.octave.start_freq, from_unit=FreqUnit.HERTZ, to_unit=FreqUnit.CENT),
-        convert_freq(note.octave.end_freq, from_unit=FreqUnit.HERTZ, to_unit=FreqUnit.CENT),
+        convert_freq(octave.start_frequency, from_unit=FreqUnit.HERTZ, to_unit=FreqUnit.CENT),
+        convert_freq(octave.end_frequency, from_unit=FreqUnit.HERTZ, to_unit=FreqUnit.CENT),
     )
     minfreq_cent = base_octave_cent[0]
     maxfreq_cent = minfreq_cent + max_octaves * 1200
     spectrum_cent = truncate_spectrum(spectrum_cent, min_freq=minfreq_cent, max_freq=maxfreq_cent)
     minheight = -100
-    mid_freq = (note.octave.end_freq - note.octave.start_freq) / 2
+    mid_freq = (octave.end_frequency - octave.start_frequency) / 2
     window_length = math.ceil(
-        convert_freq(
-            mid_freq + 2 * peak_window // 2, from_unit=FreqUnit.HERTZ, to_unit=FreqUnit.CENT
-        )
-        - convert_freq(
-            mid_freq - 2 * peak_window // 2, from_unit=FreqUnit.HERTZ, to_unit=FreqUnit.CENT
-        )
+        convert_freq(mid_freq + 2 * peak_window // 2, from_unit=FreqUnit.HERTZ, to_unit=FreqUnit.CENT)
+        - convert_freq(mid_freq - 2 * peak_window // 2, from_unit=FreqUnit.HERTZ, to_unit=FreqUnit.CENT)
     )
 
     indices = set()
@@ -118,8 +120,8 @@ def get_partials(
         for i in indices
     ]
     octave_bounds_cent = (
-        convert_freq(note.octave.start_freq, from_unit=FreqUnit.HERTZ, to_unit=FreqUnit.CENT),
-        convert_freq(note.octave.end_freq, from_unit=FreqUnit.HERTZ, to_unit=FreqUnit.CENT),
+        convert_freq(octave.start_frequency, from_unit=FreqUnit.HERTZ, to_unit=FreqUnit.CENT),
+        convert_freq(octave.end_frequency, from_unit=FreqUnit.HERTZ, to_unit=FreqUnit.CENT),
     )
     peaks_cent_within_octave = {
         peak for peak in peaks_cent if octave_bounds_cent[0] <= peak[0] <= octave_bounds_cent[1]
@@ -151,11 +153,9 @@ def get_partials(
     tones_within_octave = [
         (tone, prominence)
         for tone, prominence in peaks_herz
-        if note.octave.start_freq < tone.frequency < note.octave.end_freq
+        if octave.start_frequency < tone.frequency < octave.end_frequency
     ]
-    fundamental = next(
-        iter(sorted([t[0] for t in tones_within_octave], key=lambda t: -t.amplitude)), None
-    )
+    fundamental = next(iter(sorted([t[0] for t in tones_within_octave], key=lambda t: -t.amplitude)), None)
 
     partials = [
         Partial(
@@ -170,9 +170,7 @@ def get_partials(
     return partials, properties
 
 
-def create_partials(
-    orchestra: InstrumentGroup, count: int = DEFAULT_NR_OF_PARTIALS
-) -> InstrumentGroup:
+def create_partials(orchestra: InstrumentGroup, count: int = DEFAULT_NR_OF_PARTIALS) -> InstrumentGroup:
     """
     Determines frequency peaks for all files in the given folder
     Args:
@@ -195,10 +193,21 @@ def create_partials(
                 f"Determining partials for {instrument.instrumenttype} {instrument.code} {note.name.value} {note.order_in_soundfile}"
             )
             idx = f"{instrument.code}-{note.name.value}"  ###########
-            note.partials, properties[idx] = get_partials(
-                note=note,
-                count=count,
+            note.partials = list()
+            for spectrum in note.spectra:
+                partials, properties[idx] = get_partials(
+                    spectrum=spectrum,
+                    octave=note.octave,
+                    count=count,
+                )
+                note.partials.append(partials)
+            note.aggr_partials = aggregated_partials_list(
+                list(chain.from_iterable(note.partials)), dist_cent=50, keep_nr=sys.maxsize
             )
+            fundamental_aggr = next((p for p in note.aggr_partials if p.isfundamental), None)
+            if fundamental_aggr:
+                note.fundamental_index = note.aggr_partials.index(fundamental_aggr)
+                note.frequency = fundamental_aggr.tone.frequency
 
     return orchestra
 
@@ -210,9 +219,7 @@ if __name__ == "__main__":
     # Set this value before running
     GROUPNAME = InstrumentGroupName.SEMAR_PAGULINGAN
 
-    orchestra = read_group_from_jsonfile(
-        groupname=GROUPNAME, read_spectrumdata=True, save_spectrumdata=False
-    )
+    orchestra = read_group_from_jsonfile(groupname=GROUPNAME, read_spectrumdata=True, save_spectrumdata=False)
     create_partials(orchestra)
     print("saving results")
     save_group_to_jsonfile(orchestra, save_spectrumdata=False)

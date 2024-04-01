@@ -19,7 +19,7 @@ def average_freq_per_type(groupname: InstrumentGroupName, asdict: bool = True) -
             "code": instr.code,
             "note": note.name,
             "octave": note.octave.index,
-            "freq": note.partials[note.partial_index].tone.frequency,
+            "freq": note.frequency,
         }
         for instr in orchestra.instruments
         for note in instr.notes
@@ -94,9 +94,7 @@ if __name__ == "__main__":
         ("jublag", 2): [1, 1.074, 1.25, 1.34, 1.5, 1.55, 1.78],
     }
     instrument, octave = ("jublag", 2)
-    sound_averages__vs_ratios(
-        ORCHESTRA, ratios=ratios[(instrument, octave)], instrument=instrument, octave=octave
-    )
+    sound_averages__vs_ratios(ORCHESTRA, ratios=ratios[(instrument, octave)], instrument=instrument, octave=octave)
     # print(average_freq_per_type(ORCHESTRA, asdict=False))
     # generate_sound_stream(freqs=[440, 460, 480, 500])
     # play_file("data/Sine.wav")

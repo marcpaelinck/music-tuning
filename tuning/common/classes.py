@@ -69,8 +69,8 @@ class AmplUnit(Enum):
 
 class Octave(BaseModel, frozen=True):
     index: int
-    start_freq: float
-    end_freq: float
+    start_frequency: float
+    end_frequency: float
 
 
 class Tone(BaseModel):
@@ -113,9 +113,6 @@ class Partial(BaseModel):
 
 
 class AggregatedPartial(Partial):
-    instrumenttype: InstrumentType = None
-    ombaktype: OmbakType = None
-    octave: Octave = None
     partials: Optional[list[Partial]] = Field(default=None)
 
 
@@ -175,11 +172,12 @@ class Note(BaseModel):
     name: NoteName
     octave: Octave
     order_in_soundfile: int
-    freq: Optional[Frequency] = None
-    partial_index: int = None
-    sample: Optional[Sample] = None
-    spectrum: Optional[Spectrum] = None
-    partials: Optional[list[Partial]] = None
+    frequency: Optional[Frequency] = None
+    fundamental_index: int = None
+    samples: Optional[list[Sample]] = None
+    spectra: Optional[list[Spectrum]] = None
+    partials: Optional[list[list[Partial]]] = None
+    aggr_partials: Optional[list[AggregatedPartial]] = None
 
 
 class Instrument(BaseModel):

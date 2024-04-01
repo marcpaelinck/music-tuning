@@ -23,7 +23,7 @@ def summarize_instrument_info(groupname: InstrumentGroupName, filepath: str):
             "type": instrument.ombaktype,
             "code": instrument.code,
             "note": note.name,
-            "frequency": note.partials[note.partial_index].tone.frequency,
+            "frequency": note.frequency,
             "octave": note.octave.index,
         }
         for instrument in orchestra.instruments
@@ -59,7 +59,7 @@ def avg_note_freq_per_instrument_type(
             "code": instr.code,
             "note": note.name,
             "octave": note.octave.index,
-            "freq": note.partials[note.partial_index].tone.frequency,
+            "freq": note.frequency,
         }
         | ({"ombak": instr.ombaktype.value} if split_ombak else {})
         for instr in orchestra.instruments
@@ -71,9 +71,7 @@ def avg_note_freq_per_instrument_type(
         columns="note",
         values="freq",
     )
-    averages = pivot.groupby(["type", "octave"] + (["ombak"] if split_ombak else [])).aggregate(
-        func=np.average
-    )
+    averages = pivot.groupby(["type", "octave"] + (["ombak"] if split_ombak else [])).aggregate(func=np.average)
     if ratios:
         averages = averages.div(averages[NoteName.DING], axis=0)
     return averages
@@ -94,9 +92,7 @@ def aggregated_partials(groupname: InstrumentGroupName):
             "is_fund": ap.isfundamental,
         }
         for values in aggr_partials.root.values()
-        for ap in sorted(
-            values, key=lambda p: (p.instrument, p.octave, p.tone.amplitude), reverse=True
-        )
+        for ap in sorted(values, key=lambda p: (p.instrument, p.octave, p.tone.amplitude), reverse=True)
     ]
     aggr_df = pd.DataFrame(aggr_dict)
     return aggr_df
