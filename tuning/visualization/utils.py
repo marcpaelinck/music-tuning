@@ -51,10 +51,12 @@ def plot_graphs(
     def set_axes_boundaries(x_index, y_index) -> tuple[float]:
         x_min = x_max = y_min = y_max = None
         if not autox:
-            x_min = xmin if xmin != None else min(min(args[i][x_index]) for i in range(len(args)))
-            x_max = xmax if xmax != None else  max(max(args[i][x_index]) for i in range(len(args)))
-            plt.setp(axes, xlim=(x_min, x_max))
+            for arg, axis in zip(args, axes):
+                x_min = xmin if xmin != None else min(arg[x_index])
+                x_max = xmax if xmax != None else  max(arg[x_index])
+                plt.setp(axis, xlim=(x_min, x_max))
         if not autoy:
+            # min and max y should be the same for all graphs
             y_min = ymin if ymin != None else  min(min(args[i][y_index]) for i in range(len(args)))
             y_max = ymax if ymax != None else  max(max(args[i][y_index]) for i in range(len(args))) * 1.05
             plt.setp(axes, ylim=(y_min, y_max))

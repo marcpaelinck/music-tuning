@@ -170,7 +170,7 @@ def get_partials(
     return partials, properties
 
 
-def step_create_partials(orchestra: InstrumentGroup, count: int = DEFAULT_NR_OF_PARTIALS) -> InstrumentGroup:
+def step_create_partials(group: InstrumentGroup, count: int = DEFAULT_NR_OF_PARTIALS) -> InstrumentGroup:
     """
     Determines frequency peaks for all files in the given folder
     Args:
@@ -178,17 +178,13 @@ def step_create_partials(orchestra: InstrumentGroup, count: int = DEFAULT_NR_OF_
         keep (int): maximum number of partials to keep
     """
 
-    if not orchestra.has_spectra:
+    if not group.has_spectra:
         logger.warning("No spectra available: call create_spectra first.")
         return
 
     properties = dict()
-    for instrument in orchestra.instruments:
-        if DEBUG and instrument.code != INSTR_NOTE[0]:
-            continue
+    for instrument in group.instruments:
         for note in instrument.notes:
-            if DEBUG and note.name is not INSTR_NOTE[1]:
-                continue
             logger.info(
                 f"Determining partials for {instrument.instrumenttype} {instrument.code} {note.name.value} {note.order_in_soundfile}"
             )
@@ -208,12 +204,14 @@ def step_create_partials(orchestra: InstrumentGroup, count: int = DEFAULT_NR_OF_
             if fundamental_aggr:
                 note.fundamental_index = note.aggr_partials.index(fundamental_aggr)
                 note.frequency = fundamental_aggr.tone.frequency
+            # Check that all aggr_partials are equal to the partials of the first sample
+            if not all(
+                aggr.tone.frequency == part.tone.frequency for aggr, part in zip(note.aggr_partials, note.partials[0])
+            ):
+                logger.warning("Not all aggregated partials are equal to the original partials")
 
-    return orchestra
+    return group
 
-
-DEBUG = False
-INSTR_NOTE = ("JEG1", NoteName.DING)
 
 if __name__ == "__main__":
     # Set this value before running

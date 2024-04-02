@@ -9,6 +9,9 @@ from tuning.common.classes import (
     AggregatedPartial,
     AggregatedPartialDict,
     InstrumentGroup,
+    InstrumentType,
+    Octave,
+    OmbakType,
     Partial,
     Tone,
 )
@@ -70,7 +73,7 @@ def aggregated_partials_list(
         :keep_nr
     ]
     # Note: avg_ratio should be recalculated later, based on average fundamental freq.
-    return [
+    aggr_part_list = [
         AggregatedPartial(
             tone=Tone(
                 frequency=np.average([p.tone.frequency for p in cluster]),
@@ -83,6 +86,11 @@ def aggregated_partials_list(
         )
         for cluster in largest_clusters
     ]
+    return sorted(aggr_part_list, key=lambda p: p.tone.amplitude, reverse=True)
+
+
+def dict_key(instrumenttype: InstrumentType, ombaktype: OmbakType, octave: Octave):
+    return f"{instrumenttype.value}#{ombaktype.value}-octave {octave.index}"
 
 
 def step_create_aggregated_partials_dict(group: InstrumentGroup) -> AggregatedPartialDict:
@@ -100,21 +108,26 @@ def step_create_aggregated_partials_dict(group: InstrumentGroup) -> AggregatedPa
         AggregatedPartialDict:
     """
     partials_dict = defaultdict(list)
+    note_dict = defaultdict(list)
     for instrument in group.instruments:
         for note in instrument.notes:
             partials_dict[(instrument.instrumenttype, instrument.ombaktype, note.octave)].extend(
                 [partial for p_list in note.partials for partial in p_list]
             )
+            note_dict[(instrument.instrumenttype, instrument.ombaktype, note.octave)].append(note)
+
+    partials_dict = dict(sorted(partials_dict.items()))
 
     aggregated_dict = defaultdict(list)
     for (instrumenttype, ombaktype, octave), partials in partials_dict.items():
-        aggregated_dict[f"{instrumenttype.value}#{ombaktype.value}-octave {octave.index}"] = aggregated_partials_list(
-            partials
+        aggregated_dict[dict_key(instrumenttype, ombaktype, octave)] = (
+            aggregated_partials_list(partials),
+            note_dict[(instrumenttype, ombaktype, octave)],
         )
 
     aggregated = AggregatedPartialDict(root=aggregated_dict)
     # Recalculate the ratio, based on average frequencies
-    for key, agglist in aggregated.root.items():
+    for key, (agglist, _) in aggregated.root.items():
         fundamental = next((agg for agg in agglist if agg.isfundamental), None)
         if not fundamental:
             raise Exception(

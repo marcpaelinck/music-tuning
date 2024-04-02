@@ -139,7 +139,8 @@ def create_spectrum_audacity(sample: Sample, filepath: str, truncate=(0, sys.max
     # Calculate fourier transform (returns complex numbers list).
     # Discard the imaginary part.
     # BINSIZE = 65536
-    BINSIZE = 32768
+    # BINSIZE = 32768
+    BINSIZE = 16384
     # cut up into bins
     results = list()
     for bin in range(len(ampl_normalized) // BINSIZE):
@@ -181,7 +182,7 @@ def get_spectrum_filepath(group: InstrumentGroup, instrument: Instrument, note: 
     return get_path(group.grouptype, Folder.SPECTRUM, filename)
 
 
-def create_spectra(orchestra: InstrumentGroup, spectrum_method: Callable = create_spectrum_audacity) -> InstrumentGroup:
+def create_spectra(group: InstrumentGroup, spectrum_method: Callable = create_spectrum_audacity) -> InstrumentGroup:
     """
     This method creates Spectrum objects which contain the frequency spectrum
     of the individual notes and adds each Spectrum object to the corresponding Note object.
@@ -189,11 +190,11 @@ def create_spectra(orchestra: InstrumentGroup, spectrum_method: Callable = creat
     Args:
         orchestra (InstrumentGroup): The instrument group.
     """
-    if not orchestra.has_sound_samples:
+    if not group.has_sound_samples:
         logger.warning("No sound samples available: call get_sound_samples first.")
         return
 
-    for instrument in orchestra.instruments:
+    for instrument in group.instruments:
         logger.info(f"Processing {instrument.instrumenttype} {instrument.code}.")
         if instrument.error:
             continue
@@ -203,15 +204,15 @@ def create_spectra(orchestra: InstrumentGroup, spectrum_method: Callable = creat
             for sample in note.samples:
                 note.spectra.append(
                     spectrum_method(
-                        sample, filepath=get_spectrum_filepath(orchestra, instrument, note, note.samples.index(sample))
+                        sample, filepath=get_spectrum_filepath(group, instrument, note, note.samples.index(sample))
                     )
                 )
             # save_spectrum(note.spectrum)
-    for instrument in orchestra.instruments:
+    for instrument in group.instruments:
         if instrument.error:
             logger.error(f"{instrument.soundfilename}: {instrument.comment}")
-    orchestra.has_spectra = True
-    return orchestra
+    group.has_spectra = True
+    return group
 
 
 if __name__ == "__main__":

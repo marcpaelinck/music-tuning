@@ -2,6 +2,8 @@ from enum import Enum, auto
 from functools import partial
 from itertools import pairwise
 
+from pydantic import BaseModel
+
 from tuning.analysis.aggregation import step_create_aggregated_partials_dict
 from tuning.analysis.dissonance import plot_dissonance_graphs
 from tuning.analysis.partials import step_create_partials
@@ -45,6 +47,7 @@ class Step(Enum):
     SAVE_AGGREGATED_PARTIALS = auto()
     PLOT_SOUNDDATA = 300
     PLOT_NOTE_SPECTRA = auto()
+    PLOT_NOTE_SPECTRA_WITH_AGGREGATED_PARTIALS = auto()
     PLOT_DISSONANCE_GRAPHS = auto()
 
 
@@ -53,11 +56,14 @@ Pipe = list[Step | list[Step]]
 
 class PipeLine:
     groupname: InstrumentGroupName = None
+    data = {}
+
     pipe: Pipe = None
 
-    # All functions in a pipeline need te have exactly one input argument so that the output of
-    # one function can be used as input for the next one. Functions that have been modified in order
-    # to comply with this requirement are listed here and are defined in the __init__ step.
+    # The pipeline enables to execute a sequence of functions that generate output which is used
+    # by subsequent functions. The sequence is determined in self.actions.
+    # Currently, only data of types InstrumentGroupName, InstrumentGroup or AggregatedPartialDict
+    # Can be used as input or output by the functions.
     step_read_group_with_sounddata = None
     step_read_group_with_spectrumdata = None
     step_create_spectra = None
@@ -73,40 +79,65 @@ class PipeLine:
     def __init_actions__(self):
         """
         Define the actions of pipeline steps here. The notation of an action is:
-            (<function>, <input type>, <output type>)
-        Each function should have exactly one input parameter. The <input type>, <output type> elements will
-        be used to determine the validity of a sequence (pipe) when a PipeLine object is created. The steps
-        in a pipeline should be ordered in such a way that the output of each function can be used as input
-        by the next function.
+            tuple[<function>, dict[<keyword>, <input type>], <output type>]
+        The first element is the function that should be called.
+        The second element is a dict containing the keyword-type combinations for the function parameters.
+        The third element is the output type of the function.
+        The <input type>, <output type> elements will be used to select the correct input values for each
+        step and to perform a validity check before running the pipeline.
         """
         self.actions = {
-            Step.CREATE_GROUP: (step_create_group_from_info_file, InstrumentGroupName, InstrumentGroup),
-            Step.READ_GROUP: (step_read_group_from_jsonfile, InstrumentGroupName, InstrumentGroup),
-            Step.READ_GROUP_WITH_SOUNDDATA: (self.step_read_group_with_sounddata, InstrumentGroupName, InstrumentGroup),
+            Step.CREATE_GROUP: (
+                step_create_group_from_info_file,
+                {"groupname": InstrumentGroupName},
+                InstrumentGroup,
+            ),
+            Step.READ_GROUP: (step_read_group_from_jsonfile, {"groupname": InstrumentGroupName}, InstrumentGroup),
+            Step.READ_GROUP_WITH_SOUNDDATA: (
+                self.step_read_group_with_sounddata,
+                {"groupname": InstrumentGroupName},
+                InstrumentGroup,
+            ),
             Step.READ_GROUP_WITH_SPECTRUMDATA: (
                 self.step_read_group_with_spectrumdata,
-                InstrumentGroupName,
+                {"groupname": InstrumentGroupName},
                 InstrumentGroup,
             ),
             Step.READ_AGGREGATED_PARTIALS: (
                 self.step_read_aggregated_partials,
-                InstrumentGroupName,
+                {"groupname": InstrumentGroupName},
                 AggregatedPartialDict,
             ),
-            Step.PROCESS_SOUNDFILES: (step_process_sound_files, InstrumentGroup, InstrumentGroup),
-            Step.CREATE_SPECTRA: (self.step_create_spectra, InstrumentGroup, InstrumentGroup),
-            Step.CREATE_SPECTRA_AUDACITY: (self.step_create_spectra_audacity, InstrumentGroup, InstrumentGroup),
-            Step.CREATE_PARTIALS: (step_create_partials, InstrumentGroup, InstrumentGroup),
-            Step.AGGREGATE_PARTIALS: (step_create_aggregated_partials_dict, InstrumentGroup, AggregatedPartialDict),
-            Step.SAVE_JSON_ONLY: (step_save_group_to_jsonfile, InstrumentGroup, InstrumentGroup),
-            Step.SAVE_JSON_AND_SPECTRA: (self.step_save_json_and_spectra, InstrumentGroup, InstrumentGroup),
+            Step.PROCESS_SOUNDFILES: (step_process_sound_files, {"group": InstrumentGroup}, InstrumentGroup),
+            Step.CREATE_SPECTRA: (self.step_create_spectra, {"group": InstrumentGroup}, InstrumentGroup),
+            Step.CREATE_SPECTRA_AUDACITY: (
+                self.step_create_spectra_audacity,
+                {"group": InstrumentGroup},
+                InstrumentGroup,
+            ),
+            Step.CREATE_PARTIALS: (step_create_partials, {"group": InstrumentGroup}, InstrumentGroup),
+            Step.AGGREGATE_PARTIALS: (
+                step_create_aggregated_partials_dict,
+                {"group": InstrumentGroup},
+                AggregatedPartialDict,
+            ),
+            Step.SAVE_JSON_ONLY: (step_save_group_to_jsonfile, {"group": InstrumentGroup}, InstrumentGroup),
+            Step.SAVE_JSON_AND_SPECTRA: (
+                self.step_save_json_and_spectra,
+                {"group": InstrumentGroup},
+                InstrumentGroup,
+            ),
             Step.SAVE_AGGREGATED_PARTIALS: (
                 self.step_save_aggregated_partials,
-                AggregatedPartialDict,
+                {"object": AggregatedPartialDict},
                 AggregatedPartialDict,
             ),
-            Step.PLOT_SOUNDDATA: (self.step_plot_sounddata, InstrumentGroup, InstrumentGroup),
-            Step.PLOT_NOTE_SPECTRA: (self.step_plot_spectra, InstrumentGroup, InstrumentGroup),
+            Step.PLOT_SOUNDDATA: (self.step_plot_sounddata, {"group": InstrumentGroup}, InstrumentGroup),
+            Step.PLOT_NOTE_SPECTRA: (
+                self.step_plot_spectra,
+                {"group": InstrumentGroup, "aggregatedpartials": AggregatedPartialDict},
+                InstrumentGroup,
+            ),
             Step.PLOT_DISSONANCE_GRAPHS: (
                 self.step_plot_dissonance_graphs,
                 AggregatedPartialDict,
@@ -116,18 +147,17 @@ class PipeLine:
 
     def __init__(self, groupname: InstrumentGroupName, pipe: Pipe):
         """
-        This method ensures that all functions that are used in a pipeline expect exactly one input parameter.
-        Functions that expect more than one argument should be modified by pre-assigning all but one argument.
-        If you want to use the same function with different sets of values for several arguments, you will
-        need to define separate actions for each combination.
+        the init method modifies functions so that they only require input of types InstrumentGroupName,
+        InstrumentGroup or AggregatedPartialDict. Functions that expect other input types are modified
+        by pre-assigning the arguments for these additional data types.
         Args:
             groupname (InstrumentGroupName): This will be the input for the first step of the pipeline.
             pipe (Pipe): A list of Step objects which defines the sequence in which actions should be performed.
 
         Raises:
-            Exception: Illegal sequence if the output and input types of subsequent steps do not match.
+            Exception: Illegal sequence if the sequence of the Pipe object is infeasible.
         """
-        self.groupname = groupname
+        self.data[InstrumentGroupName] = groupname
         self.pipe = pipe
 
         # Each step function should expect exactly one argument. Pre-assign all other arguments here.
@@ -180,17 +210,22 @@ class PipeLine:
             raise Exception("Illegal pipeline sequence")
 
     def is_valid_pipe(self, pipe: Pipe) -> bool:
-        sequence = [self.actions[step] for step in pipe if isinstance(step, Step)]
-        return sequence[0][1] is InstrumentGroupName and all(
-            [outputtype is inputtype for (_, _, outputtype), (_, inputtype, _) in pairwise(sequence)]
-        )
+        return True
+        # sequence = [self.actions[step] for step in pipe if isinstance(step, Step)]
+        # return sequence[0][1] is InstrumentGroupName and all(
+        #     [outputtype is inputtype for (_, _, outputtype), (_, inputtype, _) in pairwise(sequence)]
+        # )
+
+    def __get_data_items__(self, datatypes: dict[str, type]):
+        return {keyword: self.data[datatype] for keyword, datatype in datatypes.items()}
 
     def execute(self):
         result = self.groupname
         for step in pipe:
             function = self.actions[step][0]
-            result = function(result)
-        return result
+            inputdict = self.__get_data_items__(self.actions[step][1])
+            result = function(**inputdict)
+            self.data[type(result)] = result
 
 
 if __name__ == "__main__":
@@ -198,7 +233,7 @@ if __name__ == "__main__":
         # Step.CREATE_GROUP,
         # Step.PROCESS_SOUNDFILES,
         # Step.SAVE_JSON_ONLY,
-        Step.READ_GROUP_WITH_SPECTRUMDATA,
+        # Step.READ_GROUP_WITH_SPECTRUMDATA,
         # Step.READ_GROUP_WITH_SOUNDDATA,
         # Step.READ_GROUP,
         # Step.CREATE_SPECTRA_AUDACITY,
@@ -207,10 +242,11 @@ if __name__ == "__main__":
         # Step.SAVE_JSON_ONLY,
         # Step.SAVE_JSON_AND_SPECTRA,
         # Step.PLOT_SOUNDDATA,
+        Step.READ_AGGREGATED_PARTIALS,
+        Step.READ_GROUP_WITH_SPECTRUMDATA,
         Step.PLOT_NOTE_SPECTRA,
         # Step.AGGREGATE_PARTIALS,
         # Step.SAVE_AGGREGATED_PARTIALS,
-        # Step.READ_AGGREGATED_PARTIALS,
         # Step.PLOT_DISSONANCE_GRAPHS,
     ]
     pipeline = PipeLine(InstrumentGroupName.SEMAR_PAGULINGAN, pipe)

@@ -1,4 +1,4 @@
-from enum import Enum
+from enum import Enum, StrEnum
 from typing import Optional
 
 import numpy as np
@@ -25,7 +25,12 @@ Filename = str
 SoundData = np.ndarray[np.ndarray[np.int16]]
 
 
-class InstrumentType(Enum):
+class OrderedEnum(Enum):
+    def __lt__(self, other):
+        list(self.__class__).index(self) < list(self.__class__).index(other)
+
+
+class InstrumentType(OrderedEnum):
     GONG = "gong"
     JEGOGAN = "jegogan"
     JUBLAG = "jublag"
@@ -35,7 +40,7 @@ class InstrumentType(Enum):
     GENDERWAYANG = "gender wayang"
 
 
-class OmbakType(Enum):
+class OmbakType(OrderedEnum):
     PENGUMBANG = "pengumbang"
     PENGISEP = "pengisep"
 
@@ -43,7 +48,7 @@ class OmbakType(Enum):
         return self.value
 
 
-class NoteName(Enum):
+class NoteName(OrderedEnum):
     DING = "ding"
     DONG = "dong"
     DENG = "deng"
@@ -51,6 +56,10 @@ class NoteName(Enum):
     DUNG = "dung"
     DANG = "dang"
     DAING = "daing"
+
+    def __init__(self, val):
+        super().__init__(self, val)
+        self.short = self.value.replace("d", "").replace("n", "").replace("g", "")
 
     def __str__(self):
         return self.value
@@ -71,6 +80,9 @@ class Octave(BaseModel, frozen=True):
     index: int
     start_frequency: float
     end_frequency: float
+
+    def __lt__(self, other):
+        return self.index < other.index
 
 
 class Tone(BaseModel):
@@ -116,7 +128,19 @@ class AggregatedPartial(Partial):
     partials: Optional[list[Partial]] = Field(default=None)
 
 
-AggregatedPartialDict = RootModel[dict[str, list[AggregatedPartial]]]
+class Note(BaseModel):
+    name: NoteName
+    octave: Octave
+    order_in_soundfile: int
+    frequency: Optional[Frequency] = None
+    fundamental_index: int = None
+    samples: Optional[list[Sample]] = None
+    spectra: Optional[list["Spectrum"]] = None
+    partials: Optional[list[list[Partial]]] = None
+    aggr_partials: Optional[list[AggregatedPartial]] = None
+
+
+AggregatedPartialDict = RootModel[dict[str, tuple[list[AggregatedPartial], list[Note]]]]
 
 
 class Spectrum(BaseModel):
@@ -168,16 +192,16 @@ class Spectrum(BaseModel):
         arbitrary_types_allowed = True
 
 
-class Note(BaseModel):
-    name: NoteName
-    octave: Octave
-    order_in_soundfile: int
-    frequency: Optional[Frequency] = None
-    fundamental_index: int = None
-    samples: Optional[list[Sample]] = None
-    spectra: Optional[list[Spectrum]] = None
-    partials: Optional[list[list[Partial]]] = None
-    aggr_partials: Optional[list[AggregatedPartial]] = None
+# class Note(BaseModel):
+#     name: NoteName
+#     octave: Octave
+#     order_in_soundfile: int
+#     frequency: Optional[Frequency] = None
+#     fundamental_index: int = None
+#     samples: Optional[list[Sample]] = None
+#     spectra: Optional[list[Spectrum]] = None
+#     partials: Optional[list[list[Partial]]] = None
+#     aggr_partials: Optional[list[AggregatedPartial]] = None
 
 
 class Instrument(BaseModel):

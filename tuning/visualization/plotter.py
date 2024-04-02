@@ -9,6 +9,7 @@ from matplotlib.figure import Figure
 from pydantic import BaseModel
 from scipy.io import wavfile
 
+from tuning.analysis.aggregation import dict_key
 from tuning.analysis.dissonance import (
     dissonance_j,
     dissonance_s,
@@ -57,6 +58,7 @@ def plot_note_spectra(
     group: InstrumentGroup,
     object: Instrument,
     *,
+    aggregatedpartials: AggregatedPartialDict = AggregatedPartialDict({}),
     what: list[str] = ["spectra", "partials"],
     max_partials: int = 100,
     ratio: bool = True,  # X-axis is ratios if True, otherwise frequencies
@@ -80,19 +82,28 @@ def plot_note_spectra(
         note_partials = [
             list(
                 zip(
-                    *[
-                        (
-                            p.ratio if ratio else p.tone.frequency,
-                            0,
-                            p.tone.amplitude,
-                            "r" if p.isfundamental else "y" if note.aggr_partials.index(p) < 4 else "c",
-                        )
-                        for p in note.aggr_partials[:max_partials]
-                    ]
+                    *(
+                        [
+                            (
+                                p.ratio if ratio else p.tone.frequency,
+                                0,
+                                p.tone.amplitude,
+                                "r" if p.isfundamental else "y" if note.aggr_partials.index(p) < 4 else "c",
+                            )
+                            for p in note.aggr_partials[:max_partials]
+                        ]
+                        + [
+                            (ap.ratio if ratio else ap.tone.frequency, 0, ap.tone.amplitude, "r")
+                            for ap in aggregatedpartials.root.get(
+                                dict_key(object.instrumenttype, object.ombaktype, note.octave), [[]]
+                            )[0]
+                        ]
+                    )
                 )
             )
             for note in object.notes
         ]
+
         plot_content.append((note_partials, PlotType.VLINES))
 
     if "spectra" in what:
