@@ -201,11 +201,9 @@ def create_spectra(group: InstrumentGroup, spectrum_method: Callable = create_sp
         logger.info(f"Generating spectrum files.")
         for note in instrument.notes:
             note.spectra = list()
-            for sample in note.samples:
+            for sample, index in zip(note.samples, range(len(note.samples))):
                 note.spectra.append(
-                    spectrum_method(
-                        sample, filepath=get_spectrum_filepath(group, instrument, note, note.samples.index(sample))
-                    )
+                    spectrum_method(sample, filepath=get_spectrum_filepath(group, instrument, note, index))
                 )
             # save_spectrum(note.spectrum)
     for instrument in group.instruments:

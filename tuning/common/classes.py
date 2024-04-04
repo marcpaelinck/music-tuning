@@ -1,4 +1,4 @@
-from enum import Enum, StrEnum
+from enum import Enum
 from typing import Optional
 
 import numpy as np
@@ -63,6 +63,13 @@ class NoteName(OrderedEnum):
 
     def __str__(self):
         return self.value
+
+    def index(self: "NoteName"):
+        return list(NoteName).index(self)
+
+    def kempyung(self, notes: list["NoteName"]):
+        skip = len(notes) - 2
+        return notes[(self.index() + skip) % len(notes)]
 
 
 class FreqUnit(Enum):
@@ -216,11 +223,22 @@ class Instrument(BaseModel):
     notes: list[Note]
 
 
+# A .wav file contains a sequence of note recordings from the same instrument.
+# These recordings are called clips or clippings.
+# ClipPosition determines the order of a clipping in such a sequence (1=first)
+ClipPosition = int
+FileName = str
+# User-provided info about specific clippings.
+# This will overrule the automatic identification of these clippings.
+ClipInfo = dict[ClipPosition, tuple[NoteName, OctaveNbr]]
+
+
 class InstrumentGroup(BaseModel):
     grouptype: InstrumentGroupName
     instruments: list[Instrument]
     has_sound_samples: bool = False
     has_spectra: bool = False
+    clipinfo_dict: dict[FileName, ClipInfo] = None
 
 
 if __name__ == "__main__":

@@ -204,11 +204,11 @@ def step_create_partials(group: InstrumentGroup, count: int = DEFAULT_NR_OF_PART
             if fundamental_aggr:
                 note.fundamental_index = note.aggr_partials.index(fundamental_aggr)
                 note.frequency = fundamental_aggr.tone.frequency
-            # Check that all aggr_partials are equal to the partials of the first sample
-            if not all(
-                aggr.tone.frequency == part.tone.frequency for aggr, part in zip(note.aggr_partials, note.partials[0])
-            ):
-                logger.warning("Not all aggregated partials are equal to the original partials")
+            # # Check that all aggr_partials are equal to the partials of the first sample
+            # if not all(
+            #     aggr.tone.frequency == part.tone.frequency for aggr, part in zip(note.aggr_partials, note.partials[0])
+            # ):
+            #     logger.warning("Not all aggregated partials are equal to the original partials")
 
     return group
 

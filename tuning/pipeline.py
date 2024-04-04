@@ -1,8 +1,5 @@
 from enum import Enum, auto
 from functools import partial
-from itertools import pairwise
-
-from pydantic import BaseModel
 
 from tuning.analysis.aggregation import step_create_aggregated_partials_dict
 from tuning.analysis.dissonance import plot_dissonance_graphs
@@ -12,7 +9,13 @@ from tuning.analysis.spectrum import (
     create_spectrum,
     create_spectrum_audacity,
 )
-from tuning.common.classes import AggregatedPartialDict, InstrumentGroup, InstrumentType
+from tuning.common.classes import (
+    AggregatedPartialDict,
+    Instrument,
+    InstrumentGroup,
+    InstrumentType,
+    NoteName,
+)
 from tuning.common.constants import (
     AGGREGATED_PARTIALS_FILE,
     Folder,
@@ -51,19 +54,28 @@ class Step(Enum):
     PLOT_DISSONANCE_GRAPHS = auto()
 
 
-Pipe = list[Step | list[Step]]
+Pipe = list[Step]
 
 
 class PipeLine:
+    """
+    The pipeline enables to execute a sequence of functions that generate output which is used
+    by subsequent functions. The sequence is determined in self.actions.
+    Currently, only data of types InstrumentGroupName, InstrumentGroup or AggregatedPartialDict
+    Can be used as input or output by the functions.
+
+    Raises:
+        Exception: Illegal sequence if the sequence of the Pipe object is infeasible.
+
+    Returns:
+        PipeLine: A PipeLine object.
+    """
+
     groupname: InstrumentGroupName = None
     data = {}
 
     pipe: Pipe = None
 
-    # The pipeline enables to execute a sequence of functions that generate output which is used
-    # by subsequent functions. The sequence is determined in self.actions.
-    # Currently, only data of types InstrumentGroupName, InstrumentGroup or AggregatedPartialDict
-    # Can be used as input or output by the functions.
     step_read_group_with_sounddata = None
     step_read_group_with_spectrumdata = None
     step_create_spectra = None
@@ -140,7 +152,7 @@ class PipeLine:
             ),
             Step.PLOT_DISSONANCE_GRAPHS: (
                 self.step_plot_dissonance_graphs,
-                AggregatedPartialDict,
+                {"group": AggregatedPartialDict},
                 AggregatedPartialDict,
             ),
         }
@@ -200,10 +212,14 @@ class PipeLine:
         )
         self.step_plot_dissonance_graphs = partial(
             create_pdf,
-            iterlist=InstrumentType,
             plotter=plot_dissonance_graphs,
-            filepath=get_path(groupname=groupname, filetype=Folder.ANALYSES, filename="dissonance_graph.pdf"),
+            iterlist=InstrumentType,
+            filepath=get_path(
+                groupname=groupname, filetype=Folder.ANALYSES, filename="dissonance_graph-{ref_note}{ref_octave}.pdf"
+            ),
             groupname=groupname,
+            ref_octave=2,
+            ref_note=NoteName.DING,
         )
         self.__init_actions__()
         if not self.is_valid_pipe(pipe):
@@ -243,11 +259,11 @@ if __name__ == "__main__":
         # Step.SAVE_JSON_AND_SPECTRA,
         # Step.PLOT_SOUNDDATA,
         Step.READ_AGGREGATED_PARTIALS,
-        Step.READ_GROUP_WITH_SPECTRUMDATA,
-        Step.PLOT_NOTE_SPECTRA,
+        # Step.READ_GROUP_WITH_SPECTRUMDATA,
         # Step.AGGREGATE_PARTIALS,
         # Step.SAVE_AGGREGATED_PARTIALS,
-        # Step.PLOT_DISSONANCE_GRAPHS,
+        # Step.PLOT_NOTE_SPECTRA,
+        Step.PLOT_DISSONANCE_GRAPHS,
     ]
-    pipeline = PipeLine(InstrumentGroupName.SEMAR_PAGULINGAN, pipe)
+    pipeline = PipeLine(InstrumentGroupName.GENDERWAYANG, pipe)
     pipeline.execute()

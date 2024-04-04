@@ -9,8 +9,14 @@ import numpy as np
 from matplotlib.axes import Axes
 from matplotlib.backends.backend_pdf import PdfPages
 from matplotlib.figure import Figure
+from pydantic import BaseModel
 
-from tuning.common.classes import InstrumentGroup
+from tuning.common.classes import (
+    AggregatedPartialDict,
+    Instrument,
+    InstrumentGroup,
+    InstrumentType,
+)
 from tuning.common.constants import PageSizes
 from tuning.common.utils import get_logger
 
@@ -100,13 +106,15 @@ def plot_graphs(
 
 
 def create_pdf(
-    group: InstrumentGroup,
+    group: InstrumentGroup | AggregatedPartialDict,
     plotter: callable,
     filepath: str,
     iterlist: list = None,  ## list of objects to iterate through
     **kwargs,
 ) -> bool:
 
+    if "ref_note" in kwargs and "ref_octave" in kwargs:
+        filepath = filepath.format(ref_note=kwargs["ref_note"], ref_octave=kwargs["ref_octave"])
     # Check if the file is closed. If not, exit.
     if os.path.exists(filepath):
         try:

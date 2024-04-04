@@ -6,6 +6,7 @@ class InstrumentGroupName(Enum):
     TEST = "test"
     GONG_KEBYAR = "gongkebyar"
     SEMAR_PAGULINGAN = "semarpagulingan"
+    GENDERWAYANG = "genderwayang"
     ANGKLUNG = "angklung"
 
 
@@ -30,7 +31,11 @@ SPECTRA_INFO_FILE = "info.csv"
 OCTAVE_RANGE_FILE = "octave_ranges.json"
 AGGREGATED_PARTIALS_FILE = "partials_per_instrumenttype.json"
 
-# COLUMN NAMES OF FILE INFO.XLSX
+# SHEET NAMES AND COLUMN NAMES OF FILE INFO.XLSX
+SOUNDFILE_SHEET = "Sound Files"
+OCTAVE_SHEET = "Octaves"
+NOTE_SHEET = "Notes"
+CLIPPING_SHEET = "Clippings"
 FILENAME = "filename"
 INSTRUMENT_GROUP = "instrument group"
 INSTRUMENT = "instrument"
@@ -42,6 +47,7 @@ FREQUENCY = "frequency"
 OCTAVE_SEQ = "octave seq"
 START_FREQ = "start freq"
 END_FREQ = "end freq"
+CLIPPING_SEQ = "clipping"
 
 # SOUNDFILES
 AMPLITUDE_THRESHOLD_TO_AVERAGE_RATIO = 0.5  # minimum amplitude for note detection

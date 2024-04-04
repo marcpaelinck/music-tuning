@@ -8,8 +8,10 @@ import scipy.cluster.hierarchy as hcluster
 from tuning.common.classes import (
     AggregatedPartial,
     AggregatedPartialDict,
+    Instrument,
     InstrumentGroup,
     InstrumentType,
+    Note,
     Octave,
     OmbakType,
     Partial,
@@ -31,13 +33,27 @@ from tuning.common.utils import (
 
 logger = get_logger(__name__)
 
+# Currently only combinations of InstrumentType, OmbakType and Octave are possible.
+AGGREGATION = (InstrumentType, OmbakType, Octave)
+
+
+def dict_key_str(instrument: Instrument, note: Note):
+    keyitems = (
+        []
+        + ([instrument.instrumenttype.value] if InstrumentType in AGGREGATION else [])
+        + ([instrument.ombaktype.value] if OmbakType in AGGREGATION else [])
+        + ([f"octave {note.octave.index}"] if Octave in AGGREGATION else [])
+        + ([f"octave {note.name}"] if Note in AGGREGATION else [])
+    )
+    return ", ".join(keyitems)
+
+
+def dict_key_retrieve_instrgroup(key):
+    return "".join(key.split(",")[1:])
+
 
 def ratio_to_cents(ratio) -> int:
     return int(math.log(ratio, 2) * 1200)
-
-
-def partial_avg(partials: list[Partial], dimension: str) -> float:
-    return np.average(p.tone.frequency for p in partials)
 
 
 def average_ratio(partials: list[Partial]) -> float:
@@ -89,10 +105,6 @@ def aggregated_partials_list(
     return sorted(aggr_part_list, key=lambda p: p.tone.amplitude, reverse=True)
 
 
-def dict_key(instrumenttype: InstrumentType, ombaktype: OmbakType, octave: Octave):
-    return f"{instrumenttype.value}#{ombaktype.value}-octave {octave.index}"
-
-
 def step_create_aggregated_partials_dict(group: InstrumentGroup) -> AggregatedPartialDict:
     """
     Creates a dictionary with lists of aggregated partials. Aggregation is performed
@@ -111,18 +123,18 @@ def step_create_aggregated_partials_dict(group: InstrumentGroup) -> AggregatedPa
     note_dict = defaultdict(list)
     for instrument in group.instruments:
         for note in instrument.notes:
-            partials_dict[(instrument.instrumenttype, instrument.ombaktype, note.octave)].extend(
+            partials_dict[dict_key_str(instrument, note)].extend(
                 [partial for p_list in note.partials for partial in p_list]
             )
-            note_dict[(instrument.instrumenttype, instrument.ombaktype, note.octave)].append(note)
+            note_dict[dict_key_str(instrument, note)].append(note)
 
     partials_dict = dict(sorted(partials_dict.items()))
 
     aggregated_dict = defaultdict(list)
-    for (instrumenttype, ombaktype, octave), partials in partials_dict.items():
-        aggregated_dict[dict_key(instrumenttype, ombaktype, octave)] = (
+    for key, partials in partials_dict.items():
+        aggregated_dict[key] = (
             aggregated_partials_list(partials),
-            note_dict[(instrumenttype, ombaktype, octave)],
+            note_dict[key],
         )
 
     aggregated = AggregatedPartialDict(root=aggregated_dict)
@@ -130,12 +142,12 @@ def step_create_aggregated_partials_dict(group: InstrumentGroup) -> AggregatedPa
     for key, (agglist, _) in aggregated.root.items():
         fundamental = next((agg for agg in agglist if agg.isfundamental), None)
         if not fundamental:
-            raise Exception(
-                f"Fundamental is missing for {key}, aggr partials are {[(agg.tone.frequency, (agg.octave.start_frequency, agg.octave.end_frequency)) for agg in agglist]}"
-            )
+            raise Exception(f"Fundamental is missing for {key}, aggr partials are {[agg.ratio for agg in agglist]}")
         for aggregate in agglist:
             oldratio = aggregate.ratio
-            aggregate.ratio = aggregate.tone.frequency / fundamental.tone.frequency
+            # aggregate.ratio = aggregate.tone.frequency / fundamental.tone.frequency
+            ratio_list = [p.ratio for p in aggregate.partials]
+            aggregate.ratio = sum(ratio_list) / len(ratio_list)
             logger.info(f"{key}: ratio {oldratio} corrected to {aggregate.ratio}")
 
     return aggregated

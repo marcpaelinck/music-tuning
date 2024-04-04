@@ -4,6 +4,7 @@ from tokenize import group
 import pandas as pd
 
 from tuning.common.classes import (
+    ClipInfo,
     Frequency,
     Instrument,
     InstrumentGroup,
@@ -15,6 +16,8 @@ from tuning.common.classes import (
     OmbakType,
 )
 from tuning.common.constants import (
+    CLIPPING_SEQ,
+    CLIPPING_SHEET,
     CODE,
     END_FREQ,
     FILENAME,
@@ -23,9 +26,12 @@ from tuning.common.constants import (
     INSTRUMENT_GROUP,
     INSTRUMENT_INFO_FILE,
     NOTE,
+    NOTE_SHEET,
     NOTES,
     OCTAVE_SEQ,
+    OCTAVE_SHEET,
     OMBAKTYPE,
+    SOUNDFILE_SHEET,
     START_FREQ,
     Folder,
     InstrumentGroupName,
@@ -34,7 +40,7 @@ from tuning.common.utils import get_path, note_from_shortcode
 
 
 def get_octave_dict(groupname: InstrumentGroupName) -> dict[int, Octave]:
-    oct_df = pd.read_excel(get_path(groupname, Folder.SETTINGS, INSTRUMENT_INFO_FILE), sheet_name="Octaves")
+    oct_df = pd.read_excel(get_path(groupname, Folder.SETTINGS, INSTRUMENT_INFO_FILE), sheet_name=OCTAVE_SHEET)
     row_list = (
         oct_df[oct_df[INSTRUMENT_GROUP] == groupname.value].drop(INSTRUMENT_GROUP, axis=1).to_dict(orient="records")
     )
@@ -48,14 +54,27 @@ def get_octave_dict(groupname: InstrumentGroupName) -> dict[int, Octave]:
     return octave_dict
 
 
-def get_notefreq_dict(groupname: InstrumentGroupName) -> dict[Frequency, (NoteName, OctaveNbr)]:
-    note_df = pd.read_excel(get_path(groupname, Folder.SETTINGS, INSTRUMENT_INFO_FILE), sheet_name="Notes")
+def get_clipping_dict(groupname: InstrumentGroupName) -> dict[tuple[str, int], tuple[NoteName, OctaveNbr]]:
+    clipping_df = pd.read_excel(get_path(groupname, Folder.SETTINGS, INSTRUMENT_INFO_FILE), sheet_name=CLIPPING_SHEET)
+    row_list = (
+        clipping_df[clipping_df[INSTRUMENT_GROUP] == groupname.value]
+        .drop(INSTRUMENT_GROUP, axis=1)
+        .to_dict(orient="records")
+    )
+    clipping_dict: ClipInfo = defaultdict(dict)
+    for row in row_list:
+        clipping_dict[row[FILENAME]][row[CLIPPING_SEQ] - 1] = (NoteName(row[NOTE]), row[OCTAVE_SEQ])
+    return clipping_dict
+
+
+def get_notefreq_dict(groupname: InstrumentGroupName) -> dict[(NoteName, OctaveNbr), Frequency]:
+    note_df = pd.read_excel(get_path(groupname, Folder.SETTINGS, INSTRUMENT_INFO_FILE), sheet_name=NOTE_SHEET)
     row_list = (
         note_df[note_df[INSTRUMENT_GROUP] == groupname.value].drop(INSTRUMENT_GROUP, axis=1).to_dict(orient="records")
     )
     note_dict = dict()
     for row in row_list:
-        note_dict[row[FREQUENCY]] = (NoteName(row[NOTE]), row[OCTAVE_SEQ])
+        note_dict[(NoteName(row[NOTE]), row[OCTAVE_SEQ])] = row[FREQUENCY]
     return note_dict
 
 
@@ -63,10 +82,12 @@ def step_create_group_from_info_file(groupname: InstrumentGroupName) -> Instrume
     """
     Parses the excel document containing information about the instruments files.
     """
-    orchestra = InstrumentGroup(grouptype=groupname, instruments=[])
     octave_dict = get_octave_dict(groupname)
+    clipping_dict = get_clipping_dict(groupname)
+
+    orchestra = InstrumentGroup(grouptype=groupname, instruments=[], clipinfo_dict=clipping_dict)
     fileinfo = pd.read_excel(
-        get_path(groupname, Folder.SETTINGS, INSTRUMENT_INFO_FILE), sheet_name="Sound Files"
+        get_path(groupname, Folder.SETTINGS, INSTRUMENT_INFO_FILE), sheet_name=SOUNDFILE_SHEET
     ).to_dict(orient="records")
 
     for row in fileinfo:

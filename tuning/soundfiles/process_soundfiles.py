@@ -13,7 +13,9 @@ from matplotlib.pylab import f
 from scipy.io import wavfile
 
 from tuning.common.classes import (
+    ClipInfo,
     ClipRange,
+    FileName,
     Frequency,
     Instrument,
     InstrumentGroup,
@@ -45,23 +47,28 @@ from tuning.soundfiles.enhance_soundfiles import (
     equalize_note_amplitudes,
     reconstruct_clipped_regions,
 )
-from tuning.soundfiles.instrumentinfo import (
-    get_notefreq_dict,
-    step_create_group_from_info_file,
-)
+from tuning.soundfiles.instrumentinfo import get_notefreq_dict
 from tuning.soundfiles.utils import create_soundclip_ranges
 
 logger = get_logger(__name__)
 
 
-def determine_fundamental_freq(sample: SoundData, sample_rate: float, freq_range: tuple[float, float]) -> int:
+def determine_fundamental_freq(
+    sample: SoundData,
+    sample_rate: float,
+    notefreq_dict: dict[(NoteName, OctaveNbr), Frequency],
+    note_oct: tuple[NoteName, OctaveNbr] | None,
+) -> int:
     """
-    Searches for the frequency of the fundamental
+    Searches for the frequency of the fundamental for a given note sample.
+    This is the frequency with the highest amplitude within the estimated frequency range of the
+    instrument's notes (fundamentals).
 
     Args:
-        sample (SoundData): sample to analze
+        sample (SoundData): note sample to analyze
         sample_rate (float): sample rate of the sound sample
-        freq_range (tuple[float, float]): limit the search to this range
+        notefreq_dict (dict[(NoteName, OctaveNbr), Frequency]): estimated frequency per note.
+        note_oct (tuple[NoteName, OctaveNbr] | None): note and octave info for the note sample
 
     Returns:
         int: rounded value for the frequency
@@ -74,12 +81,22 @@ def determine_fundamental_freq(sample: SoundData, sample_rate: float, freq_range
 
     # Find the peak and interpolate to get a more accurate peak
     # Limit the search to the given freq_range
+    if note_oct:
+        # Note for this clip is given by user. Restrict search range around
+        # estimated note frequency.
+        freq_range = (notefreq_dict[note_oct] * 0.9, notefreq_dict[note_oct] * 1.1)
+    else:
+        # Set search range to the entire frequency range of the instrument.
+        note_freqs = list(notefreq_dict.values())
+        freq_range = (min(note_freqs) * 0.9, max(note_freqs) * 1.1)
+    # Determine range indices in the xval/yval arrays
     lb_idx = (np.abs(xval - freq_range[0])).argmin()
     ub_idx = (np.abs(xval - freq_range[1])).argmin()
-    fund_idx = np.argmax(abs(yval[lb_idx:ub_idx])) + lb_idx
+    # Find the index of the highest amplitude in the given range
+    fundamental_idx = np.argmax(abs(yval[lb_idx:ub_idx])) + lb_idx
 
-    # Convert to equivalent frequency
-    return int(xval[fund_idx])
+    # Return corresponding frequency
+    return int(xval[fundamental_idx])
 
 
 def matches_note_pattern(clip: SoundData) -> bool:
@@ -94,14 +111,17 @@ def matches_note_pattern(clip: SoundData) -> bool:
 
 
 def detect_individual_notes(
-    sample_rate: int, data: SoundData, notefreq_dict: dict[Frequency, (NoteName, OctaveNbr)]
+    sample_rate: int,
+    data: SoundData,
+    notefreq_dict: dict[(NoteName, OctaveNbr), Frequency],
+    clipinfo: ClipInfo,
 ) -> dict[tuple[NoteName, OctaveNbr], list[tuple[Frequency, ClipRange]]]:
     """
     Detects the separate notes in the sound file, then creates WavePattern objects
     for each note and adds them to the given NoteInfoList.
     """
-    note_freq_array = np.abs(np.array(list(notefreq_dict.keys())))
-    note_values_list = list(notefreq_dict.values())
+    note_freq_array = np.abs(np.array(list(notefreq_dict.values())))
+    note_values_list = list(notefreq_dict.keys())
 
     def find_note_by_freq(freq: Frequency) -> tuple[NoteName, OctaveNbr] | None:
         index = (np.abs(note_freq_array - freq)).argmin()
@@ -113,6 +133,7 @@ def detect_individual_notes(
     cliprange_list = create_soundclip_ranges(data, float(AMPLITUDE_THRESHOLD_TO_AVERAGE_RATIO * abs(data).mean()))
 
     # Merge clip ranges that are separated by less than 0.1 second
+    logger.info(f"--- Detected {len(cliprange_list)} clip ranges.")
     logger.info("--- Merging sound ranges.")
     minimum_length = SHORT_BLANKS_DURATION_THRESHOLD * sample_rate
     idx = 0
@@ -124,25 +145,34 @@ def detect_individual_notes(
             cliprange_list.remove(range2)
         else:
             idx += 1
+    logger.info(f"--- Remaining: {len(cliprange_list)} clip ranges.")
 
     # Drop clip ranges that are shorter than the minimum recording duration. This removes unintended noises
     # such as switching the recorder on or off.
     logger.info("--- Dropping short clip ranges (random noises).")
     minimum_length = MINIMUM_SAMPLE_DURATION * sample_rate
     expected_length = EXPECTED_SAMPLE_DURATION * sample_rate
-    note_freqs = list(notefreq_dict.keys())
-    freq_range = (min(note_freqs) * 0.9, max(note_freqs) * 1.1)
 
+    # Create a list of clipranges that are recognized as note patterns
     cliprange_list = [
         block
         for block in cliprange_list
         if (block.end - block.start > minimum_length)
         and ((block.end - block.start > expected_length) or matches_note_pattern(data[block.start : block.end]))
     ]
+
+    # Determine the note and octave based on the fundamental frequency
     frequency_list = [
-        determine_fundamental_freq(data[block.start : block.end], sample_rate, freq_range) for block in cliprange_list
+        determine_fundamental_freq(data[block.start : block.end], sample_rate, notefreq_dict, clipinfo.get(pos, None))
+        for block, pos in zip(cliprange_list, range(len(cliprange_list)))
     ]
     noteinfo_list = [find_note_by_freq(freq) for freq in frequency_list]
+
+    # Replace clipping information if explicit info is available
+    # for (filename, clip_seq), (notename, octave_seq) in clipping_info.items():
+    #     if filename == filename:
+    #         del noteinfo_list[clip_seq]
+    #         noteinfo_list.insert(clip_seq, (notename, octave_seq))
 
     # create a dictionary with entries per note
     notedict: dict[tuple[NoteName, OctaveNbr], list[tuple[Frequency, ClipRange]]] = defaultdict(list)
@@ -164,7 +194,7 @@ def detect_individual_notes(
 def process_wav_file(
     group: InstrumentGroup,
     instrument: Instrument,
-    notefreq_dict: dict[(NoteName, int), Frequency],
+    notefreq_dict: dict[(NoteName, OctaveNbr), Frequency],
     clip_fix: bool = SOUNDFILE_CLIP_FIX,
     equalize_notes: bool = SOUNDFILE_EQUALIZE_NOTES,
     save: bool = True,
@@ -187,7 +217,12 @@ def process_wav_file(
         data = reconstruct_clipped_regions(data)
 
     logger.info("--- Detecting note boundaries.")
-    noteinfo_dict = detect_individual_notes(sample_rate, data, notefreq_dict)
+    noteinfo_dict = detect_individual_notes(
+        sample_rate=sample_rate,
+        data=data,
+        notefreq_dict=notefreq_dict,
+        clipinfo=group.clipinfo_dict.get(instrument.soundfilename, {}),
+    )
 
     # TODO remove this test after modifications to enable multiple samples for the same note
     if len(noteinfo_dict) != len(instrument.notes):

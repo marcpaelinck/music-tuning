@@ -5,13 +5,11 @@ Völk 2015: Florian Völk 1 2015, Updated analytical expressions for critical ba
 
 """
 
-import math
-import time
 from itertools import product
 
 import numpy as np
-import pandas as pd
 
+from tuning.analysis.aggregation import dict_key_retrieve_instrgroup
 from tuning.analysis.utils import get_minima
 from tuning.common.classes import (
     AggregatedPartialDict,
@@ -103,6 +101,8 @@ def dissonance_profile(
         # Retrieve arrays of f and g frequencies and amplitudes
         f_freq = np.array([f_partial.tone.frequency for f_partial, _ in fg_partial_pairs])
         g_freq = np.array([g_partial.tone.frequency for _, g_partial in fg_partial_pairs])
+        # f_freq = np.array([f_partial.ratio for f_partial, _ in fg_partial_pairs]) * fundamental
+        # g_freq = np.array([g_partial.ratio for _, g_partial in fg_partial_pairs]) * fundamental
         f_ampl = np.array([fixed_ampl or f_partial.tone.amplitude for f_partial, _ in fg_partial_pairs])
         g_ampl = np.array([fixed_ampl or g_partial.tone.amplitude for _, g_partial in fg_partial_pairs])
         # Add increment rows to requested frequency array(s)
@@ -161,7 +161,10 @@ def create_partials_from_list(p_list: list[tuple[float, float]]) -> list[Partial
 
 
 def plot_diss_graph(
-    pairs: dict[str, tuple[list[Partial], list[Partial]]], noteratio_dict: dict[NoteName, Ratio], **kwargs
+    pairs: dict[str, tuple[list[Partial], list[Partial]]],
+    ref_note: NoteName,
+    noteratio_dict: dict[NoteName, Ratio],
+    **kwargs,
 ):
     profiler = dissonance_profile
     plot_content = list()
@@ -216,12 +219,13 @@ def plot_diss_graph(
             ]
         )
         sign = graph_data[0][0] / abs(graph_data[0][0])
+        notenames = list(noteratio_dict.keys())
         vlines_graph.append(
             [
                 list(np.array(list(noteratio_dict.values())) * sign),
                 [0] * len(noteratio_dict.values()),
                 [ymax] * len(noteratio_dict.values()),
-                "y",
+                ["r" if notename is ref_note.kempyung(notenames) else "y" for notename in noteratio_dict.keys()],
             ]
         )
         vlines_text.append(
@@ -231,7 +235,7 @@ def plot_diss_graph(
                     "y": ymax - 0.1,
                     "s": notename.short,
                     "fontsize": "small",
-                    "color": "y",
+                    "color": "r" if notename is ref_note.kempyung(notenames) else "y",
                     "ha": "center",
                     "va": "bottom",
                 }
@@ -261,12 +265,43 @@ def plot_diss_graph(
         )
 
 
+def reduced_freq_dict(
+    notelist: list[Note], ref_note: NoteName, group: AggregatedPartialDict, instrtype: InstrumentType
+) -> dict[Note, Frequency]:
+    # Convert all note frequencies to octave 0
+    reduced_freq_list = {
+        notename: [
+            note.frequency / pow(2, note.octave.index - (1 if note.name.index() < ref_note.index() else 0))
+            for note in notelist
+            if note.name == notename
+        ]
+        for notename in NoteName
+    }
+    # Calculate average frequency per note. Remove entries without values.
+    reduced_freqs = {key: np.mean(np.array(freqs)) for key, freqs in reduced_freq_list.items() if freqs}
+
+    # Check if the reference note occurs. If not, take the frequency from another group of this instrument
+    if not reduced_freqs.get(ref_note, None):
+        for key, (_, notes) in group.root.items():
+            if key.startswith(instrtype.value):
+                note = next((note for note in notes if note.name == ref_note), None)
+                if note:
+                    reduced_freqs[ref_note] = note.frequency / pow(
+                        2, note.octave.index - (1 if note.name.index() < ref_note.index() else 0)
+                    )
+                    return reduced_freqs
+
+    return reduced_freqs
+
+
 def plot_dissonance_graphs(
     group: AggregatedPartialDict,
     *,
     object: InstrumentType,
     groupname: InstrumentGroupName,
     amplitude: float = None,
+    ref_octave: int = 3,
+    ref_note: NoteName = NoteName.DING,
     **kwargs,
 ):
     HARMONICS_AMPL_DB = 50  # Amplitude for harmonics
@@ -275,13 +310,21 @@ def plot_dissonance_graphs(
     keys = [key for key in list(group.root.keys()) if key.startswith(object.value)]
     if not keys:
         return False
+
+    # Calculate the average note frequencies for the reference octave (octave 0)
+    notes = [note for key in keys for note in group.root[key][1]]
+    reduced_freqs = reduced_freq_dict(notes, ref_note, group, object)
+
     partial_harmonic_pairs = dict()
     for key in keys:
-        instrument_group = key.split("#")[-1]
+        instrument_group = dict_key_retrieve_instrgroup(key)
         partials, notes = group.root[key]
-        fundamental = next((p for p in partials if p.isfundamental), None)
-        f_freq = fundamental.tone.frequency
-        harmonics = create_partials_from_list([(f_freq * i, HARMONICS_AMPL_DB) for i in range(1, 5)])
+        # fundamental = next((p for p in partials if p.isfundamental), None)
+        # reference_freq = fundamental.tone.frequency
+        reference_freq = reduced_freqs[ref_note] * pow(2, ref_octave)
+        for partial in partials:
+            partial.tone.frequency = partial.ratio * reference_freq
+        harmonics = create_partials_from_list([(reference_freq * i, HARMONICS_AMPL_DB) for i in range(1, 5)])
         partial_harmonic_pairs[instrument_group] = (partials, harmonics)
 
     pagetitle = f"Dissonance graph for {groupname.value} {object.value}" + (
@@ -289,17 +332,12 @@ def plot_dissonance_graphs(
     )
     # Reduce all notes to octave 0 then calculate average frequency per note.
     # Then determine ratio relative to DING.
-    reduced_freqs = {
-        notename: np.mean(
-            np.array([note.frequency / pow(2, note.octave.index) for note in notes if note.name == notename])
-        )
-        for notename in NoteName
-    }
-    noteratio_dict = {notename: freq / reduced_freqs[NoteName.DING] for notename, freq in reduced_freqs.items()}
+    noteratio_dict = {notename: freq / reduced_freqs[ref_note] for notename, freq in reduced_freqs.items()}
     plot_diss_graph(
         pairs=partial_harmonic_pairs,
         noteratio_dict=noteratio_dict,
         notes=notes,
+        ref_note=ref_note,
         is_decibel=True,
         amplitude=amplitude,
         plottitles=instrument_group,

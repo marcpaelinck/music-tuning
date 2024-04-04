@@ -9,7 +9,7 @@ from matplotlib.figure import Figure
 from pydantic import BaseModel
 from scipy.io import wavfile
 
-from tuning.analysis.aggregation import dict_key
+from tuning.analysis.aggregation import dict_key_str
 from tuning.analysis.dissonance import (
     dissonance_j,
     dissonance_s,
@@ -94,9 +94,7 @@ def plot_note_spectra(
                         ]
                         + [
                             (ap.ratio if ratio else ap.tone.frequency, 0, ap.tone.amplitude, "r")
-                            for ap in aggregatedpartials.root.get(
-                                dict_key(object.instrumenttype, object.ombaktype, note.octave), [[]]
-                            )[0]
+                            for ap in aggregatedpartials.root.get(dict_key_str(object, note), [[]])[0]
                         ]
                     )
                 )
@@ -199,7 +197,7 @@ def plot_sounddata(
             {
                 "x": (sample.cliprange.start + sample.cliprange.end) / (2 * sample_rate),
                 "y": ymax - 0.1 * (ymax - ymin),
-                "s": note.name.value,
+                "s": note.name.short,
                 "horizontalalignment": "center",
                 "fontsize": "small",
                 "color": "b",
@@ -231,36 +229,4 @@ def plot_sounddata(
 
 
 if __name__ == "__main__":
-
-    # Set these values before running
-    GROUPNAME = InstrumentGroupName.SEMAR_PAGULINGAN
-    GRAPH = Graph.SOUNDFILE  # SOUNDFILE, SPECTRUM or DISSONANCE
-
-    if GRAPH == Graph.SOUNDFILE:
-        group = step_read_group_from_jsonfile(GROUPNAME, read_sounddata=True)
-        pdf_filename = "sounddata.pdf"
-        create_pdf(
-            group=group,
-            iterlist=group.instruments,
-            plotter=plot_sounddata,
-            filepath=get_path(groupname=GROUPNAME, filetype=Folder.ANALYSES, filename=pdf_filename),
-        )
-    elif GRAPH == Graph.SPECTRUM:
-        group = step_read_group_from_jsonfile(GROUPNAME, read_sounddata=False, read_spectrumdata=True)
-        pdf_filename = "spectra_with_partials_ratio.pdf"
-        create_pdf(
-            group=group,
-            iterlist=group.instruments,
-            plotter=partial(plot_note_spectra, max_partials=7),
-            filepath=get_path(groupname=GROUPNAME, filetype=Folder.ANALYSES, filename=pdf_filename),
-        )
-    elif GRAPH == Graph.DISSONANCE:
-        group = read_object_from_jsonfile(AggregatedPartialDict, GROUPNAME, Folder.ANALYSES, AGGREGATED_PARTIALS_FILE)
-        pdf_filename = "dissonance_graph.pdf"
-        create_pdf(
-            group=group,
-            iterlist=InstrumentType,
-            plotter=plot_dissonance_graphs,
-            filepath=get_path(groupname=GROUPNAME, filetype=Folder.ANALYSES, filename=pdf_filename),
-            groupname=InstrumentGroupName.SEMAR_PAGULINGAN,
-        )
+    ...
