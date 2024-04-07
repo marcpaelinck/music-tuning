@@ -25,9 +25,9 @@ from tuning.common.constants import (
     INSTRUMENT,
     INSTRUMENT_GROUP,
     INSTRUMENT_INFO_FILE,
+    INSTRUMENTS,
     NOTE,
     NOTE_SHEET,
-    NOTES,
     OCTAVE_SEQ,
     OCTAVE_SHEET,
     OMBAKTYPE,
@@ -67,14 +67,16 @@ def get_clipping_dict(groupname: InstrumentGroupName) -> dict[tuple[str, int], t
     return clipping_dict
 
 
-def get_notefreq_dict(groupname: InstrumentGroupName) -> dict[(NoteName, OctaveNbr), Frequency]:
+def get_notefreq_dict(groupname: InstrumentGroupName) -> dict[InstrumentType, dict[(NoteName, OctaveNbr), Frequency]]:
     note_df = pd.read_excel(get_path(groupname, Folder.SETTINGS, INSTRUMENT_INFO_FILE), sheet_name=NOTE_SHEET)
     row_list = (
         note_df[note_df[INSTRUMENT_GROUP] == groupname.value].drop(INSTRUMENT_GROUP, axis=1).to_dict(orient="records")
     )
-    note_dict = dict()
+    note_dict = defaultdict(dict)
     for row in row_list:
-        note_dict[(NoteName(row[NOTE]), row[OCTAVE_SEQ])] = row[FREQUENCY]
+        instrtype_list = [InstrumentType(instr.strip()) for instr in row[INSTRUMENTS].split(",")]
+        for instr_type in instrtype_list:
+            note_dict[instr_type][(NoteName(row[NOTE]), row[OCTAVE_SEQ])] = row[FREQUENCY]
     return note_dict
 
 
@@ -84,6 +86,7 @@ def step_create_group_from_info_file(groupname: InstrumentGroupName) -> Instrume
     """
     octave_dict = get_octave_dict(groupname)
     clipping_dict = get_clipping_dict(groupname)
+    note_dict = get_notefreq_dict(groupname)
 
     orchestra = InstrumentGroup(grouptype=groupname, instruments=[], clipinfo_dict=clipping_dict)
     fileinfo = pd.read_excel(
@@ -91,23 +94,21 @@ def step_create_group_from_info_file(groupname: InstrumentGroupName) -> Instrume
     ).to_dict(orient="records")
 
     for row in fileinfo:
-        shortcodes = row[NOTES].split("-")
         instrument_info = Instrument(
-            instrumenttype=InstrumentType(row[INSTRUMENT]),
+            instrumenttype=(instr_type := InstrumentType(row[INSTRUMENT])),
             code=row[CODE],
             ombaktype=OmbakType(row[OMBAKTYPE]),
             original_soundfilename=row[FILENAME],
             soundfilename=row[FILENAME],
             notes=[
                 Note(
-                    name=note_from_shortcode(shortcode),
-                    octave=octave_dict[int(shortcode[-1])],
-                    order_in_soundfile=shortcodes.index(shortcode),
-                    frequency=0,
+                    name=name,
+                    octave=octave_dict[oct_nbr],
+                    frequency=freq,
                     fundamental_index=0,
                     partials=[],
                 )
-                for shortcode in shortcodes
+                for (name, oct_nbr), freq in note_dict[instr_type].items()
             ],
         )
         orchestra.instruments.append(instrument_info)

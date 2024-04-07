@@ -7,7 +7,7 @@ from tuning.soundfiles.utils import create_soundclip_ranges
 
 
 def reconstruct_clipped_regions(
-    data: SoundData, thresh_ratio: float = 0.95, reduce: float = None
+    data: SoundData, sample_rate: int, thresh_ratio: float = 0.95, reduce: float = None
 ) -> SoundData:
     """
     Attempts to reconstruct clipped regions by interpolating the lost signal.
@@ -24,13 +24,14 @@ def reconstruct_clipped_regions(
         np.ndarray: the fixed data.
     """
     maxvalue = np.int16(np.iinfo(data.dtype).max)
-    clipranges = create_soundclip_ranges(data=data, threshold=maxvalue * thresh_ratio)
+    if abs(data).max() < maxvalue:
+        return data
+    clipranges = create_soundclip_ranges(data=data, sample_rate=sample_rate, threshold=maxvalue * thresh_ratio)
     # make a copy of the array and cast to int32 to allow extrapolation outside of the int16 limits
     restored_data = data.copy().astype(np.int32)
     for cliprange in clipranges:
         x_orig = np.array(
-            list(range(cliprange.start - 5, cliprange.start))
-            + list(range(cliprange.end + 1, cliprange.end + 6))
+            list(range(cliprange.start - 5, cliprange.start)) + list(range(cliprange.end + 1, cliprange.end + 6))
         )
         y_orig = np.take(data, x_orig, axis=0)
         # function to predict missing values
@@ -61,9 +62,7 @@ def rolling_maximum(arr: np.ndarray, width: int) -> np.ndarray:
     return rolling_max
 
 
-def equalize_note_amplitudes(
-    sample_rate: float, data: SoundData, clipranges: list[ClipRange]
-) -> SoundData:
+def equalize_note_amplitudes(sample_rate: float, data: SoundData, clipranges: list[ClipRange]) -> SoundData:
     """
     Equalizes the amplitude of the individual notes.
 

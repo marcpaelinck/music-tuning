@@ -11,7 +11,6 @@ from tuning.analysis.spectrum import (
 )
 from tuning.common.classes import (
     AggregatedPartialDict,
-    Instrument,
     InstrumentGroup,
     InstrumentType,
     NoteName,
@@ -22,6 +21,7 @@ from tuning.common.constants import (
     InstrumentGroupName,
 )
 from tuning.common.utils import (
+    get_logger,
     get_path,
     read_object_from_jsonfile,
     save_object_to_jsonfile,
@@ -32,6 +32,8 @@ from tuning.soundfiles.instrumentinfo import step_create_group_from_info_file
 from tuning.soundfiles.process_soundfiles import step_process_sound_files
 from tuning.visualization.plotter import plot_note_spectra, plot_sounddata
 from tuning.visualization.utils import create_pdf
+
+logger = get_logger(__name__)
 
 
 class Step(Enum):
@@ -203,6 +205,7 @@ class PipeLine:
                 plot_note_spectra,
                 max_partials=7,
                 ratio=(is_ratio := True),
+                what=["spectra", "partials"],
             ),
             filepath=get_path(
                 groupname=groupname,
@@ -223,14 +226,18 @@ class PipeLine:
         )
         self.__init_actions__()
         if not self.is_valid_pipe(pipe):
-            raise Exception("Illegal pipeline sequence")
+            logger.error(f"Aborting script.")
+            exit()
 
     def is_valid_pipe(self, pipe: Pipe) -> bool:
+        available_data = {item.__class__ for item in self.data.values()}
+        for step in pipe:
+            (_, expected_input, output) = self.actions[step]
+            if not all([item in available_data for item in expected_input.values()]):
+                logger.error(f"Invalid pipeline sequence: not all input is available for step {step}.")
+                return False
+            available_data.add(output)
         return True
-        # sequence = [self.actions[step] for step in pipe if isinstance(step, Step)]
-        # return sequence[0][1] is InstrumentGroupName and all(
-        #     [outputtype is inputtype for (_, _, outputtype), (_, inputtype, _) in pairwise(sequence)]
-        # )
 
     def __get_data_items__(self, datatypes: dict[str, type]):
         return {keyword: self.data[datatype] for keyword, datatype in datatypes.items()}
@@ -249,6 +256,7 @@ if __name__ == "__main__":
         # Step.CREATE_GROUP,
         # Step.PROCESS_SOUNDFILES,
         # Step.SAVE_JSON_ONLY,
+        # Step.PLOT_SOUNDDATA,
         # Step.READ_GROUP_WITH_SPECTRUMDATA,
         # Step.READ_GROUP_WITH_SOUNDDATA,
         # Step.READ_GROUP,
@@ -257,13 +265,12 @@ if __name__ == "__main__":
         # Step.CREATE_PARTIALS,
         # Step.SAVE_JSON_ONLY,
         # Step.SAVE_JSON_AND_SPECTRA,
-        # Step.PLOT_SOUNDDATA,
-        Step.READ_AGGREGATED_PARTIALS,
+        # Step.READ_AGGREGATED_PARTIALS,
         # Step.READ_GROUP_WITH_SPECTRUMDATA,
         # Step.AGGREGATE_PARTIALS,
         # Step.SAVE_AGGREGATED_PARTIALS,
         # Step.PLOT_NOTE_SPECTRA,
         Step.PLOT_DISSONANCE_GRAPHS,
     ]
-    pipeline = PipeLine(InstrumentGroupName.GENDERWAYANG, pipe)
-    pipeline.execute()
+    pipeline = PipeLine(InstrumentGroupName.ANGKLUNG, pipe)
+    # pipeline.execute()

@@ -1,5 +1,7 @@
 import numpy as np
 
+from tuning.common.classes import Frequency
+
 
 def remove_min_region(index, x_vector, y_vector) -> tuple[np.array]:
     idx1 = idx2 = index
@@ -22,6 +24,21 @@ def get_minima(x_vector, y_vector) -> list[tuple[float, float]]:
         minima.append((x_vect[idx], y_vect[idx]))
         x_vect, y_vect = remove_min_region(idx, x_vect, y_vect)
     return minima
+
+
+def reduce_frequency(frequency: Frequency, octaves: int) -> Frequency:
+    """
+    Reduces frequency by the given number of octaves.
+
+    Args:
+        frequency (Frequency): The frequency to convert.
+        octave_idx (int): The octave of the reference frequency (usually the fundamental)
+
+    Returns:
+        Frequency: The input frequency lowered with the given number of octaves
+    """
+    #
+    return frequency / pow(2, octaves)
 
 
 if __name__ == "__main__":

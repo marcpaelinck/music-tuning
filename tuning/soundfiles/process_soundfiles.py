@@ -8,6 +8,7 @@ import statistics
 from collections import defaultdict
 
 import numpy as np
+import pandas as pd
 from matplotlib.figure import Figure
 from matplotlib.pylab import f
 from scipy.io import wavfile
@@ -19,6 +20,7 @@ from tuning.common.classes import (
     Frequency,
     Instrument,
     InstrumentGroup,
+    InstrumentType,
     IntFrequency,
     NoteName,
     OctaveNbr,
@@ -32,6 +34,7 @@ from tuning.common.constants import (
     MINIMUM_SAMPLE_DURATION,
     NOTE_PATTERN,
     SHORT_BLANKS_DURATION_THRESHOLD,
+    SKIP_STRIKE_DURATION,
     SOUNDFILE_CLIP_FIX,
     SOUNDFILE_EQUALIZE_NOTES,
     Folder,
@@ -98,16 +101,40 @@ def determine_fundamental_freq(
     # Return corresponding frequency
     return int(xval[fundamental_idx])
 
+def envelope(clip: SoundData, rate, threshold):
+    """
+    Inputs audio data in the form of a numpy array. Converts to pandas series
+    to find the rolling average and apply the absolute value to the signal at all points.
+    
+    Additionally takes in the sample rate and threshold (amplitude). Data below the threshold
+    will be filtered out. This is useful for filtering out environmental noise from recordings. 
+    """
+    mask = []
+    signal = pd.Series(np.abs(clip)) # Convert to series to find rolling average and apply absolute value to the signal at all points. 
+    signal_mean = signal.rolling(window = int(rate/10), min_periods = 1, center = True).mean() # Take the rolling average of the series within our specified window.
+    
+    for mean in signal_mean:
+        if mean > threshold:
+            mask.append(True)
+        else:
+            mask.append(False)
+    return np.array(mask)
 
-def matches_note_pattern(clip: SoundData) -> bool:
+
+def matches_note_pattern(clip: SoundData, start: float) -> bool:
     length = len(clip)
     intervals = [
         (int(sum(NOTE_PATTERN[:i] * length)), int(sum(NOTE_PATTERN[: i + 1] * length)) - 1)
         for i in range(len(NOTE_PATTERN))
     ]
     maxima = [np.average(abs(clip[interval[0] : interval[1]])) for interval in intervals]
-    # return all(maxima[i] > 1.1 * maxima[i + 2] for i in range(segments - 2))
-    return all(maxima[i] > maxima[i + 1] for i in range(len(intervals) - 1))
+    # return all(maxima[i] > maxima[i + 2] for i in range(len(intervals) - 2))
+    matches = all(maxima[0] > maxima[i + 1] for i in range(len(intervals) - 1))
+    return matches
+
+
+def remove_strikes(cliprange_list: list[ClipRange], sample_rate: int):
+    return [ClipRange(start=c.start + int(SKIP_STRIKE_DURATION * sample_rate), end=c.end) for c in cliprange_list]
 
 
 def detect_individual_notes(
@@ -130,22 +157,24 @@ def detect_individual_notes(
         return None
 
     logger.info(f"- Parsing individual notes.")
-    cliprange_list = create_soundclip_ranges(data, float(AMPLITUDE_THRESHOLD_TO_AVERAGE_RATIO * abs(data).mean()))
+    cliprange_list = create_soundclip_ranges(
+        data=data, sample_rate=sample_rate, threshold=float(AMPLITUDE_THRESHOLD_TO_AVERAGE_RATIO * abs(data).mean())
+    )
 
     # Merge clip ranges that are separated by less than 0.1 second
     logger.info(f"--- Detected {len(cliprange_list)} clip ranges.")
-    logger.info("--- Merging sound ranges.")
-    minimum_length = SHORT_BLANKS_DURATION_THRESHOLD * sample_rate
-    idx = 0
-    while idx < len(cliprange_list) - 1:
-        range1 = cliprange_list[idx]
-        range2 = cliprange_list[idx + 1]
-        if range2.start - range1.end < minimum_length:
-            range1.end = range2.end
-            cliprange_list.remove(range2)
-        else:
-            idx += 1
-    logger.info(f"--- Remaining: {len(cliprange_list)} clip ranges.")
+    # logger.info("--- Merging sound ranges.")
+    # minimum_length = SHORT_BLANKS_DURATION_THRESHOLD * sample_rate
+    # idx = 0
+    # while idx < len(cliprange_list) - 1:
+    #     range1 = cliprange_list[idx]
+    #     range2 = cliprange_list[idx + 1]
+    #     if range2.start - range1.end < minimum_length:
+    #         range1.end = range2.end
+    #         cliprange_list.remove(range2)
+    #     else:
+    #         idx += 1
+    # logger.info(f"--- Remaining: {len(cliprange_list)} clip ranges.")
 
     # Drop clip ranges that are shorter than the minimum recording duration. This removes unintended noises
     # such as switching the recorder on or off.
@@ -154,12 +183,34 @@ def detect_individual_notes(
     expected_length = EXPECTED_SAMPLE_DURATION * sample_rate
 
     # Create a list of clipranges that are recognized as note patterns
+    cliprange_list_copy = cliprange_list  ##########
     cliprange_list = [
         block
         for block in cliprange_list
         if (block.end - block.start > minimum_length)
-        and ((block.end - block.start > expected_length) or matches_note_pattern(data[block.start : block.end]))
+        and (
+            (block.end - block.start > expected_length)
+            and matches_note_pattern(data[block.start : block.end], block.start)
+        )
     ]
+
+    ##########
+    diff = [
+        (
+            block,
+            (block.end - block.start <= expected_length),
+            not matches_note_pattern(data[block.start : block.end], block.start),
+        )
+        for block in cliprange_list_copy if (block not in cliprange_list) and (block.end - block.start > minimum_length)]
+    for cliprange, tooshort, nomatch in diff:
+        logger.warning(
+            f"---        ({(cliprange.start/sample_rate):.2f} sec., {(cliprange.end/sample_rate):.2f} sec.) {"is too short" if tooshort else ""} {"does not match pattern" if nomatch else ""}"
+        )
+
+    ##########
+
+    # Skip the first part of the clip recording (the strike)
+    cliprange_list = remove_strikes(cliprange_list, sample_rate)
 
     # Determine the note and octave based on the fundamental frequency
     frequency_list = [
@@ -214,7 +265,7 @@ def process_wav_file(
 
     if clip_fix:
         logger.info("Repairing regions that exceeded maximum recording level.")
-        data = reconstruct_clipped_regions(data)
+        data = reconstruct_clipped_regions(data=data, sample_rate=sample_rate)
 
     logger.info("--- Detecting note boundaries.")
     noteinfo_dict = detect_individual_notes(
@@ -224,7 +275,6 @@ def process_wav_file(
         clipinfo=group.clipinfo_dict.get(instrument.soundfilename, {}),
     )
 
-    # TODO remove this test after modifications to enable multiple samples for the same note
     if len(noteinfo_dict) != len(instrument.notes):
         logger.error(
             f"--- {group.grouptype} .wav file {instrument.soundfilename}: {len(instrument.notes)} "
@@ -283,7 +333,7 @@ def process_wav_file(
 def step_process_sound_files(group: InstrumentGroup) -> InstrumentGroup:
     notefreq_dict = get_notefreq_dict(group.grouptype)
     for instrument in group.instruments:
-        process_wav_file(group=group, instrument=instrument, notefreq_dict=notefreq_dict)
+        process_wav_file(group=group, instrument=instrument, notefreq_dict=notefreq_dict[instrument.instrumenttype])
     group.has_sound_samples = True
     return group
 

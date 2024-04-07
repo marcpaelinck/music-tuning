@@ -1,6 +1,7 @@
 import math
 from enum import Enum, auto
 from functools import partial
+from itertools import chain
 from typing import Callable, Iterable
 
 import numpy as np
@@ -9,13 +10,14 @@ from matplotlib.figure import Figure
 from pydantic import BaseModel
 from scipy.io import wavfile
 
-from tuning.analysis.aggregation import dict_key_str
+from tuning.analysis.aggregation import dict_key_str, get_aggr_partials
 from tuning.analysis.dissonance import (
     dissonance_j,
     dissonance_s,
     plot_dissonance_graphs,
 )
 from tuning.common.classes import (
+    AggregatedPartial,
     AggregatedPartialDict,
     Instrument,
     InstrumentGroup,
@@ -26,6 +28,7 @@ from tuning.common.constants import (
     AGGREGATED_PARTIALS_FILE,
     Folder,
     InstrumentGroupName,
+    NoteName,
 )
 from tuning.common.utils import (
     get_logger,
@@ -54,9 +57,35 @@ def plot_dissonance_functions():
     plot_graphs((frequencies, diss_j), (frequencies, diss_s), plottype=PlotType.SPECTRUMPLOT, show=True)
 
 
+def matchespartial(
+    aggr_partial: AggregatedPartial, instr_code: str, notename: NoteName, octave_idx: int, sample_seq: int
+) -> bool:
+    """
+    Determines if an aggregated partial matches a partial of a specific instrument sample.
+
+    Args:
+        aggr_partial (AggregatedPartial): _description_
+        code (str): instrument code
+        sample_seq (int): sequence of the sample for thein the sound file
+
+    Returns:
+        bool: _description_
+    """
+    return any(
+        [
+            p
+            for p in aggr_partial.partials
+            if p.instrument_code == instr_code
+            and p.notename == notename
+            and p.octave_idx == octave_idx
+            and p.sample_seq == sample_seq
+        ]
+    )
+
+
 def plot_note_spectra(
     group: InstrumentGroup,
-    object: Instrument,
+    item: Instrument,
     *,
     aggregatedpartials: AggregatedPartialDict = AggregatedPartialDict({}),
     what: list[str] = ["spectra", "partials"],
@@ -64,61 +93,67 @@ def plot_note_spectra(
     ratio: bool = True,  # X-axis is ratios if True, otherwise frequencies
     show: bool = False,
 ) -> bool:
-    xmin = 0
-    xmax = max(np.max(spectrum.frequencies) for note in object.notes for spectrum in note.spectra)
-    ymin = -100
-    ymax = max(np.max(spectrum.amplitudes) for note in object.notes for spectrum in note.spectra)
 
+    instrument = item
     plot_content = []
+    logger.info(f"--- generating data for {instrument.instrumenttype.value} {instrument.code}")
+
+    xmin = 0
+    # xmax = max(np.max(xval) for plot, _ in plot_content for xval, _ in plot) * 1.05
+    xmax = min(
+        max([p.ratio for note in instrument.notes for part_list in note.partials[:max_partials] for p in part_list]), 10
+    )
+    ymin = -100
+    ymax = max(np.max(spectrum.amplitudes) for note in instrument.notes for spectrum in note.spectra)
+
     if "partials" in what:
-        xmax = (
-            max(
-                partial.ratio if ratio else partial.tone.frequency
-                for note in object.notes
-                for partial in note.aggr_partials[:max_partials]
-            )
-            * 1.05
-        )
+        # Define vlines for the partials of each spectrum graph and for the aggregated partials
+        aggr = partial(get_aggr_partials, aggregatedpartials=aggregatedpartials, instrument=instrument)
         note_partials = [
-            list(
-                zip(
-                    *(
-                        [
-                            (
-                                p.ratio if ratio else p.tone.frequency,
-                                0,
-                                p.tone.amplitude,
-                                "r" if p.isfundamental else "y" if note.aggr_partials.index(p) < 4 else "c",
-                            )
-                            for p in note.aggr_partials[:max_partials]
-                        ]
-                        + [
-                            (ap.ratio if ratio else ap.tone.frequency, 0, ap.tone.amplitude, "r")
-                            for ap in aggregatedpartials.root.get(dict_key_str(object, note), [[]])[0]
-                        ]
-                    )
-                )
-            )
-            for note in object.notes
+            [
+                [ap.ratio if ratio else ap.tone.frequency for ap in aggr(note)]
+                + [p.ratio if ratio else p.tone.frequency for p in partials[:max_partials]],
+                [0] * (len(partials[:max_partials]) + len(aggr(note))),
+                # [ap.tone.amplitude for ap in aggr(note)] +
+                [ymax for ap in aggr(note)] + [p.tone.amplitude for p in partials[:max_partials]],
+                [
+                    "m" if matchespartial(ap, instrument.code, note.name, note.octave.index, sample_seq) else "y"
+                    for ap in aggr(note)
+                ]
+                + ["r" if p.isfundamental else "c" for p in partials[:max_partials]],
+            ]
+            for note in instrument.notes
+            for partials, sample_seq in zip(note.partials, list(range(len(note.partials))))
         ]
+
+    if "spectra" in what:
+        fund_list = {
+            note.name: [next(p for p in p_list if p.isfundamental) for p_list in note.partials]
+            for note in instrument.notes
+        }
+        spectra = {
+            note.name: [(spectrum.frequencies, spectrum.amplitudes) for spectrum in note.spectra]
+            for note in instrument.notes
+        }
+        if ratio:
+            spectra = {
+                notename: [
+                    ([freq / fundamental.tone.frequency for freq in frequencies], amplitudes)
+                    for (frequencies, amplitudes), fundamental in zip(spectra[notename], fund_list[notename])
+                ]
+                for notename in spectra.keys()
+            }
+        plot_content.append((list(chain.from_iterable(spectra.values())), PlotType.SPECTRUMPLOT))
 
         plot_content.append((note_partials, PlotType.VLINES))
 
-    if "spectra" in what:
-        spectra = [(spectrum.frequencies, spectrum.amplitudes) for note in object.notes for spectrum in note.spectra]
-        if ratio:
-            fund_freqs = [note.aggr_partials[note.fundamental_index].tone.frequency for note in object.notes]
-            spectra = [
-                ([freq / fund_freq for freq in spectrum[0]], spectrum[1])
-                for spectrum, fund_freq in zip(spectra, fund_freqs)
-            ]
-        plot_content.append((spectra, PlotType.SPECTRUMPLOT))
-
-    title = f"{group.grouptype.value} - {object.instrumenttype} {object.code}"
+    title = (
+        f"{group.grouptype.value} - {instrument.instrumenttype.value} {instrument.ombaktype.value} {instrument.code}"
+    )
     plottexts = [
         [
-            {"x": x, "y": y, "s": f"{x:1.3f}", "fontsize": "x-small", "ha": "left"}
-            for x, y in zip(partials[0], partials[2])
+            {"x": p.ratio, "y": p.tone.amplitude, "s": f"{p.ratio:1.3f}", "fontsize": "x-small", "ha": "left"}
+            for p in partials[:max_partials]
         ]
         + [
             {
@@ -129,19 +164,25 @@ def plot_note_spectra(
                 "color": "b",
             }
         ]
-        for partials, note in zip(note_partials, object.notes)
+        # for partials, note in zip(note_partials, object.notes)
+        for note in instrument.notes
+        for partials in note.partials
     ]
 
     figure = None
     axes = None
     for content in plot_content:
         is_last = content is plot_content[-1]
+        if content is plot_content[0]:
+            logger.info(f"--- Creating {len(content[0])} {content[1].name} graphs")
+        else:
+            logger.info(f"--- Adding {content[1].name} to {len(content[0])} graphs")
         figure, axes = plot_graphs(
             *content[0],
             plottype=content[1],
             pagetitle=title,
             plottexts=(plottexts if is_last else None),
-            show=show if is_last else False,
+            show=False,
             figure=figure,
             axes=axes,
             xmin=xmin,
@@ -154,7 +195,7 @@ def plot_note_spectra(
 
 def plot_sounddata(
     group: InstrumentGroup,
-    object: Instrument,
+    item: Instrument,
     original_file: bool = True,
     *,
     show: bool = False,
@@ -163,7 +204,7 @@ def plot_sounddata(
         get_path(
             group.grouptype,
             Folder.SOUND,
-            object.original_soundfilename if original_file else object.soundfilename,
+            item.original_soundfilename if original_file else item.soundfilename,
         )
     )
     channels = [c for c in range(data.shape[-1])]
@@ -181,7 +222,7 @@ def plot_sounddata(
             zip(
                 *[
                     (border / sample_rate, ymin, ymax, "r")
-                    for note in object.notes
+                    for note in item.notes
                     for sample in note.samples
                     for border in (sample.cliprange.start, sample.cliprange.end)
                 ]
@@ -191,7 +232,7 @@ def plot_sounddata(
     ]
     plot_content.append((cliprange_borders, PlotType.VLINES))
 
-    title = f"{group.grouptype.value} - {object.instrumenttype} {object.code}"
+    title = f"{group.grouptype.value} - {item.instrumenttype} {item.code}"
     plottexts = [
         [
             {
@@ -202,7 +243,7 @@ def plot_sounddata(
                 "fontsize": "small",
                 "color": "b",
             }
-            for note in object.notes
+            for note in item.notes
             for sample in note.samples
         ],
         [],

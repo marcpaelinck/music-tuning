@@ -1,6 +1,64 @@
 from enum import Enum
 
 
+class OrderedEnum(Enum):
+    def __lt__(self, other):
+        list(self.__class__).index(self) < list(self.__class__).index(other)
+
+
+class InstrumentType(OrderedEnum):
+    GONG = "gong"
+    JEGOGAN = "jegogan"
+    JUBLAG = "jublag"
+    PEMADE = "gangsa pemade"
+    KANTILAN = "gangsa kantilan"
+    GENDERRAMBAT = "gender rambat"
+    GENDERWAYANG = "gender wayang"
+
+
+class OmbakType(OrderedEnum):
+    PENGUMBANG = "pengumbang"
+    PENGISEP = "pengisep"
+
+    def __str__(self):
+        return self.value
+
+
+class NoteName(OrderedEnum):
+    DING = "ding"
+    DONG = "dong"
+    DENG = "deng"
+    DEUNG = "deung"
+    DUNG = "dung"
+    DANG = "dang"
+    DAING = "daing"
+
+    def __init__(self, val):
+        super().__init__(self, val)
+        self.short = self.value.replace("d", "").replace("n", "").replace("g", "")
+
+    def __str__(self):
+        return self.value
+
+    def index(self: "NoteName"):
+        return list(NoteName).index(self)
+
+    def kempyung(self, notes: list["NoteName"]):
+        skip = len(notes) - 2
+        return notes[(self.index() + skip) % len(notes)]
+
+
+class FreqUnit(Enum):
+    HERTZ = "Herz"
+    CENT = "Cent"
+    RATIO = "ratio"
+
+
+class AmplUnit(Enum):
+    LINEAR = "linear"
+    DB = "dB"
+
+
 class InstrumentGroupName(Enum):
     # The values are the names of the data folders
     TEST = "test"
@@ -29,7 +87,7 @@ DATA_FOLDER = ".\\data"
 INSTRUMENT_INFO_FILE = "info.xlsx"
 SPECTRA_INFO_FILE = "info.csv"
 OCTAVE_RANGE_FILE = "octave_ranges.json"
-AGGREGATED_PARTIALS_FILE = "partials_per_instrumenttype.json"
+AGGREGATED_PARTIALS_FILE = "aggregated_partials.json"
 
 # SHEET NAMES AND COLUMN NAMES OF FILE INFO.XLSX
 SOUNDFILE_SHEET = "Sound Files"
@@ -39,9 +97,9 @@ CLIPPING_SHEET = "Clippings"
 FILENAME = "filename"
 INSTRUMENT_GROUP = "instrument group"
 INSTRUMENT = "instrument"
+INSTRUMENTS = "instruments"
 CODE = "code"
 OMBAKTYPE = "ombaktype"
-NOTES = "notes"
 NOTE = "note"
 FREQUENCY = "frequency"
 OCTAVE_SEQ = "octave seq"
@@ -56,7 +114,8 @@ SHORT_BLANKS_DURATION_THRESHOLD = (
 )
 EXPECTED_SAMPLE_DURATION = 1  # minimum duration of a note, in seconds (to filter out random sounds)
 MINIMUM_SAMPLE_DURATION = 0.4  # minimum duration of a note, in seconds (to filter out random sounds)
-NOTE_PATTERN = [0.1, 0.15, 0.25, 0.25, 0.25]
+NOTE_PATTERN = [0.25, 0.25, 0.25, 0.25]
+SKIP_STRIKE_DURATION = 0.2  # skip the strike at the start of note recordings (seconds)
 
 SOUNDFILE_CLIP_FIX = True  # default value for the option to fix clipped amplitudes
 SOUNDFILE_EQUALIZE_NOTES = True  # default value for the option to equalize amplitudes
@@ -71,7 +130,15 @@ MIN_PROMINENCE = 10  # default minimum value for the prominence of amplitude pea
 # will be considered equal when aggregating partials
 DISTINCTIVENESS_CENT = 75  # 1/2 of a semitone, expressed in Cents.
 DISTINCTIVENESS = pow(2, DISTINCTIVENESS_CENT / 1200)  # as a frequency ratio
-MAX_OCTAVES = 6  # maximum number of octaves to consider when selecting partials
+MAX_OCTAVES = 4  # maximum number of octaves to consider when selecting partials
+
+# AGGREGATION
+# Currently only combinations of InstrumentType, OmbakType and Octave are possible.
+INSTRUMENTTYPE = 0
+OMBAKTYPE = 1
+OCTAVE = 2
+NOTE = 3
+AGGREGATION = (INSTRUMENTTYPE,)
 
 # SUMMARIZE
 KEEP_NR_PARTIALS = 4

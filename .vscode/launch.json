@@ -13,6 +13,16 @@
             "console": "integratedTerminal",
             "env": { "PYTHONPATH": "${workspaceFolder}" },
             "justMyCode": false
+        },
+        {
+            "name": "pipeline",
+            "type": "python",
+            "request": "launch",
+            "cwd": "${workspaceFolder}",
+            "program": "${workspaceFolder}\\tuning\\pipeline.py",
+            "console": "integratedTerminal",
+            "env": { "PYTHONPATH": "${workspaceFolder}" },
+            "justMyCode": false
         }
         
     ]

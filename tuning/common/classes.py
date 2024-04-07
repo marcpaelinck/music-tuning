@@ -13,7 +13,14 @@ from pydantic import (
 )
 from scipy.io import wavfile
 
-from tuning.common.constants import InstrumentGroupName
+from tuning.common.constants import (
+    AmplUnit,
+    FreqUnit,
+    InstrumentGroupName,
+    InstrumentType,
+    NoteName,
+    OmbakType,
+)
 
 Frequency = float
 IntFrequency = int
@@ -23,64 +30,6 @@ Amplitude = float
 Interval = float
 Filename = str
 SoundData = np.ndarray[np.ndarray[np.int16]]
-
-
-class OrderedEnum(Enum):
-    def __lt__(self, other):
-        list(self.__class__).index(self) < list(self.__class__).index(other)
-
-
-class InstrumentType(OrderedEnum):
-    GONG = "gong"
-    JEGOGAN = "jegogan"
-    JUBLAG = "jublag"
-    PEMADE = "gangsa pemade"
-    KANTILAN = "gangsa kantilan"
-    GENDERRAMBAT = "gender rambat"
-    GENDERWAYANG = "gender wayang"
-
-
-class OmbakType(OrderedEnum):
-    PENGUMBANG = "pengumbang"
-    PENGISEP = "pengisep"
-
-    def __str__(self):
-        return self.value
-
-
-class NoteName(OrderedEnum):
-    DING = "ding"
-    DONG = "dong"
-    DENG = "deng"
-    DEUNG = "deung"
-    DUNG = "dung"
-    DANG = "dang"
-    DAING = "daing"
-
-    def __init__(self, val):
-        super().__init__(self, val)
-        self.short = self.value.replace("d", "").replace("n", "").replace("g", "")
-
-    def __str__(self):
-        return self.value
-
-    def index(self: "NoteName"):
-        return list(NoteName).index(self)
-
-    def kempyung(self, notes: list["NoteName"]):
-        skip = len(notes) - 2
-        return notes[(self.index() + skip) % len(notes)]
-
-
-class FreqUnit(Enum):
-    HERTZ = "Herz"
-    CENT = "Cent"
-    RATIO = "ratio"
-
-
-class AmplUnit(Enum):
-    LINEAR = "linear"
-    DB = "dB"
 
 
 class Octave(BaseModel, frozen=True):
@@ -129,16 +78,29 @@ class Partial(BaseModel):
     ratio: Ratio
     prominence: float = 0
     isfundamental: bool
+    fundamental: Optional[Tone] = None
+    fund_octave: Optional[Octave] = None
+    instrument_code: Optional[str] = None
+    notename: Optional[NoteName] = None
+    octave_idx: Optional[int] = None
+    sample_seq: Optional[int] = None
 
 
 class AggregatedPartial(Partial):
+    # The frequency of tone and fundamental are averages
+    # based on the normalized frequencies of the underlying
+    # partial , i.e. all frequencies are first reduced
+    # to the same octave (octave 0). This enables to perform
+    # an aggregation over multiple octaves.
+    # ratio is the average of the ratios of all partials
+    # ratio0 is based on the Aggregated tone and fundamental
     partials: Optional[list[Partial]] = Field(default=None)
+    ratio0: Optional[float] = None
 
 
 class Note(BaseModel):
     name: NoteName
     octave: Octave
-    order_in_soundfile: int
     frequency: Optional[Frequency] = None
     fundamental_index: int = None
     samples: Optional[list[Sample]] = None
@@ -239,7 +201,3 @@ class InstrumentGroup(BaseModel):
     has_sound_samples: bool = False
     has_spectra: bool = False
     clipinfo_dict: dict[FileName, ClipInfo] = None
-
-
-if __name__ == "__main__":
-    x = 1

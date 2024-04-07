@@ -268,7 +268,7 @@ def plot_diss_graph(
 def reduced_freq_dict(
     notelist: list[Note], ref_note: NoteName, group: AggregatedPartialDict, instrtype: InstrumentType
 ) -> dict[Note, Frequency]:
-    # Convert all note frequencies to octave 0
+    # Convert all note frequencies to octave 0 relative to the ref_note
     reduced_freq_list = {
         notename: [
             note.frequency / pow(2, note.octave.index - (1 if note.name.index() < ref_note.index() else 0))
@@ -297,23 +297,24 @@ def reduced_freq_dict(
 def plot_dissonance_graphs(
     group: AggregatedPartialDict,
     *,
-    object: InstrumentType,
+    item: InstrumentType,
     groupname: InstrumentGroupName,
     amplitude: float = None,
     ref_octave: int = 3,
     ref_note: NoteName = NoteName.DING,
     **kwargs,
 ):
+    instrumenttype = item
     HARMONICS_AMPL_DB = 50  # Amplitude for harmonics
     # TODO retrieving dict entry by using string literal is error prone
     # Key is a string with format "instrumenttype#ombak-octave"
-    keys = [key for key in list(group.root.keys()) if key.startswith(object.value)]
+    keys = [key for key in list(group.root.keys()) if key.startswith(instrumenttype.value)]
     if not keys:
         return False
 
     # Calculate the average note frequencies for the reference octave (octave 0)
     notes = [note for key in keys for note in group.root[key][1]]
-    reduced_freqs = reduced_freq_dict(notes, ref_note, group, object)
+    reduced_freqs = reduced_freq_dict(notes, ref_note, group, instrumenttype)
 
     partial_harmonic_pairs = dict()
     for key in keys:
@@ -327,7 +328,7 @@ def plot_dissonance_graphs(
         harmonics = create_partials_from_list([(reference_freq * i, HARMONICS_AMPL_DB) for i in range(1, 5)])
         partial_harmonic_pairs[instrument_group] = (partials, harmonics)
 
-    pagetitle = f"Dissonance graph for {groupname.value} {object.value}" + (
+    pagetitle = f"Dissonance graph for {groupname.value} {instrumenttype.value}" + (
         " (same amplitude for all partials)" if amplitude else ""
     )
     # Reduce all notes to octave 0 then calculate average frequency per note.
@@ -372,7 +373,7 @@ if __name__ == "__main__":
     plot_dissonance_graphs(
         group=aggregated_partials,
         groupname=GROUPNAME,
-        object=InstrumentType.JUBLAG,
+        instrumenttype=InstrumentType.JUBLAG,
         amplitude=None,
         show=True,
     )

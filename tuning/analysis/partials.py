@@ -51,6 +51,10 @@ def reduce_to_octave(ratio: Ratio) -> Ratio:
 def get_partials(
     spectrum: Spectrum,
     octave: Octave,
+    instrument_code: str,
+    notename: NoteName,
+    octave_idx: int,
+    sample_seq: int,
     count: int = DEFAULT_NR_OF_PARTIALS,
     distinct: float = DISTINCTIVENESS_CENT,
     prominence: float = MIN_PROMINENCE,
@@ -163,6 +167,12 @@ def get_partials(
             ratio=(round(tone.frequency / fundamental.frequency, 5)),
             prominence=round(prominence, 5),
             isfundamental=(tone is fundamental),
+            fundamental=fundamental,
+            fund_octave=octave,
+            instrument_code=instrument_code,
+            notename=notename,
+            octave_idx=octave_idx,
+            sample_seq=sample_seq,
         )
         for tone, prominence in peaks_herz
     ]
@@ -185,15 +195,17 @@ def step_create_partials(group: InstrumentGroup, count: int = DEFAULT_NR_OF_PART
     properties = dict()
     for instrument in group.instruments:
         for note in instrument.notes:
-            logger.info(
-                f"Determining partials for {instrument.instrumenttype} {instrument.code} {note.name.value} {note.order_in_soundfile}"
-            )
+            logger.info(f"Determining partials for {instrument.instrumenttype} {instrument.code} {note.name.value}")
             idx = f"{instrument.code}-{note.name.value}"  ###########
             note.partials = list()
-            for spectrum in note.spectra:
+            for spectrum, seq in zip(note.spectra, list(range(len(note.spectra)))):
                 partials, properties[idx] = get_partials(
                     spectrum=spectrum,
                     octave=note.octave,
+                    instrument_code=instrument.code,
+                    notename=note.name,
+                    octave_idx=note.octave.index,
+                    sample_seq=seq,
                     count=count,
                 )
                 note.partials.append(partials)

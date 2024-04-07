@@ -4,10 +4,14 @@ import numpy as np
 import pandas as pd
 
 from tuning.common.classes import ClipRange, SoundData
+from tuning.common.constants import (
+    AMPLITUDE_THRESHOLD_TO_AVERAGE_RATIO,
+    SHORT_BLANKS_DURATION_THRESHOLD,
+)
 
 
 def create_soundclip_ranges(
-    data: SoundData, threshold: float, include: callable = ge
+    data: SoundData, sample_rate: int, threshold: float, include: callable = ge
 ) -> list[ClipRange]:
     """
     Returns ranges in which the sound data exceeds the given threshold.
@@ -22,7 +26,7 @@ def create_soundclip_ranges(
         list[ClipRange]: _description_
     """
     amplitudes = pd.DataFrame(data).abs().max(axis=1).to_frame(name="amplitude")
-
+    threshold = AMPLITUDE_THRESHOLD_TO_AVERAGE_RATIO * abs(amplitudes.amplitude).mean()
     # Mark start and end positions of contiguous clip ranges with amplitude >= threshold.
     # If the recording ends with high amplitude, add "End" label to the last row.
     # -- Add column containing amplitude value of the next row.
@@ -57,17 +61,26 @@ def create_soundclip_ranges(
     if events.empty:
         return []
 
+    # Remove small gaps
+    gap_threshold = int(SHORT_BLANKS_DURATION_THRESHOLD * sample_rate)
+    events["idx"] = events.index
+    events = events.assign(next=events.shift(-1).idx)
+    events = events.assign(prev=events.shift(1).idx)
+    events = events[
+        ((events.event == "End") & ((events.next.isna() | (events.next - events.idx > gap_threshold))))
+        | ((events.event == "Start") & ((events.prev.isna() | (events.idx - events.prev > gap_threshold))))
+    ]
+
     # Remove possible unmatched final start (note that 0 <= #odd rows - #even rows <=1)
     # Create ranges from the indices of consecutive start and stop labels.
     start_events = events.iloc[::2]  # odd numbered rows
     end_events = events.iloc[1::2]  # even numbered rows
+
     # The following assertions ensure that the start and stop labels alternate
     # and that each start label has a corresponding end label.
     assert list(start_events.event.unique()) == ["Start"]
     assert list(end_events.event.unique()) == ["End"]
     assert len(start_events) == len(end_events)
     # Create clip ranges from the start and stop boundaries
-    intervals = pd.DataFrame({"start": start_events.index, "end": end_events.index}).to_dict(
-        orient="records"
-    )
-    return [ClipRange(start=interval["start"], end=interval["end"]) for interval in intervals]
+    intervals = pd.DataFrame({"start": start_events.index, "end": end_events.index}).to_dict(orient="records")
+    return [ClipRange(start=interval["start"], end=min(interval["end"], len(data) - 1)) for interval in intervals]

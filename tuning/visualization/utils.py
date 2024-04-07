@@ -117,13 +117,16 @@ def create_pdf(
         filepath = filepath.format(ref_note=kwargs["ref_note"], ref_octave=kwargs["ref_octave"])
     # Check if the file is closed. If not, exit.
     if os.path.exists(filepath):
-        try:
-            with open(filepath, "r+") as file:
-                ...
-        except:
-            logger.error(f"File {filepath} is in use. Please close the file and try again.")
-            exit()
-
+        success = False
+        warned = False
+        while not success:
+            try:
+                with open(filepath, "r+") as file:
+                    success = True
+            except:
+                if not warned:
+                    logger.error(f"File {filepath} is in use. Please close the file and try again.")
+                warned = True
     if iterlist is None:
         iterlist = group.instruments
 
@@ -131,10 +134,10 @@ def create_pdf(
         logger.info(
             f"Generating PDF plots of {pathlib.Path(filepath).stem.replace("_", " ")}."
         )
-        for object in iterlist:
+        for item in iterlist:
             hasplots = plotter(
                 group=group,
-                object=object,
+                item=item,
                 **kwargs,
             )
             if hasplots:

@@ -5,6 +5,7 @@ from collections import defaultdict
 import numpy as np
 import scipy.cluster.hierarchy as hcluster
 
+from tuning.analysis.utils import reduce_frequency
 from tuning.common.classes import (
     AggregatedPartial,
     AggregatedPartialDict,
@@ -19,8 +20,12 @@ from tuning.common.classes import (
 )
 from tuning.common.constants import (
     AGGREGATED_PARTIALS_FILE,
+    AGGREGATION,
     DISTINCTIVENESS_CENT,
+    INSTRUMENTTYPE,
     KEEP_NR_PARTIALS,
+    OCTAVE,
+    OMBAKTYPE,
     Folder,
     InstrumentGroupName,
 )
@@ -33,19 +38,37 @@ from tuning.common.utils import (
 
 logger = get_logger(__name__)
 
-# Currently only combinations of InstrumentType, OmbakType and Octave are possible.
-AGGREGATION = (InstrumentType, OmbakType, Octave)
 
+def dict_key_str(instrument: Instrument, note: Note, aggregation=AGGREGATION) -> str:
+    """
+    Creates a key for the aggregatedpartials dict.
+    Only a combination of instrument type, ombak type, octave and note is allowed.
+    See constant AGGREGATION.
 
-def dict_key_str(instrument: Instrument, note: Note):
+    Args:
+        instrument (Instrument): _description_
+        note (Note): _description_
+
+    Returns:
+        str: _description_
+    """
     keyitems = (
         []
-        + ([instrument.instrumenttype.value] if InstrumentType in AGGREGATION else [])
-        + ([instrument.ombaktype.value] if OmbakType in AGGREGATION else [])
-        + ([f"octave {note.octave.index}"] if Octave in AGGREGATION else [])
-        + ([f"octave {note.name}"] if Note in AGGREGATION else [])
+        + ([instrument.instrumenttype.value] if INSTRUMENTTYPE in aggregation else [])
+        + ([instrument.ombaktype.value] if OMBAKTYPE in aggregation else [])
+        + ([f"octave {note.octave.index}"] if OCTAVE in aggregation else [])
+        + ([f"octave {note.name}"] if Note in aggregation else [])
     )
-    return ", ".join(keyitems)
+    if not any(keyitems):
+        return "instrumentgroup"
+    else:
+        return ", ".join(keyitems)
+
+
+def get_aggr_partials(
+    note: Note, aggregatedpartials: AggregatedPartialDict, instrument: Instrument
+) -> list[AggregatedPartial]:
+    return aggregatedpartials.root.get(dict_key_str(instrument, note), [[]])[0]
 
 
 def dict_key_retrieve_instrgroup(key):
@@ -88,15 +111,26 @@ def aggregated_partials_list(
     largest_clusters = sorted(clustering, key=lambda c: sys.maxsize * c[0].isfundamental + len(c), reverse=True)[
         :keep_nr
     ]
-    # Note: avg_ratio should be recalculated later, based on average fundamental freq.
+    # Note: see the explanation of tone and fundamental in the definition of the AggregatedPartial class.
     aggr_part_list = [
         AggregatedPartial(
             tone=Tone(
-                frequency=np.average([p.tone.frequency for p in cluster]),
+                frequency=(
+                    tone_freq := np.average([reduce_frequency(p.tone.frequency, p.fund_octave.index) for p in cluster])
+                ),
                 amplitude=np.average([p.tone.amplitude for p in cluster]),
+            ),
+            fundamental=Tone(
+                frequency=(
+                    fund_freq := np.average(
+                        [reduce_frequency(p.fundamental.frequency, p.fund_octave.index) for p in cluster]
+                    )
+                ),
+                amplitude=np.average([p.fundamental.amplitude for p in cluster]),
             ),
             isfundamental=cluster[0].isfundamental,
             ratio=np.average([p.ratio for p in cluster]),
+            ratio0=tone_freq / fund_freq,
             prominence=np.average([p.prominence for p in cluster]),
             partials=cluster,
         )
