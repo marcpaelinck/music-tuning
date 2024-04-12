@@ -2,7 +2,6 @@ from enum import Enum, auto
 from functools import partial
 
 from tuning.analysis.aggregation import step_create_aggregated_partials_dict
-from tuning.analysis.dissonance import plot_dissonance_graphs
 from tuning.analysis.partials import step_create_partials
 from tuning.analysis.spectrum import (
     create_spectra,
@@ -30,7 +29,11 @@ from tuning.common.utils import (
 )
 from tuning.soundfiles.instrumentinfo import step_create_group_from_info_file
 from tuning.soundfiles.process_soundfiles import step_process_sound_files
-from tuning.visualization.plotter import plot_note_spectra, plot_sounddata
+from tuning.visualization.plotter import (
+    plot_dissonance_graphs,
+    plot_note_spectra,
+    plot_sounddata,
+)
 from tuning.visualization.utils import create_pdf
 
 logger = get_logger(__name__)
@@ -65,9 +68,6 @@ class PipeLine:
     by subsequent functions. The sequence is determined in self.actions.
     Currently, only data of types InstrumentGroupName, InstrumentGroup or AggregatedPartialDict
     Can be used as input or output by the functions.
-
-    Raises:
-        Exception: Illegal sequence if the sequence of the Pipe object is infeasible.
 
     Returns:
         PipeLine: A PipeLine object.
@@ -243,7 +243,7 @@ class PipeLine:
         return {keyword: self.data[datatype] for keyword, datatype in datatypes.items()}
 
     def execute(self):
-        result = self.groupname
+        logger.info(f"Starting pipeline for {self.data[InstrumentGroupName].value}")
         for step in pipe:
             function = self.actions[step][0]
             inputdict = self.__get_data_items__(self.actions[step][1])
@@ -265,7 +265,7 @@ if __name__ == "__main__":
         # Step.CREATE_PARTIALS,
         # Step.SAVE_JSON_ONLY,
         # Step.SAVE_JSON_AND_SPECTRA,
-        # Step.READ_AGGREGATED_PARTIALS,
+        Step.READ_AGGREGATED_PARTIALS,
         # Step.READ_GROUP_WITH_SPECTRUMDATA,
         # Step.AGGREGATE_PARTIALS,
         # Step.SAVE_AGGREGATED_PARTIALS,
@@ -273,4 +273,4 @@ if __name__ == "__main__":
         Step.PLOT_DISSONANCE_GRAPHS,
     ]
     pipeline = PipeLine(InstrumentGroupName.ANGKLUNG, pipe)
-    # pipeline.execute()
+    pipeline.execute()

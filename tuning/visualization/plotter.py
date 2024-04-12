@@ -2,20 +2,19 @@ import math
 from enum import Enum, auto
 from functools import partial
 from itertools import chain
-from typing import Callable, Iterable
 
 import numpy as np
-from matplotlib.axes import Axes
-from matplotlib.figure import Figure
-from pydantic import BaseModel
 from scipy.io import wavfile
 
-from tuning.analysis.aggregation import dict_key_str, get_aggr_partials
+from tuning.analysis.aggregation import dict_key_retrieve_instrgroup, get_aggr_partials
 from tuning.analysis.dissonance import (
+    create_partials_from_list,
     dissonance_j,
+    dissonance_profile,
     dissonance_s,
-    plot_dissonance_graphs,
+    reduced_freq_dict,
 )
+from tuning.analysis.utils import get_minima
 from tuning.common.classes import (
     AggregatedPartial,
     AggregatedPartialDict,
@@ -24,19 +23,9 @@ from tuning.common.classes import (
     InstrumentType,
     Tone,
 )
-from tuning.common.constants import (
-    AGGREGATED_PARTIALS_FILE,
-    Folder,
-    InstrumentGroupName,
-    NoteName,
-)
-from tuning.common.utils import (
-    get_logger,
-    get_path,
-    read_object_from_jsonfile,
-    step_read_group_from_jsonfile,
-)
-from tuning.visualization.utils import PlotType, create_pdf, plot_graphs
+from tuning.common.constants import Folder, InstrumentGroupName, NoteName
+from tuning.common.utils import get_logger, get_path
+from tuning.visualization.utils import PlotType, plot_graphs
 
 logger = get_logger(__name__)
 
@@ -267,6 +256,148 @@ def plot_sounddata(
             ymax=ymax,
         )
     return True
+
+
+def plot_dissonance_graphs(
+    group: AggregatedPartialDict,
+    *,
+    item: InstrumentType,
+    groupname: InstrumentGroupName,
+    amplitude: float = None,
+    ref_octave: int = 3,
+    ref_note: NoteName = NoteName.DING,
+    **kwargs,
+):
+    instrumenttype = item
+    HARMONICS_AMPL_DB = 50  # Amplitude for harmonics
+    # TODO retrieving dict entry by using string literal is error prone
+    # Key is a string with format "instrumenttype#ombak-octave"
+    keys = [key for key in list(group.root.keys()) if key.startswith(instrumenttype.value)]
+    if not keys:
+        return False
+
+    # Calculate the average note frequencies for the reference octave (octave 0)
+    notes = [note for key in keys for note in group.root[key][1]]
+    reduced_freqs = reduced_freq_dict(notes, ref_note, group, instrumenttype)
+
+    partial_harmonic_pairs = dict()
+    for key in keys:
+        instrument_group = dict_key_retrieve_instrgroup(key)
+        partials, notes = group.root[key]
+        # fundamental = next((p for p in partials if p.isfundamental), None)
+        # reference_freq = fundamental.tone.frequency
+        reference_freq = reduced_freqs[ref_note] * pow(2, ref_octave)
+        for partial in partials:
+            partial.tone.frequency = partial.ratio * reference_freq
+        harmonics = create_partials_from_list([(reference_freq * i, HARMONICS_AMPL_DB) for i in range(1, 5)])
+        partial_harmonic_pairs[instrument_group] = (partials, harmonics)
+
+    pagetitle = f"Dissonance graph for {groupname.value} {instrumenttype.value}" + (
+        " (same amplitude for all partials)" if amplitude else ""
+    )
+    # Reduce all notes to octave 0 then calculate average frequency per note.
+    # Then determine ratio relative to DING.
+    noteratio_dict = {notename: freq / reduced_freqs[ref_note] for notename, freq in reduced_freqs.items()}
+
+    profiler = dissonance_profile
+    plot_content = list()
+    plot_texts = list()
+
+    diss_graphs = list()
+    diss_graph_texts = list()
+    diss_graph_titles = list()
+    for group, pair in partial_harmonic_pairs.items():
+        pp_result = profiler(
+            pair[1],
+            pair[0],
+            fixed_ampl=kwargs.get("amplitude", None),
+            is_reverse=True,
+        )
+        ph_result = profiler(
+            pair[0],
+            pair[1],
+            fixed_ampl=kwargs.get("amplitude", None),
+        )
+        pp_peaks = get_minima(*pp_result)
+        ph_peaks = get_minima(*ph_result)
+        diss_graphs.extend([pp_result + [pp_peaks], ph_result + [ph_peaks]])
+        diss_graph_titles.extend([group + " - partial-partial", group + " - partial-harmonic"])
+
+    ymin = min(min(result[1]) for result in diss_graphs)
+    ymax = max(max(result[1]) for result in diss_graphs)
+
+    vlines_graph = list()
+    vlines_text = list()
+    for graph_data, title in zip(diss_graphs, diss_graph_titles):
+        diss_graph_texts.append(
+            [
+                {
+                    "x": x,
+                    "y": y,
+                    "s": f"{abs(x):1.3f}",
+                    "fontsize": "x-small",
+                    "ha": "center",
+                    "va": "top",
+                }
+                for x, y in graph_data[2]
+            ]
+            + [
+                {
+                    "x": min(graph_data[0]) + 0.01 * (max(graph_data[0]) - min(graph_data[0])),
+                    "y": ymax - 0.05 * (ymax - ymin),
+                    "s": title,
+                    "fontsize": "small",
+                    "color": "b",
+                }
+            ]
+        )
+        sign = graph_data[0][0] / abs(graph_data[0][0])
+        notenames = list(noteratio_dict.keys())
+        vlines_graph.append(
+            [
+                list(np.array(list(noteratio_dict.values())) * sign),
+                [0] * len(noteratio_dict.values()),
+                [ymax] * len(noteratio_dict.values()),
+                ["r" if notename is ref_note.kempyung(notenames) else "y" for notename in noteratio_dict.keys()],
+            ]
+        )
+        vlines_text.append(
+            [
+                {
+                    "x": sign * ratio,
+                    "y": ymax - 0.1,
+                    "s": notename.short,
+                    "fontsize": "small",
+                    "color": "r" if notename is ref_note.kempyung(notenames) else "y",
+                    "ha": "center",
+                    "va": "bottom",
+                }
+                for notename, ratio in noteratio_dict.items()
+            ]
+        )
+    plot_content.append((diss_graphs, PlotType.CONSONANCEPLOT))
+    plot_texts.append(diss_graph_texts)
+    plot_content.append((vlines_graph, PlotType.VLINES))
+    plot_texts.append(vlines_text)
+
+    figure = None
+    axes = None
+    for content, texts in zip(plot_content, plot_texts):
+        figure, axes = plot_graphs(
+            *content[0],
+            plottype=content[1],
+            nrows=len(diss_graphs) // 2,
+            ncols=2,
+            pagetitle=pagetitle,
+            plottitles=instrument_group,
+            plottexts=texts,
+            autox=True,
+            figure=figure,
+            axes=axes,
+            ymin=ymin,
+            ymax=ymax,
+            **kwargs,
+        )
 
 
 if __name__ == "__main__":
