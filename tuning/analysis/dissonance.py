@@ -5,8 +5,9 @@ Völk 2015: Florian Völk 1 2015, Updated analytical expressions for critical ba
 
 """
 
+import time
 from itertools import product
-from typing import Iterable
+from typing import Any, Iterable
 
 import numpy as np
 
@@ -149,8 +150,7 @@ def dissonance_profile_old(
 
 
 def dissonance_profile(
-    f_partials: list[Partial],
-    g_partials: list[Partial],
+    pairs: dict[Any, tuple[list[Partial], list[Partial]]],
     fixed_ampl=None,
     is_reverse=False,
 ) -> list[list[Frequency], list[float]]:
@@ -169,16 +169,19 @@ def dissonance_profile(
         list[list[Frequency], list[float]]: The X and Y values of the graph.
     """
 
+    start_time = time.time()
     # Determine the fundamental (should be the same for both lists of partials)
-    fundamental = next((partial.tone.frequency for partial in f_partials if partial.isfundamental), None)
+    fundamental = next((partial.tone.frequency for partial in pairs["pp"][0] if partial.isfundamental), None)
     # Determine the step size by which the partials of g should be shifted
     # Create a list of stewise increments
     STEPS = 5000
     step = (1.5 * fundamental) / STEPS
-    increments = (np.array(list(range(STEPS))) * step)[:, np.newaxis]  # Vector containing the successive increments
+    increments = np.resize(
+        np.array(list(range(STEPS))) * step, (1, STEPS, 1)
+    )  # Vector containing the successive increments
 
     def add_increments_or_copydown(
-        freq_arrays: Iterable[np.ndarray], incr_indicators: Iterable[bool], fundamental_freq: Frequency
+        freq_array: np.ndarray, incr_indicator: bool, fundamental_freq: Frequency
     ) -> np.ndarray:
         """
         Adds a row for each increment of the list of partials by either incrementing or copying the partials.
@@ -199,15 +202,12 @@ def dissonance_profile(
         Returns:
             np.ndarray: A single 2-D matrix.
         """
-        result = np.array([]).reshape(STEPS, 0)
-        for freq_list, incr in zip(freq_arrays, incr_indicators):
-            if incr:
-                ratios = freq_list / fundamental_freq
-                expanded = (increments * ratios) + freq_list
-            else:
-                expanded = np.tile(freq_list, (STEPS, 1))
-            result = np.concatenate((result, expanded), axis=1)
-        return result
+        if incr_indicator:
+            ratios = freq_array / fundamental_freq
+            expanded = (increments * ratios) + freq_array
+        else:
+            expanded = np.tile(freq_array, (STEPS, 1))
+        return expanded
 
     # create lists that generate all desired pairwise combinations of partials for which to calculate the dissonances.
     # The first note will be fixed, the second either shifted stepwise (f-g combination) or fixed (internal dissonance of f and g).
@@ -219,28 +219,38 @@ def dissonance_profile(
     # second_grouped_list = ([gp1, gp2, gp1, gp2, gp1, gp2], [fp2, fp3, gp2, gp3]) with increment indicators (True, False)
     # This will result in the following pairs for which the dissonance will be calculated:
     # (fp1, gp1), (fp1, gp2), (fp2, gp1), (fp2, gp2), (fp3, gp1), (fp3, gp2), (fp1, fp2), (fp2, fp3), (gp1, gp2), (gp2, gp3)
-    first_grouped_list = (sum([[f] * len(g_partials) for f in f_partials], []) + f_partials[:-1] + g_partials[:-1],)
-    second_grouped_list = (g_partials * len(f_partials), f_partials[1:] + g_partials[1:])
-    first_freq_tuple = (np.array([f_partial.tone.frequency for f_partial in f_list]) for f_list in first_grouped_list)
-    second_freq_tuple = (np.array([g_partial.tone.frequency for g_partial in g_list]) for g_list in second_grouped_list)
+    # f_partials = np.array([f_partials for f_partials, _ in pairs.values()])
+    # g_partials = np.array([g_partials for _, g_partials in pairs.values()])
+    f_partials = np.array([[f_partials] for f_partials, _ in pairs.values()])
+    g_partials = np.array([[g_partials] for _, g_partials in pairs.values()])
+    first_partial_array = np.repeat(f_partials, g_partials.shape[-1], axis=2)
+    second_partial_array = np.tile(g_partials, (1, 1, f_partials.shape[-1]))
+    # first_grouped_list = (sum([[f] * len(g_partials) for f in f_partials], []) + f_partials[:-1] + g_partials[:-1],)
+    # second_grouped_list = (g_partials * len(f_partials), f_partials[1:] + g_partials[1:])
+    set_freq = np.vectorize(lambda x: x.tone.frequency)
+    set_ampl = np.vectorize(lambda x: x.tone.amplitude)
+    first_freq_array = set_freq(first_partial_array)
+    second_freq_array = set_freq(second_partial_array)
+    first_ampl_array = set_ampl(first_partial_array)
+    second_ampl_array = set_ampl(second_partial_array)
 
     # Expand the lists by adding a row for each frequency increment (the shifting of the second note)
     # Parameter incr_indicators determines whether the frequencies should be shifted (True) or remain fixed (False)
     first_freq = add_increments_or_copydown(
-        freq_arrays=first_freq_tuple, incr_indicators=(False,), fundamental_freq=fundamental
+        freq_array=first_freq_array, incr_indicator=False, fundamental_freq=fundamental
     )
     second_freq = add_increments_or_copydown(
-        freq_arrays=second_freq_tuple, incr_indicators=(True, False), fundamental_freq=fundamental
+        freq_array=second_freq_array, incr_indicator=True, fundamental_freq=fundamental
     )
-    first_ampl = np.array(
-        [fixed_ampl or f_partial.tone.amplitude for f_list in first_grouped_list for f_partial in f_list]
-    )
-    second_ampl = np.array(
-        [fixed_ampl or g_partial.tone.amplitude for g_list in second_grouped_list for g_partial in g_list]
-    )
+    # first_ampl_array = np.array(
+    #     [fixed_ampl or f_partial.tone.amplitude for f_list in first_partial_array for f_partial in f_list]
+    # )
+    # second_ampl_array = np.array(
+    #     [fixed_ampl or g_partial.tone.amplitude for g_list in second_partial_array for g_partial in g_list]
+    # )
 
-    dissonance_matrix = dissonance_j(first_freq, first_ampl, second_freq, second_ampl)
-    total_dissonances = np.sum(dissonance_matrix, axis=min(1, len(dissonance_matrix.shape) - 1))
+    dissonance_matrix = dissonance_j(first_freq, first_ampl_array, second_freq, second_ampl_array)
+    total_dissonances = np.sum(dissonance_matrix, axis=len(dissonance_matrix.shape) - 1)
 
     # Create the x-axis values
     frequencies = (increments.flatten() + fundamental) / fundamental
@@ -249,7 +259,8 @@ def dissonance_profile(
         frequencies = np.flip(-frequencies)
         total_dissonances = np.flip(total_dissonances)
 
-    return [list(frequencies), list(total_dissonances)]
+    logger.info(f"DISSONANCE CALCULATION TOOK {time.time() - start_time} SECONDS")
+    return {key: [list(frequencies), list(total_dissonances[index])] for key, index in zip(pairs.keys(), range(1000))}
 
 
 def create_partials_from_list(p_list: list[tuple[float, float]]) -> list[Partial]:

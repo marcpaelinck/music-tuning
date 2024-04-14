@@ -291,7 +291,7 @@ def plot_dissonance_graphs(
     for key in keys:
         instrument_group = dict_key_retrieve_instrgroup(key)
         partials, notes = group.root[key]
-        partials = partials[:MAX_NR_PARTIALS_DISS_GRAPH]
+        partials = sorted(partials[:MAX_NR_PARTIALS_DISS_GRAPH], key=lambda x: x.tone.frequency)
         # fundamental = next((p for p in partials if p.isfundamental), None)
         # reference_freq = fundamental.tone.frequency
         reference_freq = reduced_freqs[ref_note] * pow(2, ref_octave)
@@ -314,32 +314,38 @@ def plot_dissonance_graphs(
     diss_graph_texts = list()
     diss_graph_titles = list()
     for group, pair in partial_harmonic_pairs.items():
-        pp_result = profiler(
-            pair[0],
-            pair[0],
+        pairs = {"pp": (partials, partials), "ph": (partials, harmonics), "hp": (harmonics, partials)}
+        diss_result = profiler(
+            pairs,
             fixed_ampl=kwargs.get("amplitude", None),
             # is_reverse=True,
         )
-        ph_result = profiler(
-            pair[0],
-            pair[1],
-            fixed_ampl=kwargs.get("amplitude", None),
-        )
-        hp_result = profiler(
-            pair[1],
-            pair[0],
-            fixed_ampl=kwargs.get("amplitude", None),
-        )
-        pp_peaks = get_minima(*pp_result)
-        ph_peaks = get_minima(*ph_result)
-        hp_peaks = get_minima(*hp_result)
+        # pp_result = profiler(
+        #     pair[0],
+        #     pair[0],
+        #     fixed_ampl=kwargs.get("amplitude", None),
+        #     # is_reverse=True,
+        # )
+        # ph_result = profiler(
+        #     pair[0],
+        #     pair[1],
+        #     fixed_ampl=kwargs.get("amplitude", None),
+        # )
+        # hp_result = profiler(
+        #     pair[1],
+        #     pair[0],
+        #     fixed_ampl=kwargs.get("amplitude", None),
+        # )
+        pp_peaks = get_minima(*diss_result["pp"])
+        ph_peaks = get_minima(*diss_result["ph"])
+        hp_peaks = get_minima(*diss_result["hp"])
         p_ = MAX_NR_PARTIALS_DISS_GRAPH
         h_ = MAX_NR_HARMONICS_DISS_GRAPH
         diss_graphs.append(
             [
-                pp_result + [pp_peaks] + ["b"] + [f"partials[{p_}]-partials[{p_}]"],
-                ph_result + [ph_peaks] + ["g"] + [f"partials[{p_}]-harmonics[{h_}]"],
-                hp_result + [hp_peaks] + ["c"] + [f"harmonics[{h_}]-partials[{p_}]"],
+                diss_result["pp"] + [pp_peaks] + ["b"] + [f"partials[{p_}]-partials[{p_}]"],
+                diss_result["ph"] + [ph_peaks] + ["g"] + [f"partials[{p_}]-harmonics[{h_}]"],
+                diss_result["hp"] + [hp_peaks] + ["c"] + [f"harmonics[{h_}]-partials[{p_}]"],
             ]
         )
         # diss_graph_titles.extend([group + " - partial-partial", group + " - partial-harmonic"])
