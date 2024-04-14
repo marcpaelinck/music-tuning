@@ -44,7 +44,7 @@ class NoteName(OrderedEnum):
         return list(NoteName).index(self)
 
     def kempyung(self, notes: list["NoteName"]):
-        skip = len(notes) - 2
+        skip = len(notes) - 2 if len(notes) <= 5 else len(notes) - 3
         return notes[(self.index() + skip) % len(notes)]
 
 
@@ -141,6 +141,10 @@ NOTE = 3
 AGGREGATION = (INSTRUMENTTYPE,)
 
 # SUMMARIZE
-KEEP_NR_PARTIALS = 4
+KEEP_NR_PARTIALS = 10
 TRUNCATE_FROM = 0
 TRUNCATE_TO = 10000
+
+# DISSONANCE
+MAX_NR_PARTIALS_DISS_GRAPH = 4
+MAX_NR_HARMONICS_DISS_GRAPH = 5

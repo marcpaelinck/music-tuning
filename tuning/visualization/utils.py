@@ -75,26 +75,34 @@ def plot_graphs(
         figure.suptitle(pagetitle)
 
     axis_list = axes.flatten("C")
-    match plottype:
-        case PlotType.SOUNDDATAPLOT | PlotType.SPECTRUMPLOT:
-            set_axes_boundaries(x_index, y_index)
-            vis = [axis.plot for axis in axis_list]
-            plotvalues = args
-        case PlotType.CONSONANCEPLOT:
-            set_axes_boundaries(x_index, y_index)
-            vis = [axis.plot for axis in axis_list]
-            plotvalues = [(args[i][x_index], args[i][y_index]) for i in range(len(args))]
-        case PlotType.VLINES:
-            _, _, y_min, _ = set_axes_boundaries(x_index, ymax_index)
-            vis = [axis.vlines for axis in axis_list]
-            for arg in args:
-                arg[ymin_index] = (ymin,) * len(arg[ymin_index])
-            plotvalues = args
-        case _:
-            ...
-
-    for idx in range(len(axis_list)):
-        vis[idx](*plotvalues[idx])
+    for axis, idx in zip(axis_list, range(len(axis_list))):
+        match plottype:
+            case PlotType.SOUNDDATAPLOT | PlotType.SPECTRUMPLOT:
+                if idx==0:
+                    set_axes_boundaries(x_index, y_index)
+                # vis = [axis.plot for axis in axis_list]
+                axis.plot(*args[idx])
+            case PlotType.CONSONANCEPLOT:
+                if idx==0:
+                    set_axes_boundaries(x_index, y_index)
+                handles=[]
+                # vis = [axis.plot for axis in axis_list]
+                for line in args[idx]:
+                    handle, = axis.plot(*line[:2], color=line[3], label=line[4])
+                    handles.append(handle)
+                axis.legend(handles=handles, loc='upper right')
+                # plotvalues = [(args[i][x_index], args[i][y_index]) for i in range(len(args))]
+            case PlotType.VLINES:
+                if idx==0:
+                    _, _, y_min, _ = set_axes_boundaries(x_index, ymax_index)
+                # vis = [axis.vlines for axis in axis_list]
+                # for arg in args:
+                args[idx][ymin_index] = (ymin,) * len(args[idx][ymin_index])
+                axis.vlines(*args[idx])
+            case _:
+                ...
+    # for idx in range(len(axis_list)):
+        # vis[idx](*plotvalues[idx])
         xmin, xmax = axis_list[idx].get_xlim()
         ymin, ymax = axis_list[idx].get_ylim()
         if plottexts:
