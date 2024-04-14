@@ -121,8 +121,8 @@ def create_pdf(
     **kwargs,
 ) -> bool:
 
-    if "ref_note" in kwargs and "ref_octave" in kwargs:
-        filepath = filepath.format(ref_note=kwargs["ref_note"], ref_octave=kwargs["ref_octave"])
+    if isinstance(group, AggregatedPartialDict) and "ref_note" in kwargs and "ref_octave" in kwargs:
+        filepath = filepath.format(ref_note=kwargs["ref_note"], ref_octave=kwargs["ref_octave"], aggregation="_"+"_".join(group.aggregation or ("all",)))
     # Check if the file is closed. If not, exit.
     if os.path.exists(filepath):
         success = False

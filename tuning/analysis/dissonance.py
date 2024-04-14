@@ -27,6 +27,9 @@ from tuning.common.classes import (
 )
 from tuning.common.constants import (
     AGGREGATED_PARTIALS_FILE,
+    HARMONICS_AMPL_DB,
+    MAX_NR_HARMONICS_DISS_GRAPH,
+    MAX_NR_PARTIALS_DISS_GRAPH,
     Folder,
     InstrumentGroupName,
 )
@@ -215,26 +218,30 @@ def dissonance_profile(
     # The lists can be split up in groups, each with a separate treatment (either be shifted or fixed).
     # Example:
     # f_partials = [fp1, fp2, fp3] and g_partials = [fg1, fg2] gives the following results:
-    # first_grouped_list =  ([fp1, fp1, fp2, fp2, fp3, fp3,   fp1, fp2, gp1, gp2],) with increment indicator (False,)
-    # second_grouped_list = ([gp1, gp2, gp1, gp2, gp1, gp2], [fp2, fp3, gp2, gp3]) with increment indicators (True, False)
+    # first_partial_array =  [fp1, fp1, fp2, fp2, fp3, fp3, fp1, fp2, gp1, gp2] with increment indicator False
+    # second_partial_array = [gp1, gp2, gp1, gp2, gp1, gp2, fp2, fp3, gp2, gp3] with increment indicator True
     # This will result in the following pairs for which the dissonance will be calculated:
     # (fp1, gp1), (fp1, gp2), (fp2, gp1), (fp2, gp2), (fp3, gp1), (fp3, gp2), (fp1, fp2), (fp2, fp3), (gp1, gp2), (gp2, gp3)
-    # f_partials = np.array([f_partials for f_partials, _ in pairs.values()])
-    # g_partials = np.array([g_partials for _, g_partials in pairs.values()])
-    f_partials = np.array([[f_partials] for f_partials, _ in pairs.values()])
-    g_partials = np.array([[g_partials] for _, g_partials in pairs.values()])
+    max_len = max(len(p) for pair in pairs.values() for p in pair)
+    # Ensure that all partial lists have the same length. Pad with zeroes.
+    f_partials = np.array(
+        [[np.pad(f_partials, (0, max_len - len(f_partials)), "constant")] for f_partials, _ in pairs.values()]
+    )
+    g_partials = np.array(
+        [[np.pad(g_partials, (0, max_len - len(g_partials)), "constant")] for _, g_partials in pairs.values()]
+    )
+    # Create two arrays that will yield the pairs of partials to consider.
     first_partial_array = np.repeat(f_partials, g_partials.shape[-1], axis=2)
     second_partial_array = np.tile(g_partials, (1, 1, f_partials.shape[-1]))
-    # first_grouped_list = (sum([[f] * len(g_partials) for f in f_partials], []) + f_partials[:-1] + g_partials[:-1],)
-    # second_grouped_list = (g_partials * len(f_partials), f_partials[1:] + g_partials[1:])
-    set_freq = np.vectorize(lambda x: x.tone.frequency)
-    set_ampl = np.vectorize(lambda x: x.tone.amplitude)
-    first_freq_array = set_freq(first_partial_array)
-    second_freq_array = set_freq(second_partial_array)
-    first_ampl_array = set_ampl(first_partial_array)
-    second_ampl_array = set_ampl(second_partial_array)
+    # Define functions to extract frequency and amplitude from the partials. Zero values should return zero.
+    extract_freq = np.vectorize(lambda x: x.tone.frequency if isinstance(x, Partial) else 0)
+    extract_ampl = np.vectorize(lambda x: x.tone.amplitude if isinstance(x, Partial) else 0)
+    first_freq_array = extract_freq(first_partial_array)
+    second_freq_array = extract_freq(second_partial_array)
+    first_ampl_array = extract_ampl(first_partial_array)
+    second_ampl_array = extract_ampl(second_partial_array)
 
-    # Expand the lists by adding a row for each frequency increment (the shifting of the second note)
+    # Expand the lists by adding a row for each frequency increment (the shifting of the second group of partials)
     # Parameter incr_indicators determines whether the frequencies should be shifted (True) or remain fixed (False)
     first_freq = add_increments_or_copydown(
         freq_array=first_freq_array, incr_indicator=False, fundamental_freq=fundamental
@@ -242,12 +249,6 @@ def dissonance_profile(
     second_freq = add_increments_or_copydown(
         freq_array=second_freq_array, incr_indicator=True, fundamental_freq=fundamental
     )
-    # first_ampl_array = np.array(
-    #     [fixed_ampl or f_partial.tone.amplitude for f_list in first_partial_array for f_partial in f_list]
-    # )
-    # second_ampl_array = np.array(
-    #     [fixed_ampl or g_partial.tone.amplitude for g_list in second_partial_array for g_partial in g_list]
-    # )
 
     dissonance_matrix = dissonance_j(first_freq, first_ampl_array, second_freq, second_ampl_array)
     total_dissonances = np.sum(dissonance_matrix, axis=len(dissonance_matrix.shape) - 1)
@@ -276,9 +277,36 @@ def create_partials_from_list(p_list: list[tuple[float, float]]) -> list[Partial
     ]
 
 
-def reduced_freq_dict(
-    notelist: list[Note], ref_note: NoteName, group: AggregatedPartialDict, instrtype: InstrumentType
-) -> dict[Note, Frequency]:
+def generate_partial_harmonic_pairs(
+    group: AggregatedPartialDict,
+    keys: list[str],
+    max_partials: int = MAX_NR_PARTIALS_DISS_GRAPH,
+    max_harmonics: int = MAX_NR_HARMONICS_DISS_GRAPH,
+    harmonics_ampl_db: int = HARMONICS_AMPL_DB,
+    ref_note: NoteName = NoteName.DING,
+    ref_octave: int = 3,
+):
+    partial_harmonic_pairs = dict()
+    for key in keys:
+        instrument_group = dict_key_retrieve_instrgroup(key)
+        partials, notes = group.root[key]
+        partials = sorted(partials[:max_partials], key=lambda x: x.tone.frequency)
+        # fundamental = next((p for p in partials if p.isfundamental), None)
+        # reference_freq = fundamental.tone.frequency
+        notes = [note for note in group.root[key][1]]
+        reduced_freqs = reduced_freq_dict(notes, ref_note, group)
+
+        reference_freq = reduced_freqs[ref_note] * pow(2, ref_octave)
+        for partial in partials:
+            partial.tone.frequency = partial.ratio * reference_freq
+        harmonics = create_partials_from_list(
+            [(reference_freq * i, harmonics_ampl_db) for i in range(1, max_harmonics + 1)]
+        )
+        partial_harmonic_pairs[instrument_group] = (partials, harmonics)
+    return partial_harmonic_pairs
+
+
+def reduced_freq_dict(notelist: list[Note], ref_note: NoteName, group: AggregatedPartialDict) -> dict[Note, Frequency]:
     # Convert all note frequencies to octave 0 relative to the ref_note
     reduced_freq_list = {
         notename: [
@@ -293,14 +321,13 @@ def reduced_freq_dict(
 
     # Check if the reference note occurs. If not, take the frequency from another group of this instrument
     if not reduced_freqs.get(ref_note, None):
-        for key, (_, notes) in group.root.items():
-            if key.startswith(instrtype.value):
-                note = next((note for note in notes if note.name == ref_note), None)
-                if note:
-                    reduced_freqs[ref_note] = note.frequency / pow(
-                        2, note.octave.index - (1 if note.name.index() < ref_note.index() else 0)
-                    )
-                    return reduced_freqs
+        for _, notes in group.root.values():
+            note = next((note for note in notes if note.name == ref_note), None)
+            if note:
+                reduced_freqs[ref_note] = note.frequency / pow(
+                    2, note.octave.index - (1 if note.name.index() < ref_note.index() else 0)
+                )
+                return reduced_freqs
 
     return reduced_freqs
 

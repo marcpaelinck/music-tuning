@@ -14,6 +14,7 @@ class InstrumentType(OrderedEnum):
     KANTILAN = "gangsa kantilan"
     GENDERRAMBAT = "gender rambat"
     GENDERWAYANG = "gender wayang"
+    ALL = "all"
 
 
 class OmbakType(OrderedEnum):
@@ -134,11 +135,12 @@ MAX_OCTAVES = 4  # maximum number of octaves to consider when selecting partials
 
 # AGGREGATION
 # Currently only combinations of InstrumentType, OmbakType and Octave are possible.
-INSTRUMENTTYPE = 0
-OMBAKTYPE = 1
-OCTAVE = 2
-NOTE = 3
-AGGREGATION = (INSTRUMENTTYPE,)
+INSTRUMENTTYPE = "InstrumentType"
+OMBAKTYPE = "OmbakType"
+OCTAVE = "Octave"
+NOTE = "NoteName"
+ALL = "all"
+AGGREGATION = ()
 
 # SUMMARIZE
 KEEP_NR_PARTIALS = 10
@@ -146,5 +148,6 @@ TRUNCATE_FROM = 0
 TRUNCATE_TO = 10000
 
 # DISSONANCE
-MAX_NR_PARTIALS_DISS_GRAPH = 4
-MAX_NR_HARMONICS_DISS_GRAPH = 5
+MAX_NR_PARTIALS_DISS_GRAPH = 5
+MAX_NR_HARMONICS_DISS_GRAPH = 4
+HARMONICS_AMPL_DB = 50

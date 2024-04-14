@@ -60,7 +60,7 @@ def dict_key_str(instrument: Instrument, note: Note, aggregation=AGGREGATION) ->
         + ([f"octave {note.name}"] if Note in aggregation else [])
     )
     if not any(keyitems):
-        return "instrumentgroup"
+        return "all"
     else:
         return ", ".join(keyitems)
 
@@ -68,7 +68,7 @@ def dict_key_str(instrument: Instrument, note: Note, aggregation=AGGREGATION) ->
 def get_aggr_partials(
     note: Note, aggregatedpartials: AggregatedPartialDict, instrument: Instrument
 ) -> list[AggregatedPartial]:
-    return aggregatedpartials.root.get(dict_key_str(instrument, note), [[]])[0]
+    return aggregatedpartials.root.get(dict_key_str(instrument, note, AggregatedPartialDict.aggregation), [[]])[0]
 
 
 def dict_key_retrieve_instrgroup(key):
@@ -139,7 +139,9 @@ def aggregated_partials_list(
     return sorted(aggr_part_list, key=lambda p: p.tone.amplitude, reverse=True)
 
 
-def step_create_aggregated_partials_dict(group: InstrumentGroup) -> AggregatedPartialDict:
+def step_create_aggregated_partials_dict(
+    group: InstrumentGroup, aggregation: tuple[str] = AGGREGATION
+) -> AggregatedPartialDict:
     """
     Creates a dictionary with lists of aggregated partials. Aggregation is performed
     for each instrumenttype - ombaktype - octave combination.
@@ -157,10 +159,10 @@ def step_create_aggregated_partials_dict(group: InstrumentGroup) -> AggregatedPa
     note_dict = defaultdict(list)
     for instrument in group.instruments:
         for note in instrument.notes:
-            partials_dict[dict_key_str(instrument, note)].extend(
+            partials_dict[dict_key_str(instrument, note, aggregation)].extend(
                 [partial for p_list in note.partials for partial in p_list]
             )
-            note_dict[dict_key_str(instrument, note)].append(note)
+            note_dict[dict_key_str(instrument, note, aggregation)].append(note)
 
     partials_dict = dict(sorted(partials_dict.items()))
 
@@ -171,7 +173,7 @@ def step_create_aggregated_partials_dict(group: InstrumentGroup) -> AggregatedPa
             note_dict[key],
         )
 
-    aggregated = AggregatedPartialDict(root=aggregated_dict)
+    aggregated = AggregatedPartialDict(aggregation=aggregation, root=aggregated_dict)
     # Recalculate the ratio, based on average frequencies
     for key, (agglist, _) in aggregated.root.items():
         fundamental = next((agg for agg in agglist if agg.isfundamental), None)

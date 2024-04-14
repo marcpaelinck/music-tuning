@@ -3,14 +3,7 @@ from typing import Optional
 
 import numpy as np
 import pandas as pd
-from pydantic import (
-    BaseModel,
-    Field,
-    RootModel,
-    ValidationInfo,
-    field_serializer,
-    model_validator,
-)
+from pydantic import BaseModel, Field, ValidationInfo, field_serializer, model_validator
 from scipy.io import wavfile
 
 from tuning.common.constants import (
@@ -92,7 +85,6 @@ class AggregatedPartial(Partial):
     # partial , i.e. all frequencies are first reduced
     # to the same octave (octave 0). This enables to perform
     # an aggregation over multiple octaves.
-    # ratio is the average of the ratios of all partials
     # ratio0 is based on the Aggregated tone and fundamental
     partials: Optional[list[Partial]] = Field(default=None)
     ratio0: Optional[float] = None
@@ -109,7 +101,9 @@ class Note(BaseModel):
     aggr_partials: Optional[list[AggregatedPartial]] = None
 
 
-AggregatedPartialDict = RootModel[dict[str, tuple[list[AggregatedPartial], list[Note]]]]
+class AggregatedPartialDict(BaseModel):
+    aggregation: Optional[tuple[str, ...]] = None
+    root: dict[str, tuple[list[AggregatedPartial], list[Note]]]
 
 
 class Spectrum(BaseModel):
@@ -200,4 +194,4 @@ class InstrumentGroup(BaseModel):
     instruments: list[Instrument]
     has_sound_samples: bool = False
     has_spectra: bool = False
-    clipinfo_dict: dict[FileName, ClipInfo] = None
+    clipinfo_dict: Optional[dict[FileName, ClipInfo]] = None

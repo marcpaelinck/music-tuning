@@ -13,6 +13,7 @@ from tuning.analysis.dissonance import (
     dissonance_profile,
     dissonance_profile_old,
     dissonance_s,
+    generate_partial_harmonic_pairs,
     reduced_freq_dict,
 )
 from tuning.analysis.utils import get_minima
@@ -83,7 +84,7 @@ def plot_note_spectra(
     group: InstrumentGroup,
     item: Instrument,
     *,
-    aggregatedpartials: AggregatedPartialDict = AggregatedPartialDict({}),
+    aggregatedpartials: AggregatedPartialDict = AggregatedPartialDict(root={}),
     what: list[str] = ["spectra", "partials"],
     max_partials: int = 100,
     ratio: bool = True,  # X-axis is ratios if True, otherwise frequencies
@@ -276,7 +277,6 @@ def plot_dissonance_graphs(
     **kwargs,
 ):
     instrumenttype = item
-    HARMONICS_AMPL_DB = 50  # Amplitude for harmonics
     # TODO retrieving dict entry by using string literal is error prone
     # Key is a string with format "instrumenttype#ombak-octave"
     keys = [key for key in list(group.root.keys()) if key.startswith(instrumenttype.value)]
@@ -285,23 +285,11 @@ def plot_dissonance_graphs(
 
     # Calculate the average note frequencies for the reference octave (octave 0)
     notes = [note for key in keys for note in group.root[key][1]]
-    reduced_freqs = reduced_freq_dict(notes, ref_note, group, instrumenttype)
+    reduced_freqs = reduced_freq_dict(notes, ref_note, group)
 
-    partial_harmonic_pairs = dict()
-    for key in keys:
-        instrument_group = dict_key_retrieve_instrgroup(key)
-        partials, notes = group.root[key]
-        partials = sorted(partials[:MAX_NR_PARTIALS_DISS_GRAPH], key=lambda x: x.tone.frequency)
-        # fundamental = next((p for p in partials if p.isfundamental), None)
-        # reference_freq = fundamental.tone.frequency
-        reference_freq = reduced_freqs[ref_note] * pow(2, ref_octave)
-        for partial in partials:
-            partial.tone.frequency = partial.ratio * reference_freq
-        harmonics = create_partials_from_list(
-            [(reference_freq * i, HARMONICS_AMPL_DB) for i in range(1, MAX_NR_HARMONICS_DISS_GRAPH)]
-        )
-        partial_harmonic_pairs[instrument_group] = (partials, harmonics)
-
+    partial_harmonic_pairs = generate_partial_harmonic_pairs(
+        group=group, keys=keys, ref_note=ref_note, ref_octave=ref_octave
+    )
     # Reduce all notes to octave 0 then calculate average frequency per note.
     # Then determine ratio relative to DING.
     noteratio_dict = {notename: freq / reduced_freqs[ref_note] for notename, freq in reduced_freqs.items()}
@@ -313,29 +301,13 @@ def plot_dissonance_graphs(
     diss_graphs = list()
     diss_graph_texts = list()
     diss_graph_titles = list()
-    for group, pair in partial_harmonic_pairs.items():
+    for group, (partials, harmonics) in partial_harmonic_pairs.items():
         pairs = {"pp": (partials, partials), "ph": (partials, harmonics), "hp": (harmonics, partials)}
         diss_result = profiler(
             pairs,
             fixed_ampl=kwargs.get("amplitude", None),
             # is_reverse=True,
         )
-        # pp_result = profiler(
-        #     pair[0],
-        #     pair[0],
-        #     fixed_ampl=kwargs.get("amplitude", None),
-        #     # is_reverse=True,
-        # )
-        # ph_result = profiler(
-        #     pair[0],
-        #     pair[1],
-        #     fixed_ampl=kwargs.get("amplitude", None),
-        # )
-        # hp_result = profiler(
-        #     pair[1],
-        #     pair[0],
-        #     fixed_ampl=kwargs.get("amplitude", None),
-        # )
         pp_peaks = get_minima(*diss_result["pp"])
         ph_peaks = get_minima(*diss_result["ph"])
         hp_peaks = get_minima(*diss_result["hp"])
@@ -426,7 +398,6 @@ def plot_dissonance_graphs(
             nrows=len(diss_graphs) // 2,
             ncols=1,
             pagetitle=pagetitle,
-            plottitles=instrument_group,
             plottexts=texts,
             autox=True,
             figure=figure,

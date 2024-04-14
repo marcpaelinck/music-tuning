@@ -50,6 +50,7 @@ class Step(Enum):
     CREATE_SPECTRA_AUDACITY = auto()
     CREATE_PARTIALS = auto()
     AGGREGATE_PARTIALS = auto()
+    AGGREGATE_PARTIALS_ENTIREGROUP = auto()
     SAVE_JSON_ONLY = 200
     SAVE_JSON_AND_SPECTRA = auto()
     SAVE_AGGREGATED_PARTIALS = auto()
@@ -57,6 +58,7 @@ class Step(Enum):
     PLOT_NOTE_SPECTRA = auto()
     PLOT_NOTE_SPECTRA_WITH_AGGREGATED_PARTIALS = auto()
     PLOT_DISSONANCE_GRAPHS = auto()
+    OPTIMIZE_DISSONANCE_GRAPH = auto()
 
 
 Pipe = list[Step]
@@ -83,6 +85,7 @@ class PipeLine:
     step_create_spectra = None
     step_create_spectra_audacity = None
     step_save_json_and_spectra = None
+    step_create_aggregated_partials_dict_full = None
     step_save_aggregated_partials = None
     step_read_aggregated_partials = None
     step_plot_sounddata = None
@@ -132,6 +135,11 @@ class PipeLine:
             Step.CREATE_PARTIALS: (step_create_partials, {"group": InstrumentGroup}, InstrumentGroup),
             Step.AGGREGATE_PARTIALS: (
                 step_create_aggregated_partials_dict,
+                {"group": InstrumentGroup},
+                AggregatedPartialDict,
+            ),
+            Step.AGGREGATE_PARTIALS_ENTIREGROUP: (
+                self.step_create_aggregated_partials_dict_full,
                 {"group": InstrumentGroup},
                 AggregatedPartialDict,
             ),
@@ -190,6 +198,10 @@ class PipeLine:
             filetype=Folder.ANALYSES,
             filename=AGGREGATED_PARTIALS_FILE,
         )
+        self.step_create_aggregated_partials_dict_full = partial(
+            step_create_aggregated_partials_dict,
+            aggregation=(),
+        )
         self.step_plot_sounddata = partial(
             create_pdf,
             plotter=plot_sounddata,
@@ -218,7 +230,9 @@ class PipeLine:
             plotter=plot_dissonance_graphs,
             iterlist=InstrumentType,
             filepath=get_path(
-                groupname=groupname, filetype=Folder.ANALYSES, filename="dissonance_graph-{ref_note}{ref_octave}.pdf"
+                groupname=groupname,
+                filetype=Folder.ANALYSES,
+                filename="dissonance_graph-{ref_note}{ref_octave}{aggregation}.pdf",
             ),
             groupname=groupname,
             ref_octave=2,
@@ -265,11 +279,22 @@ if __name__ == "__main__":
         # Step.CREATE_PARTIALS,
         # Step.SAVE_JSON_ONLY,
         # Step.SAVE_JSON_AND_SPECTRA,
-        Step.READ_AGGREGATED_PARTIALS,
+        # Step.READ_AGGREGATED_PARTIALS,
         # Step.READ_GROUP_WITH_SPECTRUMDATA,
         # Step.AGGREGATE_PARTIALS,
+        # Step.AGGREGATE_PARTIALS_ENTIREGROUP,
+        # Step.OPTIMIZE_DISSONANCE_GRAPH,
         # Step.SAVE_AGGREGATED_PARTIALS,
         # Step.PLOT_NOTE_SPECTRA,
+        # Step.PLOT_DISSONANCE_GRAPHS,
+    ]
+    # pipe = [
+    #     Step.READ_AGGREGATED_PARTIALS,
+    #     Step.PLOT_DISSONANCE_GRAPHS,
+    # ]
+    pipe = [
+        Step.READ_GROUP,
+        Step.AGGREGATE_PARTIALS_ENTIREGROUP,
         Step.PLOT_DISSONANCE_GRAPHS,
     ]
     pipeline = PipeLine(InstrumentGroupName.ANGKLUNG, pipe)
