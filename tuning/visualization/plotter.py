@@ -6,14 +6,12 @@ from itertools import chain
 import numpy as np
 from scipy.io import wavfile
 
-from tuning.analysis.aggregation import dict_key_retrieve_instrgroup, get_aggr_partials
+from tuning.analysis.aggregation import get_aggr_partials
 from tuning.analysis.dissonance import (
-    create_partials_from_list,
     dissonance_j,
     dissonance_profile,
-    dissonance_profile_old,
     dissonance_s,
-    generate_partial_harmonic_pairs,
+    generate_partial_harmonic_pair,
     reduced_freq_dict,
 )
 from tuning.analysis.utils import get_minima
@@ -26,11 +24,12 @@ from tuning.common.classes import (
     Tone,
 )
 from tuning.common.constants import (
-    MAX_NR_HARMONICS_DISS_GRAPH,
-    MAX_NR_PARTIALS_DISS_GRAPH,
+    DEFAULT_NR_HARMONICS_DISS_GRAPH,
+    DEFAULT_NR_PARTIALS_DISS_GRAPH,
     Folder,
     InstrumentGroupName,
     NoteName,
+    PartialCombiType,
 )
 from tuning.common.utils import get_logger, get_path
 from tuning.visualization.utils import PlotType, plot_graphs
@@ -271,6 +270,8 @@ def plot_dissonance_graphs(
     *,
     item: InstrumentType,
     groupname: InstrumentGroupName,
+    nr_partials: int = DEFAULT_NR_PARTIALS_DISS_GRAPH,
+    nr_harmonics: int = DEFAULT_NR_HARMONICS_DISS_GRAPH,
     amplitude: float = None,
     ref_octave: int = 3,
     ref_note: NoteName = NoteName.DING,
@@ -282,19 +283,20 @@ def plot_dissonance_graphs(
     keys = [key for key in list(group.root.keys()) if key.startswith(instrumenttype.value)]
     if not keys:
         return False
-
     # Calculate the average note frequencies for the reference octave (octave 0)
-    notes = [note for key in keys for note in group.root[key][1]]
-    reduced_freqs = reduced_freq_dict(notes, ref_note, group)
-
-    partial_harmonic_pairs = generate_partial_harmonic_pairs(
-        group=group, keys=keys, ref_note=ref_note, ref_octave=ref_octave
+    allnotes = [note for _, notes in group.root.values() for note in notes]
+    groupnotes = [note for key in keys for note in group.root[key][1]]
+    reduced_freqs = reduced_freq_dict(
+        group_notes=groupnotes, all_notes=allnotes, ref_note=ref_note, ref_octave=ref_octave
     )
-    # Reduce all notes to octave 0 then calculate average frequency per note.
-    # Then determine ratio relative to DING.
+    # Determine the ratio of each note relative to the reference note.
     noteratio_dict = {notename: freq / reduced_freqs[ref_note] for notename, freq in reduced_freqs.items()}
+    # Generate the requested combinations of partials and harmonics for each aggregation group
+    partial_harmonic_pairs = {
+        key: generate_partial_harmonic_pair(group.root[key][0], reduced_freqs=reduced_freqs, ref_octave=ref_octave)
+        for key in keys
+    }
 
-    profiler = dissonance_profile
     plot_content = list()
     plot_texts = list()
 
@@ -302,25 +304,36 @@ def plot_dissonance_graphs(
     diss_graph_texts = list()
     diss_graph_titles = list()
     for group, (partials, harmonics) in partial_harmonic_pairs.items():
-        pairs = {"pp": (partials, partials), "ph": (partials, harmonics), "hp": (harmonics, partials)}
-        diss_result = profiler(
-            pairs,
-            fixed_ampl=kwargs.get("amplitude", None),
-            # is_reverse=True,
-        )
-        pp_peaks = get_minima(*diss_result["pp"])
-        ph_peaks = get_minima(*diss_result["ph"])
-        hp_peaks = get_minima(*diss_result["hp"])
-        p_ = MAX_NR_PARTIALS_DISS_GRAPH
-        h_ = MAX_NR_HARMONICS_DISS_GRAPH
+        pairs = {
+            PartialCombiType.PARTIALS_PARTIALS: (partials, partials),
+            PartialCombiType.PARTIALS_HARMONICS: (partials, harmonics),
+            PartialCombiType.HARMONICS_PARTIALS: (harmonics, partials),
+        }
+        fundamental = next((partial for partial in partials if partial.isfundamental), None)
+        diss_result = dissonance_profile(pairs, fundamental)
+        settings = {
+            PartialCombiType.PARTIALS_PARTIALS: {
+                "color": "b",
+                "title": f"partials[{nr_partials}]-partials[{nr_partials}]",
+            },
+            PartialCombiType.PARTIALS_HARMONICS: {
+                "color": "g",
+                "title": f"partials[{nr_partials}]-harmonics[{nr_harmonics}]",
+            },
+            PartialCombiType.HARMONICS_PARTIALS: {
+                "color": "c",
+                "title": f"harmonics[{nr_harmonics}]-partials[{nr_partials}]",
+            },
+        }
         diss_graphs.append(
             [
-                diss_result["pp"] + [pp_peaks] + ["b"] + [f"partials[{p_}]-partials[{p_}]"],
-                diss_result["ph"] + [ph_peaks] + ["g"] + [f"partials[{p_}]-harmonics[{h_}]"],
-                diss_result["hp"] + [hp_peaks] + ["c"] + [f"harmonics[{h_}]-partials[{p_}]"],
+                diss_result[combi]
+                + [get_minima(*diss_result[combi])]
+                + [settings[combi]["color"]]
+                + [settings[combi]["title"]]
+                for combi in PartialCombiType
             ]
         )
-        # diss_graph_titles.extend([group + " - partial-partial", group + " - partial-harmonic"])
         diss_graph_titles.extend([group])
 
     ymin = min(min(line[1]) for graph in diss_graphs for line in graph)

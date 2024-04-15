@@ -2,6 +2,7 @@ from enum import Enum, auto
 from functools import partial
 
 from tuning.analysis.aggregation import step_create_aggregated_partials_dict
+from tuning.analysis.optimization import step_perform_consonance_analysis
 from tuning.analysis.partials import step_create_partials
 from tuning.analysis.spectrum import (
     create_spectra,
@@ -10,12 +11,14 @@ from tuning.analysis.spectrum import (
 )
 from tuning.common.classes import (
     AggregatedPartialDict,
+    ConsonanceAnalysis,
     InstrumentGroup,
     InstrumentType,
     NoteName,
 )
 from tuning.common.constants import (
     AGGREGATED_PARTIALS_FILE,
+    CONSONANCE_ANALYSIS_FILE,
     Folder,
     InstrumentGroupName,
 )
@@ -58,7 +61,8 @@ class Step(Enum):
     PLOT_NOTE_SPECTRA = auto()
     PLOT_NOTE_SPECTRA_WITH_AGGREGATED_PARTIALS = auto()
     PLOT_DISSONANCE_GRAPHS = auto()
-    OPTIMIZE_DISSONANCE_GRAPH = auto()
+    PERFORM_CONSONANCE_ANALYSIS = auto()
+    SAVE_CONSONANCE_ANALYSIS = auto()
 
 
 Pipe = list[Step]
@@ -91,6 +95,7 @@ class PipeLine:
     step_plot_sounddata = None
     step_plot_spectra = None
     step_plot_dissonance_graphs = None
+    step_save_consonance_analysis = None
     actions = None
 
     def __init_actions__(self):
@@ -165,6 +170,16 @@ class PipeLine:
                 {"group": AggregatedPartialDict},
                 AggregatedPartialDict,
             ),
+            Step.PERFORM_CONSONANCE_ANALYSIS: (
+                step_perform_consonance_analysis,
+                {"aggregatedpartials": AggregatedPartialDict},
+                ConsonanceAnalysis,
+            ),
+            Step.SAVE_CONSONANCE_ANALYSIS: (
+                self.step_save_consonance_analysis,
+                {"object": ConsonanceAnalysis},
+                ConsonanceAnalysis,
+            ),
         }
 
     def __init__(self, groupname: InstrumentGroupName, pipe: Pipe):
@@ -238,6 +253,10 @@ class PipeLine:
             ref_octave=2,
             ref_note=NoteName.DING,
         )
+        self.step_save_consonance_analysis = partial(
+            save_object_to_jsonfile,
+            filepath=get_path(groupname, Folder.ANALYSES, CONSONANCE_ANALYSIS_FILE),
+        )
         self.__init_actions__()
         if not self.is_valid_pipe(pipe):
             logger.error(f"Aborting script.")
@@ -250,7 +269,8 @@ class PipeLine:
             if not all([item in available_data for item in expected_input.values()]):
                 logger.error(f"Invalid pipeline sequence: not all input is available for step {step}.")
                 return False
-            available_data.add(output)
+            if output:
+                available_data.add(output)
         return True
 
     def __get_data_items__(self, datatypes: dict[str, type]):
@@ -292,10 +312,16 @@ if __name__ == "__main__":
     #     Step.READ_AGGREGATED_PARTIALS,
     #     Step.PLOT_DISSONANCE_GRAPHS,
     # ]
+    # pipe = [
+    #     Step.READ_GROUP,
+    #     Step.AGGREGATE_PARTIALS_ENTIREGROUP,
+    #     Step.PLOT_DISSONANCE_GRAPHS,
+    # ]
     pipe = [
         Step.READ_GROUP,
         Step.AGGREGATE_PARTIALS_ENTIREGROUP,
-        Step.PLOT_DISSONANCE_GRAPHS,
+        Step.PERFORM_CONSONANCE_ANALYSIS,
+        Step.SAVE_CONSONANCE_ANALYSIS,
     ]
     pipeline = PipeLine(InstrumentGroupName.ANGKLUNG, pipe)
     pipeline.execute()

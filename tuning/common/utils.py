@@ -126,6 +126,7 @@ def save_object_to_jsonfile(
     if os.path.exists(filepath):
         os.remove(filepath)
     os.rename(tempfilepath, filepath)
+    logger.info(f"Results saved to {filepath}")
     return object
 
 

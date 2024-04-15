@@ -1,6 +1,6 @@
 import numpy as np
 
-from tuning.common.classes import Frequency
+from tuning.common.classes import Dissonance, Frequency
 
 
 def remove_min_region(index, x_vector, y_vector) -> tuple[np.array]:
@@ -15,13 +15,13 @@ def remove_min_region(index, x_vector, y_vector) -> tuple[np.array]:
     )
 
 
-def get_minima(x_vector, y_vector) -> list[tuple[float, float]]:
+def get_minima(x_vector, y_vector) -> list[Dissonance]:
     x_vect = np.copy(x_vector)
     y_vect = np.copy(y_vector)
     minima = []
     while len(y_vect) > 0:
         idx = np.argmin(y_vect)
-        minima.append((x_vect[idx], y_vect[idx]))
+        minima.append(Dissonance(ratio=x_vect[idx], dissonance=y_vect[idx]))
         x_vect, y_vect = remove_min_region(idx, x_vect, y_vect)
     return minima
 

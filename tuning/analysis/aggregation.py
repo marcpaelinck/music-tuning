@@ -120,7 +120,7 @@ def aggregated_partials_list(
                 ),
                 amplitude=np.average([p.tone.amplitude for p in cluster]),
             ),
-            fundamental=Tone(
+            reduced_frequency=Tone(
                 frequency=(
                     fund_freq := np.average(
                         [reduce_frequency(p.fundamental.frequency, p.fund_octave.index) for p in cluster]
@@ -130,7 +130,7 @@ def aggregated_partials_list(
             ),
             isfundamental=cluster[0].isfundamental,
             ratio=np.average([p.ratio for p in cluster]),
-            ratio0=tone_freq / fund_freq,
+            # ratio0=tone_freq / fund_freq,
             prominence=np.average([p.prominence for p in cluster]),
             partials=cluster,
         )

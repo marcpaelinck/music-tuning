@@ -13,6 +13,7 @@ from tuning.common.constants import (
     InstrumentType,
     NoteName,
     OmbakType,
+    PartialCombiType,
 )
 
 Frequency = float
@@ -85,8 +86,10 @@ class AggregatedPartial(Partial):
     # partial , i.e. all frequencies are first reduced
     # to the same octave (octave 0). This enables to perform
     # an aggregation over multiple octaves.
-    # ratio0 is based on the Aggregated tone and fundamental
+    # reduced_frequency is the equivalent frequency within
+    # octave 0 range (reference octave).
     partials: Optional[list[Partial]] = Field(default=None)
+    reduced_frequency: Optional[Tone] = None
     ratio0: Optional[float] = None
 
 
@@ -195,3 +198,21 @@ class InstrumentGroup(BaseModel):
     has_sound_samples: bool = False
     has_spectra: bool = False
     clipinfo_dict: Optional[dict[FileName, ClipInfo]] = None
+
+
+class Dissonance(BaseModel):
+    ratio: Ratio
+    dissonance: float
+
+
+class ConsonanceValues(BaseModel):
+    partials: list[Partial]
+    harmonics: list[Partial]
+    consonances: dict[PartialCombiType, list[Dissonance]]
+
+
+class ConsonanceAnalysis(BaseModel):
+    ref_note: NoteName
+    ref_octave: OctaveNbr
+    fundamental: Partial
+    results: list[ConsonanceValues]
