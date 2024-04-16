@@ -1,4 +1,3 @@
-from enum import Enum
 from typing import Optional
 
 import numpy as np
@@ -78,6 +77,9 @@ class Partial(BaseModel):
     notename: Optional[NoteName] = None
     octave_idx: Optional[int] = None
     sample_seq: Optional[int] = None
+
+    def __str__(self):
+        return f"Partial[frequency={self.tone.frequency:.4}, amplitude={self.tone.amplitude:.4}, ratio={self.ratio:.4}, prominence={self.prominence:.4}]"
 
 
 class AggregatedPartial(Partial):
@@ -204,6 +206,9 @@ class Dissonance(BaseModel):
     ratio: Ratio
     dissonance: float
 
+    class Config:
+        frozen = True
+
 
 class ConsonanceValues(BaseModel):
     partials: list[Partial]
@@ -215,4 +220,9 @@ class ConsonanceAnalysis(BaseModel):
     ref_note: NoteName
     ref_octave: OctaveNbr
     fundamental: Partial
+    all_partials: list[Partial]
+    all_harmonics: list[Partial]
+    noteratio_dict: dict[NoteName, Ratio]
     results: list[ConsonanceValues]
+    optimal_consonances: Optional[ConsonanceValues] = None
+    optimal_matches: Optional[dict[NoteName, tuple[Ratio, PartialCombiType, Dissonance]]] = None

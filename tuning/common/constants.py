@@ -39,7 +39,10 @@ class NoteName(OrderedEnum):
         self.short = self.value.replace("d", "").replace("n", "").replace("g", "")
 
     def __str__(self):
-        return self.value
+        return self.name
+
+    def __repr__(self):
+        return self.name
 
     def index(self: "NoteName"):
         return list(NoteName).index(self)
@@ -155,8 +158,8 @@ TRUNCATE_FROM = 0
 TRUNCATE_TO = 10000
 
 # DISSONANCE
-DEFAULT_NR_PARTIALS_DISS_GRAPH = 5
-DEFAULT_NR_HARMONICS_DISS_GRAPH = 4
+DEFAULT_NR_PARTIALS_DISS_GRAPH = 6
+DEFAULT_NR_HARMONICS_DISS_GRAPH = 2
 MAX_NR_PARTIALS_OPTIMIZATION = 10
 MAX_NR_HARMONICS_OPTIMIZATION = 10
 HARMONICS_AMPL_DB = 50

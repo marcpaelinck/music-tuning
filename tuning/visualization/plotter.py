@@ -2,6 +2,7 @@ import math
 from enum import Enum, auto
 from functools import partial
 from itertools import chain
+from typing import Optional
 
 import numpy as np
 from scipy.io import wavfile
@@ -18,9 +19,11 @@ from tuning.analysis.utils import get_minima
 from tuning.common.classes import (
     AggregatedPartial,
     AggregatedPartialDict,
+    ConsonanceAnalysis,
     Instrument,
     InstrumentGroup,
     InstrumentType,
+    Partial,
     Tone,
 )
 from tuning.common.constants import (
@@ -83,11 +86,13 @@ def plot_note_spectra(
     group: InstrumentGroup,
     item: Instrument,
     *,
-    aggregatedpartials: AggregatedPartialDict = AggregatedPartialDict(root={}),
-    what: list[str] = ["spectra", "partials"],
+    aggregatedpartials: Optional[AggregatedPartialDict] = AggregatedPartialDict(root={}),
+    analysis: Optional[ConsonanceAnalysis] = None,
+    what: list[str] = ["spectra", "aggregatedpartials"],
     max_partials: int = 100,
     ratio: bool = True,  # X-axis is ratios if True, otherwise frequencies
     show: bool = False,
+    **kwargs,
 ) -> bool:
 
     instrument = item
@@ -102,7 +107,7 @@ def plot_note_spectra(
     ymin = -100
     ymax = max(np.max(spectrum.amplitudes) for note in instrument.notes for spectrum in note.spectra)
 
-    if "partials" in what:
+    if "aggregatedpartials" in what:
         # Define vlines for the partials of each spectrum graph and for the aggregated partials
         aggr = partial(get_aggr_partials, aggregatedpartials=aggregatedpartials, instrument=instrument)
         note_partials = [
@@ -117,6 +122,25 @@ def plot_note_spectra(
                     for ap in aggr(note)
                 ]
                 + ["r" if p.isfundamental else "c" for p in partials[:max_partials]],
+            ]
+            for note in instrument.notes
+            for partials, sample_seq in zip(note.partials, list(range(len(note.partials))))
+        ]
+
+    if "analysis-partials" in what:
+        # Define vlines for the given partials
+        note_partials = [
+            [
+                xvals := [
+                    p.ratio for p in analysis.optimal_consonances.partials + analysis.optimal_consonances.harmonics
+                ],
+                [0] * len(xvals),
+                [
+                    p.tone.amplitude
+                    for p in analysis.optimal_consonances.partials + analysis.optimal_consonances.harmonics
+                ],
+                ["m"] * len(analysis.optimal_consonances.partials)
+                + ["y"] * len(analysis.optimal_consonances.harmonics),
             ]
             for note in instrument.notes
             for partials, sample_seq in zip(note.partials, list(range(len(note.partials))))
@@ -195,6 +219,7 @@ def plot_sounddata(
     original_file: bool = True,
     *,
     show: bool = False,
+    **kwargs,
 ) -> bool:
     sample_rate, data = wavfile.read(
         get_path(
@@ -270,6 +295,7 @@ def plot_dissonance_graphs(
     *,
     item: InstrumentType,
     groupname: InstrumentGroupName,
+    analysis_results: ConsonanceAnalysis = None,  # overrules the next five arguments
     nr_partials: int = DEFAULT_NR_PARTIALS_DISS_GRAPH,
     nr_harmonics: int = DEFAULT_NR_HARMONICS_DISS_GRAPH,
     amplitude: float = None,
@@ -283,19 +309,38 @@ def plot_dissonance_graphs(
     keys = [key for key in list(group.root.keys()) if key.startswith(instrumenttype.value)]
     if not keys:
         return False
-    # Calculate the average note frequencies for the reference octave (octave 0)
-    allnotes = [note for _, notes in group.root.values() for note in notes]
-    groupnotes = [note for key in keys for note in group.root[key][1]]
-    reduced_freqs = reduced_freq_dict(
-        group_notes=groupnotes, all_notes=allnotes, ref_note=ref_note, ref_octave=ref_octave
-    )
-    # Determine the ratio of each note relative to the reference note.
-    noteratio_dict = {notename: freq / reduced_freqs[ref_note] for notename, freq in reduced_freqs.items()}
-    # Generate the requested combinations of partials and harmonics for each aggregation group
-    partial_harmonic_pairs = {
-        key: generate_partial_harmonic_pair(group.root[key][0], reduced_freqs=reduced_freqs, ref_octave=ref_octave)
-        for key in keys
-    }
+
+    if analysis_results:
+        # Retrieve the combinations of partials and harmonics for each aggregation group
+        partial_harmonic_pairs = {
+            InstrumentType.ALL.value: (
+                analysis_results.optimal_consonances.partials,
+                analysis_results.optimal_consonances.harmonics,
+            )
+        }
+        noteratio_dict = analysis_results.noteratio_dict
+    else:
+        # Generate the requested combinations of partials and harmonics for each aggregation group
+        # First calculate the average note frequencies for the reference octave (octave 0)
+        allnotes = [note for _, notes in group.root.values() for note in notes]
+        groupnotes = [note for key in keys for note in group.root[key][1]]
+        reduced_freqs = reduced_freq_dict(
+            group_notes=groupnotes, all_notes=allnotes, ref_note=ref_note, ref_octave=ref_octave
+        )
+        # Then determine the ratio of each note relative to the reference note and generate the partials.
+        noteratio_dict = {notename: freq / reduced_freqs[ref_note] for notename, freq in reduced_freqs.items()}
+        partial_harmonic_pairs = {
+            key: generate_partial_harmonic_pair(
+                group.root[key][0],
+                nbr_partials=nr_partials,
+                partials_overrule=partials,
+                nbr_harmonics=nr_harmonics,
+                reduced_freqs=reduced_freqs,
+                ref_note=ref_note,
+                ref_octave=ref_octave,
+            )
+            for key in keys
+        }
 
     plot_content = list()
     plot_texts = list()
@@ -347,14 +392,14 @@ def plot_dissonance_graphs(
             text_data.extend(
                 [
                     {
-                        "x": x,
-                        "y": y,
-                        "s": f"{abs(x):1.3f}",
+                        "x": dissonance.ratio,
+                        "y": dissonance.dissonance,
+                        "s": f"{abs(dissonance.ratio):1.3f}",
                         "fontsize": "x-small",
                         "ha": "center",
                         "va": "top",
                     }
-                    for x, y in line_data[2]
+                    for dissonance in line_data[2]
                 ]
             )
             text_data.extend(

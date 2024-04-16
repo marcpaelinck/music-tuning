@@ -29,12 +29,7 @@ from tuning.common.constants import (
     Folder,
     InstrumentGroupName,
 )
-from tuning.common.utils import (
-    get_logger,
-    get_path,
-    save_object_to_jsonfile,
-    step_read_group_from_jsonfile,
-)
+from tuning.common.utils import get_logger
 
 logger = get_logger(__name__)
 
@@ -68,7 +63,7 @@ def dict_key_str(instrument: Instrument, note: Note, aggregation=AGGREGATION) ->
 def get_aggr_partials(
     note: Note, aggregatedpartials: AggregatedPartialDict, instrument: Instrument
 ) -> list[AggregatedPartial]:
-    return aggregatedpartials.root.get(dict_key_str(instrument, note, AggregatedPartialDict.aggregation), [[]])[0]
+    return aggregatedpartials.root.get(dict_key_str(instrument, note, aggregatedpartials.aggregation), [[]])[0]
 
 
 def dict_key_retrieve_instrgroup(key):
@@ -191,11 +186,4 @@ def step_create_aggregated_partials_dict(
 
 if __name__ == "__main__":
     # Set this value before running
-    GROUPNAME = InstrumentGroupName.SEMAR_PAGULINGAN
-
-    orchestra = step_read_group_from_jsonfile(GROUPNAME, read_sounddata=False, read_spectrumdata=False)
-    aggr_partials = step_create_aggregated_partials_dict(orchestra)
-    save_object_to_jsonfile(
-        aggr_partials,
-        get_path(orchestra.grouptype, Folder.ANALYSES, AGGREGATED_PARTIALS_FILE),
-    )
+    ...

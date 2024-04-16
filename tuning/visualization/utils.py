@@ -1,4 +1,3 @@
-import math
 import os
 import pathlib
 from enum import Enum, auto
@@ -9,16 +8,10 @@ import numpy as np
 from matplotlib.axes import Axes
 from matplotlib.backends.backend_pdf import PdfPages
 from matplotlib.figure import Figure
-from pydantic import BaseModel
 
-from tuning.common.classes import (
-    AggregatedPartialDict,
-    Instrument,
-    InstrumentGroup,
-    InstrumentType,
-)
-from tuning.common.constants import PageSizes
-from tuning.common.utils import get_logger
+from tuning.common.classes import AggregatedPartialDict, InstrumentGroup
+from tuning.common.constants import Folder, InstrumentGroupName, PageSizes
+from tuning.common.utils import get_logger, get_path
 
 logger = get_logger(__name__)
 
@@ -59,12 +52,12 @@ def plot_graphs(
         if not autox:
             for arg, axis in zip(args, axes):
                 x_min = xmin if xmin != None else min(arg[x_index])
-                x_max = xmax if xmax != None else  max(arg[x_index])
+                x_max = xmax if xmax != None else max(arg[x_index])
                 plt.setp(axis, xlim=(x_min, x_max))
         if not autoy:
             # min and max y should be the same for all graphs
-            y_min = ymin if ymin != None else  min(min(args[i][y_index]) for i in range(len(args)))
-            y_max = ymax if ymax != None else  max(max(args[i][y_index]) for i in range(len(args))) * 1.05
+            y_min = ymin if ymin != None else min(min(args[i][y_index]) for i in range(len(args)))
+            y_max = ymax if ymax != None else max(max(args[i][y_index]) for i in range(len(args))) * 1.05
             plt.setp(axes, ylim=(y_min, y_max))
         return (x_min, x_max, y_min, y_max)
 
@@ -78,22 +71,22 @@ def plot_graphs(
     for axis, idx in zip(axis_list, range(len(axis_list))):
         match plottype:
             case PlotType.SOUNDDATAPLOT | PlotType.SPECTRUMPLOT:
-                if idx==0:
+                if idx == 0:
                     set_axes_boundaries(x_index, y_index)
                 # vis = [axis.plot for axis in axis_list]
                 axis.plot(*args[idx])
             case PlotType.CONSONANCEPLOT:
-                if idx==0:
+                if idx == 0:
                     set_axes_boundaries(x_index, y_index)
-                handles=[]
+                handles = []
                 # vis = [axis.plot for axis in axis_list]
                 for line in args[idx]:
-                    handle, = axis.plot(*line[:2], color=line[3], label=line[4])
+                    (handle,) = axis.plot(*line[:2], color=line[3], label=line[4])
                     handles.append(handle)
-                axis.legend(handles=handles, loc='upper right')
+                axis.legend(handles=handles, loc="upper right")
                 # plotvalues = [(args[i][x_index], args[i][y_index]) for i in range(len(args))]
             case PlotType.VLINES:
-                if idx==0:
+                if idx == 0:
                     _, _, y_min, _ = set_axes_boundaries(x_index, ymax_index)
                 # vis = [axis.vlines for axis in axis_list]
                 # for arg in args:
@@ -101,7 +94,7 @@ def plot_graphs(
                 axis.vlines(*args[idx])
             case _:
                 ...
-    # for idx in range(len(axis_list)):
+        # for idx in range(len(axis_list)):
         # vis[idx](*plotvalues[idx])
         xmin, xmax = axis_list[idx].get_xlim()
         ymin, ymax = axis_list[idx].get_ylim()
@@ -115,14 +108,25 @@ def plot_graphs(
 
 def create_pdf(
     group: InstrumentGroup | AggregatedPartialDict,
+    groupname: InstrumentGroupName,
     plotter: callable,
-    filepath: str,
+    folder: Folder,
+    filename: str,
     iterlist: list = None,  ## list of objects to iterate through
     **kwargs,
 ) -> bool:
 
-    if isinstance(group, AggregatedPartialDict) and "ref_note" in kwargs and "ref_octave" in kwargs:
-        filepath = filepath.format(ref_note=kwargs["ref_note"], ref_octave=kwargs["ref_octave"], aggregation="_"+"_".join(group.aggregation or ("all",)))
+    filepath = get_path(groupname, folder, filename)
+    if (
+        isinstance(group, AggregatedPartialDict)
+        and ("ref_note" in kwargs and "ref_octave" in kwargs)
+        or ("analysis_results" in kwargs)
+    ):
+        filepath = filepath.format(
+            ref_note=kwargs["ref_note"],
+            ref_octave=kwargs["ref_octave"],
+            aggregation="_" + "_".join(group.aggregation or ("all",)),
+        )
     # Check if the file is closed. If not, exit.
     if os.path.exists(filepath):
         success = False
@@ -139,12 +143,12 @@ def create_pdf(
         iterlist = group.instruments
 
     with PdfPages(filepath) as pdf:
-        logger.info(
-            f"Generating PDF plots of {pathlib.Path(filepath).stem.replace("_", " ")}."
-        )
+        plotname = pathlib.Path(filepath).stem.replace("_", " ")
+        logger.info(f"Generating PDF plots of {plotname}.")
         for item in iterlist:
             hasplots = plotter(
                 group=group,
+                groupname=groupname,
                 item=item,
                 **kwargs,
             )

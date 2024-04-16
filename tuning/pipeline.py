@@ -1,8 +1,15 @@
+from dataclasses import dataclass
 from enum import Enum, auto
 from functools import partial
+from typing import Any
+
+from pydantic import BaseModel
 
 from tuning.analysis.aggregation import step_create_aggregated_partials_dict
-from tuning.analysis.optimization import step_perform_consonance_analysis
+from tuning.analysis.dissonance_analysis import (
+    step_determine_best_matching_dissonance_curves,
+    step_perform_consonance_analysis,
+)
 from tuning.analysis.partials import step_create_partials
 from tuning.analysis.spectrum import (
     create_spectra,
@@ -61,8 +68,19 @@ class Step(Enum):
     PLOT_NOTE_SPECTRA = auto()
     PLOT_NOTE_SPECTRA_WITH_AGGREGATED_PARTIALS = auto()
     PLOT_DISSONANCE_GRAPHS = auto()
+    PLOT_DISSONANCE_RESULTS_OF_ANALYSIS = auto()
     PERFORM_CONSONANCE_ANALYSIS = auto()
+    STEP_DETERMINE_BEST_MATCHING_DISSONANCE_CURVES = auto()
     SAVE_CONSONANCE_ANALYSIS = auto()
+    READ_CONSONANCE_ANALYSIS = auto()
+    PLOT_SPECTRA_OF_ANALYSIS = auto()
+
+
+@dataclass
+class Action:
+    method: callable
+    expected_input: dict[Any]
+    output: BaseModel
 
 
 Pipe = list[Step]
@@ -83,20 +101,7 @@ class PipeLine:
     data = {}
 
     pipe: Pipe = None
-
-    step_read_group_with_sounddata = None
-    step_read_group_with_spectrumdata = None
-    step_create_spectra = None
-    step_create_spectra_audacity = None
-    step_save_json_and_spectra = None
-    step_create_aggregated_partials_dict_full = None
-    step_save_aggregated_partials = None
-    step_read_aggregated_partials = None
-    step_plot_sounddata = None
-    step_plot_spectra = None
-    step_plot_dissonance_graphs = None
-    step_save_consonance_analysis = None
-    actions = None
+    actions: dict[Step, Action]
 
     def __init_actions__(self):
         """
@@ -109,76 +114,194 @@ class PipeLine:
         step and to perform a validity check before running the pipeline.
         """
         self.actions = {
-            Step.CREATE_GROUP: (
-                step_create_group_from_info_file,
-                {"groupname": InstrumentGroupName},
-                InstrumentGroup,
+            Step.CREATE_GROUP: Action(
+                method=step_create_group_from_info_file,
+                expected_input={"groupname": InstrumentGroupName},
+                output=InstrumentGroup,
             ),
-            Step.READ_GROUP: (step_read_group_from_jsonfile, {"groupname": InstrumentGroupName}, InstrumentGroup),
-            Step.READ_GROUP_WITH_SOUNDDATA: (
-                self.step_read_group_with_sounddata,
-                {"groupname": InstrumentGroupName},
-                InstrumentGroup,
+            Step.READ_GROUP: Action(
+                method=step_read_group_from_jsonfile,
+                expected_input={"groupname": InstrumentGroupName},
+                output=InstrumentGroup,
             ),
-            Step.READ_GROUP_WITH_SPECTRUMDATA: (
-                self.step_read_group_with_spectrumdata,
-                {"groupname": InstrumentGroupName},
-                InstrumentGroup,
+            Step.READ_GROUP_WITH_SOUNDDATA: Action(
+                method=partial(step_read_group_from_jsonfile, read_sounddata=True),
+                expected_input={"groupname": InstrumentGroupName},
+                output=InstrumentGroup,
             ),
-            Step.READ_AGGREGATED_PARTIALS: (
-                self.step_read_aggregated_partials,
-                {"groupname": InstrumentGroupName},
-                AggregatedPartialDict,
+            Step.READ_GROUP_WITH_SPECTRUMDATA: Action(
+                method=partial(step_read_group_from_jsonfile, read_spectrumdata=True),
+                expected_input={"groupname": InstrumentGroupName},
+                output=InstrumentGroup,
             ),
-            Step.PROCESS_SOUNDFILES: (step_process_sound_files, {"group": InstrumentGroup}, InstrumentGroup),
-            Step.CREATE_SPECTRA: (self.step_create_spectra, {"group": InstrumentGroup}, InstrumentGroup),
-            Step.CREATE_SPECTRA_AUDACITY: (
-                self.step_create_spectra_audacity,
-                {"group": InstrumentGroup},
-                InstrumentGroup,
+            Step.READ_AGGREGATED_PARTIALS: Action(
+                method=partial(
+                    read_object_from_jsonfile,
+                    objecttype=AggregatedPartialDict,
+                    folder=Folder.ANALYSES,
+                    filename=AGGREGATED_PARTIALS_FILE,
+                ),
+                expected_input={"groupname": InstrumentGroupName},
+                output=AggregatedPartialDict,
             ),
-            Step.CREATE_PARTIALS: (step_create_partials, {"group": InstrumentGroup}, InstrumentGroup),
-            Step.AGGREGATE_PARTIALS: (
-                step_create_aggregated_partials_dict,
-                {"group": InstrumentGroup},
-                AggregatedPartialDict,
+            Step.PROCESS_SOUNDFILES: Action(
+                method=step_process_sound_files,
+                expected_input={"group": InstrumentGroup},
+                output=InstrumentGroup,
             ),
-            Step.AGGREGATE_PARTIALS_ENTIREGROUP: (
-                self.step_create_aggregated_partials_dict_full,
-                {"group": InstrumentGroup},
-                AggregatedPartialDict,
+            Step.CREATE_SPECTRA: Action(
+                method=partial(create_spectra, spectrum_method=create_spectrum),
+                expected_input={"group": InstrumentGroup},
+                output=InstrumentGroup,
             ),
-            Step.SAVE_JSON_ONLY: (step_save_group_to_jsonfile, {"group": InstrumentGroup}, InstrumentGroup),
-            Step.SAVE_JSON_AND_SPECTRA: (
-                self.step_save_json_and_spectra,
-                {"group": InstrumentGroup},
-                InstrumentGroup,
+            Step.CREATE_SPECTRA_AUDACITY: Action(
+                method=partial(create_spectra, spectrum_method=create_spectrum_audacity),
+                expected_input={"group": InstrumentGroup},
+                output=InstrumentGroup,
             ),
-            Step.SAVE_AGGREGATED_PARTIALS: (
-                self.step_save_aggregated_partials,
-                {"object": AggregatedPartialDict},
-                AggregatedPartialDict,
+            Step.CREATE_PARTIALS: Action(
+                method=step_create_partials,
+                expected_input={"group": InstrumentGroup},
+                output=InstrumentGroup,
             ),
-            Step.PLOT_SOUNDDATA: (self.step_plot_sounddata, {"group": InstrumentGroup}, InstrumentGroup),
-            Step.PLOT_NOTE_SPECTRA: (
-                self.step_plot_spectra,
-                {"group": InstrumentGroup, "aggregatedpartials": AggregatedPartialDict},
-                InstrumentGroup,
+            Step.AGGREGATE_PARTIALS: Action(
+                method=step_create_aggregated_partials_dict,
+                expected_input={"group": InstrumentGroup},
+                output=AggregatedPartialDict,
             ),
-            Step.PLOT_DISSONANCE_GRAPHS: (
-                self.step_plot_dissonance_graphs,
-                {"group": AggregatedPartialDict},
-                AggregatedPartialDict,
+            Step.AGGREGATE_PARTIALS_ENTIREGROUP: Action(
+                method=partial(
+                    step_create_aggregated_partials_dict,
+                    aggregation=(),
+                ),
+                expected_input={"group": InstrumentGroup},
+                output=AggregatedPartialDict,
             ),
-            Step.PERFORM_CONSONANCE_ANALYSIS: (
-                step_perform_consonance_analysis,
-                {"aggregatedpartials": AggregatedPartialDict},
-                ConsonanceAnalysis,
+            Step.SAVE_JSON_ONLY: Action(
+                method=step_save_group_to_jsonfile,
+                expected_input={"group": InstrumentGroup},
+                output=InstrumentGroup,
             ),
-            Step.SAVE_CONSONANCE_ANALYSIS: (
-                self.step_save_consonance_analysis,
-                {"object": ConsonanceAnalysis},
-                ConsonanceAnalysis,
+            Step.SAVE_JSON_AND_SPECTRA: Action(
+                method=partial(step_save_group_to_jsonfile, save_spectrumdata=True),
+                expected_input={"group": InstrumentGroup},
+                output=InstrumentGroup,
+            ),
+            Step.SAVE_AGGREGATED_PARTIALS: Action(
+                method=partial(
+                    save_object_to_jsonfile,
+                    folder=Folder.ANALYSES,
+                    filename=AGGREGATED_PARTIALS_FILE,
+                ),
+                expected_input={"object": AggregatedPartialDict, "groupname": InstrumentGroupName},
+                output=AggregatedPartialDict,
+            ),
+            Step.PLOT_SOUNDDATA: Action(
+                method=partial(
+                    create_pdf,
+                    plotter=plot_sounddata,
+                    folder=Folder.ANALYSES,
+                    filename="sounddata.pdf",
+                ),
+                expected_input={"group": InstrumentGroup, "groupname": InstrumentGroupName},
+                output=InstrumentGroup,
+            ),
+            Step.PLOT_NOTE_SPECTRA: Action(
+                method=partial(
+                    create_pdf,
+                    plotter=partial(
+                        plot_note_spectra,
+                        max_partials=7,
+                        ratio=(is_ratio := True),
+                        what=["spectra", "aggregatedpartials"],
+                    ),
+                    folder=Folder.ANALYSES,
+                    filename="spectra_with_partials_{type}.pdf".format(type="ratio" if is_ratio else "frequency"),
+                ),
+                expected_input={
+                    "group": InstrumentGroup,
+                    "groupname": InstrumentGroupName,
+                    "aggregatedpartials": AggregatedPartialDict,
+                },
+                output=InstrumentGroup,
+            ),
+            Step.PLOT_DISSONANCE_GRAPHS: Action(
+                method=partial(
+                    create_pdf,
+                    plotter=plot_dissonance_graphs,
+                    iterlist=InstrumentType,
+                    folder=Folder.ANALYSES,
+                    filename="dissonance_graph-{ref_note}{ref_octave}{aggregation}.pdf",
+                    ref_octave=2,
+                    ref_note=NoteName.DING,
+                ),
+                expected_input={
+                    "group": AggregatedPartialDict,
+                    "groupname": InstrumentGroupName,
+                },
+                output=AggregatedPartialDict,
+            ),
+            Step.PLOT_DISSONANCE_RESULTS_OF_ANALYSIS: Action(
+                method=partial(
+                    create_pdf,
+                    plotter=plot_dissonance_graphs,
+                    iterlist=InstrumentType,
+                    folder=Folder.ANALYSES,
+                    filename="analysis_graph-{ref_note}{ref_octave}{aggregation}.pdf",
+                ),
+                expected_input={
+                    "group": AggregatedPartialDict,
+                    "groupname": InstrumentGroupName,
+                    "analysis_results": ConsonanceAnalysis,
+                },
+                output=AggregatedPartialDict,
+            ),
+            Step.PLOT_SPECTRA_OF_ANALYSIS: Action(
+                method=partial(
+                    create_pdf,
+                    plotter=partial(
+                        plot_note_spectra,
+                        ratio=(is_ratio := True),
+                        what=["spectra", "analysis-partials"],
+                    ),
+                    folder=Folder.ANALYSES,
+                    filename="analysis_spectra.pdf",
+                ),
+                expected_input={
+                    "group": InstrumentGroup,
+                    "groupname": InstrumentGroupName,
+                    "analysis": ConsonanceAnalysis,
+                },
+                output=InstrumentGroup,
+            ),
+            Step.PERFORM_CONSONANCE_ANALYSIS: Action(
+                method=step_perform_consonance_analysis,
+                expected_input={"aggregatedpartials": AggregatedPartialDict},
+                output=ConsonanceAnalysis,
+            ),
+            Step.STEP_DETERMINE_BEST_MATCHING_DISSONANCE_CURVES: Action(
+                method=step_determine_best_matching_dissonance_curves,
+                expected_input={"analysis": ConsonanceAnalysis},
+                output=ConsonanceAnalysis,
+            ),
+            Step.SAVE_CONSONANCE_ANALYSIS: Action(
+                method=partial(
+                    save_object_to_jsonfile,
+                    folder=Folder.ANALYSES,
+                    filename=CONSONANCE_ANALYSIS_FILE,
+                ),
+                expected_input={"object": ConsonanceAnalysis, "groupname": InstrumentGroupName},
+                output=ConsonanceAnalysis,
+            ),
+            Step.READ_CONSONANCE_ANALYSIS: Action(
+                method=partial(
+                    read_object_from_jsonfile,
+                    objecttype=ConsonanceAnalysis,
+                    folder=Folder.ANALYSES,
+                    filename=CONSONANCE_ANALYSIS_FILE,
+                ),
+                expected_input={"groupname": InstrumentGroupName},
+                output=ConsonanceAnalysis,
             ),
         }
 
@@ -197,66 +320,6 @@ class PipeLine:
         self.data[InstrumentGroupName] = groupname
         self.pipe = pipe
 
-        # Each step function should expect exactly one argument. Pre-assign all other arguments here.
-        self.step_read_group_with_sounddata = partial(step_read_group_from_jsonfile, read_sounddata=True)
-        self.step_read_group_with_spectrumdata = partial(step_read_group_from_jsonfile, read_spectrumdata=True)
-        self.step_create_spectra = partial(create_spectra, spectrum_method=create_spectrum)
-        self.step_create_spectra_audacity = partial(create_spectra, spectrum_method=create_spectrum_audacity)
-        self.step_save_json_and_spectra = partial(step_save_group_to_jsonfile, save_spectrumdata=True)
-        self.step_save_aggregated_partials = partial(
-            save_object_to_jsonfile,
-            filepath=get_path(groupname, Folder.ANALYSES, AGGREGATED_PARTIALS_FILE),
-        )
-        self.step_read_aggregated_partials = partial(
-            read_object_from_jsonfile,
-            objecttype=AggregatedPartialDict,
-            filetype=Folder.ANALYSES,
-            filename=AGGREGATED_PARTIALS_FILE,
-        )
-        self.step_create_aggregated_partials_dict_full = partial(
-            step_create_aggregated_partials_dict,
-            aggregation=(),
-        )
-        self.step_plot_sounddata = partial(
-            create_pdf,
-            plotter=plot_sounddata,
-            filepath=get_path(
-                groupname=groupname,
-                filetype=Folder.ANALYSES,
-                filename="sounddata.pdf",
-            ),
-        )
-        self.step_plot_spectra = partial(
-            create_pdf,
-            plotter=partial(
-                plot_note_spectra,
-                max_partials=7,
-                ratio=(is_ratio := True),
-                what=["spectra", "partials"],
-            ),
-            filepath=get_path(
-                groupname=groupname,
-                filetype=Folder.ANALYSES,
-                filename="spectra_with_partials_{type}.pdf".format(type="ratio" if is_ratio else "frequency"),
-            ),
-        )
-        self.step_plot_dissonance_graphs = partial(
-            create_pdf,
-            plotter=plot_dissonance_graphs,
-            iterlist=InstrumentType,
-            filepath=get_path(
-                groupname=groupname,
-                filetype=Folder.ANALYSES,
-                filename="dissonance_graph-{ref_note}{ref_octave}{aggregation}.pdf",
-            ),
-            groupname=groupname,
-            ref_octave=2,
-            ref_note=NoteName.DING,
-        )
-        self.step_save_consonance_analysis = partial(
-            save_object_to_jsonfile,
-            filepath=get_path(groupname, Folder.ANALYSES, CONSONANCE_ANALYSIS_FILE),
-        )
         self.__init_actions__()
         if not self.is_valid_pipe(pipe):
             logger.error(f"Aborting script.")
@@ -265,12 +328,12 @@ class PipeLine:
     def is_valid_pipe(self, pipe: Pipe) -> bool:
         available_data = {item.__class__ for item in self.data.values()}
         for step in pipe:
-            (_, expected_input, output) = self.actions[step]
-            if not all([item in available_data for item in expected_input.values()]):
+            action = self.actions[step]
+            if not all([item in available_data for item in action.expected_input.values()]):
                 logger.error(f"Invalid pipeline sequence: not all input is available for step {step}.")
                 return False
-            if output:
-                available_data.add(output)
+            if action.output:
+                available_data.add(action.output)
         return True
 
     def __get_data_items__(self, datatypes: dict[str, type]):
@@ -279,8 +342,8 @@ class PipeLine:
     def execute(self):
         logger.info(f"Starting pipeline for {self.data[InstrumentGroupName].value}")
         for step in pipe:
-            function = self.actions[step][0]
-            inputdict = self.__get_data_items__(self.actions[step][1])
+            function = self.actions[step].method
+            inputdict = self.__get_data_items__(self.actions[step].expected_input)
             result = function(**inputdict)
             self.data[type(result)] = result
 
@@ -291,7 +354,7 @@ if __name__ == "__main__":
         # Step.PROCESS_SOUNDFILES,
         # Step.SAVE_JSON_ONLY,
         # Step.PLOT_SOUNDDATA,
-        # Step.READ_GROUP_WITH_SPECTRUMDATA,
+        Step.READ_GROUP_WITH_SPECTRUMDATA,
         # Step.READ_GROUP_WITH_SOUNDDATA,
         # Step.READ_GROUP,
         # Step.CREATE_SPECTRA_AUDACITY,
@@ -306,6 +369,8 @@ if __name__ == "__main__":
         # Step.OPTIMIZE_DISSONANCE_GRAPH,
         # Step.SAVE_AGGREGATED_PARTIALS,
         # Step.PLOT_NOTE_SPECTRA,
+        Step.READ_CONSONANCE_ANALYSIS,
+        Step.PLOT_SPECTRA_OF_ANALYSIS,
         # Step.PLOT_DISSONANCE_GRAPHS,
     ]
     # pipe = [
@@ -317,11 +382,14 @@ if __name__ == "__main__":
     #     Step.AGGREGATE_PARTIALS_ENTIREGROUP,
     #     Step.PLOT_DISSONANCE_GRAPHS,
     # ]
-    pipe = [
-        Step.READ_GROUP,
-        Step.AGGREGATE_PARTIALS_ENTIREGROUP,
-        Step.PERFORM_CONSONANCE_ANALYSIS,
-        Step.SAVE_CONSONANCE_ANALYSIS,
-    ]
+    # pipe = [
+    #     Step.READ_GROUP,
+    #     Step.AGGREGATE_PARTIALS_ENTIREGROUP,
+    #     # Step.PERFORM_CONSONANCE_ANALYSIS,
+    #     Step.READ_CONSONANCE_ANALYSIS,
+    #     Step.STEP_DETERMINE_BEST_MATCHING_DISSONANCE_CURVES,
+    #     Step.SAVE_CONSONANCE_ANALYSIS,
+    #     Step.PLOT_DISSONANCE_RESULTS_OF_ANALYSIS,
+    # ]
     pipeline = PipeLine(InstrumentGroupName.ANGKLUNG, pipe)
     pipeline.execute()

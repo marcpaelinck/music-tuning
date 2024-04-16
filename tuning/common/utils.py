@@ -58,8 +58,8 @@ def get_logger(name) -> logging.Logger:
 logger = get_logger(__name__)
 
 
-def get_path(groupname: InstrumentGroupName, filetype: Folder, filename: str = ""):
-    return os.path.join(DATA_FOLDER, groupname.value, filetype.value, filename)
+def get_path(groupname: InstrumentGroupName, folder: Folder, filename: str):
+    return os.path.join(DATA_FOLDER, groupname.value, folder.value, filename)
 
 
 def get_filenames(folder: str, regex: str = ".*") -> list[str]:
@@ -118,8 +118,11 @@ def get_fundamental(note: Note) -> Tone:
 
 def save_object_to_jsonfile(
     object: BaseModel,
-    filepath: str,
+    groupname: InstrumentGroupName,
+    folder: Folder,
+    filename: str,
 ) -> BaseModel:
+    filepath = get_path(groupname, folder, filename)
     tempfilepath = filepath + "x"
     with open(tempfilepath, "w") as outfile:
         outfile.write(object.model_dump_json(indent=4))
@@ -146,10 +149,10 @@ def step_save_group_to_jsonfile(group: InstrumentGroup, save_spectrumdata=False)
 def read_object_from_jsonfile(
     groupname: InstrumentGroupName,
     objecttype: type,
-    filetype: Folder,
+    folder: Folder,
     filename: str,
 ) -> BaseModel:
-    filepath = get_path(groupname, filetype, filename)
+    filepath = get_path(groupname, folder, filename)
     with open(filepath, "r") as infile:
         jsonvalue = infile.read()
         return objecttype.model_validate_json(jsonvalue)
