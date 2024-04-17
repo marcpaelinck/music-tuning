@@ -333,7 +333,6 @@ def plot_dissonance_graphs(
             key: generate_partial_harmonic_pair(
                 group.root[key][0],
                 nbr_partials=nr_partials,
-                partials_overrule=partials,
                 nbr_harmonics=nr_harmonics,
                 reduced_freqs=reduced_freqs,
                 ref_note=ref_note,
@@ -451,7 +450,7 @@ def plot_dissonance_graphs(
     axes = None
     for content, texts in zip(plot_content, plot_texts):
         figure, axes = plot_graphs(
-            *content[0],
+            content[0],
             plottype=content[1],
             nrows=len(diss_graphs) // 2,
             ncols=1,

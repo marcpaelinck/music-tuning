@@ -1,7 +1,7 @@
 import os
 import pathlib
 from enum import Enum, auto
-from typing import Any
+from typing import Any, TypeAlias
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -23,8 +23,32 @@ class PlotType(Enum):
     VLINES = auto()
 
 
+class PlotItem(Enum):
+    CONTENT = "content"
+    PAGETITLE = "pagetitle"
+    PLOTTYPE = "plottype"
+    PLOTTEXTS = "plottexts"
+    SHOW = "show"
+    FIGURE = "figure"
+    AXES = "axes"
+    XMIN = "xmin"
+    XMAX = "xmax"
+    YMIN = "ymin"
+    YMAX = "ymax"
+    AUTOX = "autox"
+
+    @classmethod
+    def kwargs(cls, d: dict["PlotItem", Any]) -> dict["PlotItem", Any]:
+        return {key.value: d[key] for key in PlotItem if key not in {cls.CONTENT} and key in d}
+
+
+PlotComponent: TypeAlias = list[dict[PlotItem, Any]]
+PageContent: TypeAlias = list[dict[PlotItem, list[PlotComponent]]]
+DocContent: TypeAlias = list[PageContent]
+
+
 def plot_graphs(
-    *args: tuple[list[float]],
+    content: tuple[list[float]],
     ncols: int = 1,
     plottype: PlotType = PlotType.SPECTRUMPLOT,
     pagetitle: str = "",
@@ -50,20 +74,20 @@ def plot_graphs(
     def set_axes_boundaries(x_index, y_index) -> tuple[float]:
         x_min = x_max = y_min = y_max = None
         if not autox:
-            for arg, axis in zip(args, axes):
+            for arg, axis in zip(content, axes):
                 x_min = xmin if xmin != None else min(arg[x_index])
                 x_max = xmax if xmax != None else max(arg[x_index])
                 plt.setp(axis, xlim=(x_min, x_max))
         if not autoy:
             # min and max y should be the same for all graphs
-            y_min = ymin if ymin != None else min(min(args[i][y_index]) for i in range(len(args)))
-            y_max = ymax if ymax != None else max(max(args[i][y_index]) for i in range(len(args))) * 1.05
+            y_min = ymin if ymin != None else min(min(content[i][y_index]) for i in range(len(content)))
+            y_max = ymax if ymax != None else max(max(content[i][y_index]) for i in range(len(content))) * 1.05
             plt.setp(axes, ylim=(y_min, y_max))
         return (x_min, x_max, y_min, y_max)
 
     if not figure:
-        figure, axes = plt.subplots(len(args) // ncols, ncols, figsize=pagesize.value)
-        if len(args) == 1:
+        figure, axes = plt.subplots(len(content) // ncols, ncols, figsize=pagesize.value)
+        if len(content) == 1:
             axes = np.array([axes])
         figure.suptitle(pagetitle)
 
@@ -73,29 +97,22 @@ def plot_graphs(
             case PlotType.SOUNDDATAPLOT | PlotType.SPECTRUMPLOT:
                 if idx == 0:
                     set_axes_boundaries(x_index, y_index)
-                # vis = [axis.plot for axis in axis_list]
-                axis.plot(*args[idx])
+                axis.plot(*content[idx])
             case PlotType.CONSONANCEPLOT:
                 if idx == 0:
                     set_axes_boundaries(x_index, y_index)
                 handles = []
-                # vis = [axis.plot for axis in axis_list]
-                for line in args[idx]:
+                for line in content[idx]:
                     (handle,) = axis.plot(*line[:2], color=line[3], label=line[4])
                     handles.append(handle)
                 axis.legend(handles=handles, loc="upper right")
-                # plotvalues = [(args[i][x_index], args[i][y_index]) for i in range(len(args))]
             case PlotType.VLINES:
                 if idx == 0:
                     _, _, y_min, _ = set_axes_boundaries(x_index, ymax_index)
-                # vis = [axis.vlines for axis in axis_list]
-                # for arg in args:
-                args[idx][ymin_index] = (ymin,) * len(args[idx][ymin_index])
-                axis.vlines(*args[idx])
+                content[idx][ymin_index] = (ymin,) * len(content[idx][ymin_index])
+                axis.vlines(*content[idx])
             case _:
                 ...
-        # for idx in range(len(axis_list)):
-        # vis[idx](*plotvalues[idx])
         xmin, xmax = axis_list[idx].get_xlim()
         ymin, ymax = axis_list[idx].get_ylim()
         if plottexts:
@@ -156,6 +173,44 @@ def create_pdf(
                 pdf.savefig()
                 plt.close()
     return group
+
+
+def create_pdf_new(
+    document: dict[str, Any],
+    *,
+    filepath: str,
+) -> bool:
+
+    # Check if the file is closed. If not, exit.
+    if os.path.exists(filepath):
+        success = False
+        warned = False
+        while not success:
+            try:
+                with open(filepath, "r+") as file:
+                    success = True
+            except:
+                if not warned:
+                    logger.error(f"File {filepath} is in use. Please close the file and try again.")
+                warned = True
+
+    with PdfPages(filepath) as pdf:
+        plotname = pathlib.Path(filepath).stem.replace("_", " ")
+        logger.info(f"Generating PDF plots of {plotname}.")
+        for page in document[PlotItem.CONTENT]:
+            figure = None
+            axes = None
+            for plotcontent in page[PlotItem.CONTENT]:
+                figure, axes = plot_graphs(
+                    plotcontent[PlotItem.CONTENT],
+                    figure=figure,
+                    axes=axes,
+                    **PlotItem.kwargs(plotcontent),
+                    **PlotItem.kwargs(page),
+                    **PlotItem.kwargs(document),
+                )
+            pdf.savefig()
+            plt.close()
 
 
 if __name__ == "__main__":
