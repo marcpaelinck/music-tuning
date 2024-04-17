@@ -1,6 +1,6 @@
 from functools import partial
 from itertools import chain
-from typing import Any, Optional
+from typing import Optional
 
 import numpy as np
 
@@ -9,7 +9,9 @@ from tuning.common.classes import (
     AggregatedPartial,
     AggregatedPartialDict,
     ConsonanceAnalysis,
+    Instrument,
     InstrumentGroup,
+    Note,
 )
 from tuning.common.constants import Folder, NoteName
 from tuning.common.utils import get_logger, get_path
@@ -60,18 +62,29 @@ def plot_note_spectra(
     what: list[str] = ["spectra", "aggregatedpartials"],
     max_partials: int = 100,
     ratio: bool = True,  # X-axis is ratios if True, otherwise frequencies
+    pageby: type = Instrument,  # Instrument or Note
     **kwargs,
 ):
 
     document = dict()
     document[PlotItem.CONTENT]: DocContent = list()  # type: ignore
 
-    for instrument in group.instruments:
+    # Option to paginate by instrument or by instrument/note combination
+    if pageby is Instrument:
+        groupby = [(instrument, None) for instrument in group.instruments]
+    elif pageby is Note:
+        groupby = [(instrument, note) for instrument in group.instruments for note in instrument.notes]
+    else:
+        raise NotImplementedError(f"Cannot group by {pageby.__name__}")
+
+    for instrument, note in groupby:
+        notelist = [note] if note else instrument.notes
+
         page = dict()
         document[PlotItem.CONTENT].append(page)
         page[PlotItem.CONTENT]: PageContent = list()  # type: ignore
         page[PlotItem.PAGETITLE] = (
-            f"{group.grouptype.value} - {instrument.instrumenttype.value} {instrument.ombaktype.value} {instrument.code}"
+            f"{group.grouptype.value} - {instrument.instrumenttype.value} {instrument.ombaktype.value} {instrument.code} {note.name if note else ""}"
         )
 
         logger.info(f"--- generating data for {instrument.instrumenttype.value} {instrument.code}")
@@ -79,12 +92,12 @@ def plot_note_spectra(
         page[PlotItem.XMIN] = 0
         page[PlotItem.XMAX] = min(
             max(
-                [p.ratio for note in instrument.notes for part_list in note.partials[:max_partials] for p in part_list]
+                [p.ratio for note in notelist for part_list in note.partials[:max_partials] for p in part_list]
             ),
             10,
         )
         page[PlotItem.YMIN] = -100
-        page[PlotItem.YMAX] = max(np.max(spectrum.amplitudes) for note in instrument.notes for spectrum in note.spectra)
+        page[PlotItem.YMAX] = max(np.max(spectrum.amplitudes) for note in notelist for spectrum in note.spectra)
 
         if "aggregatedpartials" in what:
             # Define vlines for the partials of each spectrum graph and for the aggregated partials
@@ -102,7 +115,7 @@ def plot_note_spectra(
                     ]
                     + ["r" if p.isfundamental else "c" for p in partials[:max_partials]],
                 ]
-                for note in instrument.notes
+                for note in notelist
                 for partials, sample_seq in zip(note.partials, list(range(len(note.partials))))
             ]
 
@@ -121,7 +134,7 @@ def plot_note_spectra(
                     ["m"] * len(analysis.optimal_consonances.partials)
                     + ["y"] * len(analysis.optimal_consonances.harmonics),
                 ]
-                for note in instrument.notes
+                for note in notelist
                 for partials, sample_seq in zip(note.partials, list(range(len(note.partials))))
             ]
 
@@ -131,11 +144,11 @@ def plot_note_spectra(
         if "spectra" in what:
             fund_list = {
                 note.name: [next(p for p in p_list if p.isfundamental) for p_list in note.partials]
-                for note in instrument.notes
+                for note in notelist
             }
             spectra = {
                 note.name: [(spectrum.frequencies, spectrum.amplitudes) for spectrum in note.spectra]
-                for note in instrument.notes
+                for note in notelist
             }
             if ratio:
                 spectra = {
@@ -159,7 +172,7 @@ def plot_note_spectra(
                     "color": "b",
                 }
             ]
-            for note in instrument.notes
+            for note in notelist
             for partials in note.partials
         ]
         content: PlotComponent = {

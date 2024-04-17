@@ -1,6 +1,5 @@
 import numpy as np
 
-from tuning.analysis.aggregation import get_aggr_partials
 from tuning.analysis.dissonance import (
     dissonance_j,
     dissonance_profile,
@@ -28,7 +27,6 @@ from tuning.common.utils import get_logger, get_path
 from tuning.visualization.utils import (
     DocContent,
     PageContent,
-    PlotComponent,
     PlotItem,
     PlotType,
     create_pdf_new,

@@ -21,6 +21,7 @@ from tuning.common.classes import (
     ConsonanceAnalysis,
     InstrumentGroup,
     InstrumentType,
+    Note,
     NoteName,
 )
 from tuning.common.constants import (
@@ -40,9 +41,6 @@ from tuning.common.utils import (
 from tuning.soundfiles.instrumentinfo import step_create_group_from_info_file
 from tuning.soundfiles.process_soundfiles import step_process_sound_files
 from tuning.visualization.dissonance_plotter import plot_dissonance_graphs
-from tuning.visualization.plotter_copy import (
-    plot_dissonance_graphs as plot_dissonance_graphs_old,
-)
 from tuning.visualization.sounddata_plotter import plot_sounddata
 from tuning.visualization.spectra_plotter import plot_note_spectra
 from tuning.visualization.utils import create_pdf
@@ -194,28 +192,11 @@ class Step(Enum):
         },
         output=AggregatedPartialDict,
     )
-    # PLOT_DISSONANCE_GRAPHS_OLD = Action(
-    #     method=partial(
-    #         create_pdf,
-    #         plotter=partial(
-    #             plot_dissonance_graphs_old,
-    #             ref_octave=2,
-    #             ref_note=NoteName.DING,
-    #         ),
-    #         iterlist=InstrumentType,
-    #         folder=Folder.ANALYSES,
-    #         filename="dissonance_graph-{ref_note}{ref_octave}{aggregation}.pdf",
-    #     ),
-    #     expected_input={
-    #         "group": AggregatedPartialDict,
-    #         "groupname": InstrumentGroupName,
-    #     },
-    #     output=AggregatedPartialDict,
-    # )
     PLOT_DISSONANCE_RESULTS_OF_ANALYSIS = Action(
         method=partial(
             plot_dissonance_graphs,
             iterlist=InstrumentType,
+            pageby=Action,
             filename="analysis_graph-{ref_note}{ref_octave}_aggr[{aggregation}].pdf",
         ),
         expected_input={
@@ -231,6 +212,7 @@ class Step(Enum):
             ratio=True,
             what=["spectra", "analysis-partials"],
             filename="analysis_spectra.pdf",
+            pageby=Note,
         ),
         expected_input={
             "group": InstrumentGroup,
@@ -363,13 +345,18 @@ if __name__ == "__main__":
     #     Step.PLOT_NOTE_SPECTRA,
     # ]
     pipe = [
-        Step.READ_INSTRUMENT_GROUP,
-        Step.AGGREGATE_PARTIALS_ENTIREGROUP,
-        #     # Step.PERFORM_CONSONANCE_ANALYSIS,
+        Step.READ_GROUP_WITH_SPECTRUMDATA,
         Step.READ_CONSONANCE_ANALYSIS,
-        #     Step.STEP_DETERMINE_BEST_MATCHING_DISSONANCE_CURVES,
-        #     Step.SAVE_CONSONANCE_ANALYSIS,
-        Step.PLOT_DISSONANCE_RESULTS_OF_ANALYSIS,
+        Step.PLOT_SPECTRA_OF_ANALYSIS,
     ]
+    # pipe = [
+    #     Step.READ_INSTRUMENT_GROUP,
+    #     Step.AGGREGATE_PARTIALS_ENTIREGROUP,
+    #     #     # Step.PERFORM_CONSONANCE_ANALYSIS,
+    #     Step.READ_CONSONANCE_ANALYSIS,
+    #     #     Step.STEP_DETERMINE_BEST_MATCHING_DISSONANCE_CURVES,
+    #     #     Step.SAVE_CONSONANCE_ANALYSIS,
+    #     Step.PLOT_DISSONANCE_RESULTS_OF_ANALYSIS,
+    # ]
     pipeline = PipeLine(InstrumentGroupName.ANGKLUNG, pipe)
     pipeline.execute()
