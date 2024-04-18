@@ -11,7 +11,7 @@ from matplotlib.figure import Figure
 
 from tuning.common.classes import AggregatedPartialDict, InstrumentGroup
 from tuning.common.constants import Folder, InstrumentGroupName, PageSizes
-from tuning.common.utils import get_logger, get_path
+from tuning.common.utils import get_logger, get_path, open_create_file
 
 logger = get_logger(__name__)
 
@@ -123,76 +123,36 @@ def plot_graphs(
     return figure, axes
 
 
-def create_pdf(
-    group: InstrumentGroup | AggregatedPartialDict,
-    groupname: InstrumentGroupName,
-    plotter: callable,
-    folder: Folder,
-    filename: str,
-    iterlist: list = None,  ## list of objects to iterate through
-    **kwargs,
-) -> bool:
-
-    filepath = get_path(groupname, folder, filename)
-    if (
-        isinstance(group, AggregatedPartialDict)
-        and ("ref_note" in kwargs and "ref_octave" in kwargs)
-        or ("analysis_results" in kwargs)
-    ):
-        filepath = filepath.format(
-            ref_note=kwargs["ref_note"],
-            ref_octave=kwargs["ref_octave"],
-            aggregation="_" + "_".join(group.aggregation or ("all",)),
-        )
-    # Check if the file is closed. If not, exit.
-    if os.path.exists(filepath):
-        success = False
-        warned = False
-        while not success:
-            try:
-                with open(filepath, "r+") as file:
-                    success = True
-            except:
-                if not warned:
-                    logger.error(f"File {filepath} is in use. Please close the file and try again.")
-                warned = True
-    if iterlist is None:
-        iterlist = group.instruments
-
-    with PdfPages(filepath) as pdf:
-        plotname = pathlib.Path(filepath).stem.replace("_", " ")
-        logger.info(f"Generating PDF plots of {plotname}.")
-        for item in iterlist:
-            hasplots = plotter(
-                group=group,
-                groupname=groupname,
-                item=item,
-                **kwargs,
-            )
-            if hasplots:
-                pdf.savefig()
-                plt.close()
-    return group
-
-
-def create_pdf_new(
+def create_pdf_with_plots(
     document: dict[str, Any],
     *,
     filepath: str,
 ) -> bool:
+    """
+    Creates a PDF document and plots the graphs with the given data.
 
-    # Check if the file is closed. If not, exit.
-    if os.path.exists(filepath):
-        success = False
-        warned = False
-        while not success:
-            try:
-                with open(filepath, "r+") as file:
-                    success = True
-            except:
-                if not warned:
-                    logger.error(f"File {filepath} is in use. Please close the file and try again.")
-                warned = True
+    Args:
+        document (dict[PlotItem, Any]): plot data with format:
+                The document hierarchy is Document -> Page -> PlotComponent where:
+                Document = dict[PlotItem, Any]
+                Page = dict[PlotItem, Any]
+                PlotComponent = list[tuple[list[dict[str, Any]], PlotType]
+                and:
+                document[PlotItem.CONTENT]: list[Page]
+                page[PlotItem.CONTENT]: list[PlotComponent]
+                Except for PlotItem.CONTENT, all other key-value combinations
+                of Document, Page and PlotComponent contain arguments that will
+                be passed as **kwargs to the plot_graphs function.
+        filepath (str): _description_
+
+    Returns:
+        bool: _description_
+    """
+
+    # Check if the file is closed. If not, give a warning and wait
+    # until the user closes it. If folder does not exist, create it.
+    with open_create_file(filepath=filepath, mode="a+", warn_if_open=True):
+        pass
 
     with PdfPages(filepath) as pdf:
         plotname = pathlib.Path(filepath).stem.replace("_", " ")

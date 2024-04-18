@@ -79,7 +79,7 @@ def avg_note_freq_per_instrument_type(
 
 def aggregated_partials(groupname: InstrumentGroupName):
     aggr_partials = read_object_from_jsonfile(
-        AggregatedPartialDict, groupname, Folder.ANALYSES, AGGREGATED_PARTIALS_FILE
+        AggregatedPartialDict, groupname, Folder.ANALYSES_PARTIALS, AGGREGATED_PARTIALS_FILE
     )
     aggr_dict = [
         {

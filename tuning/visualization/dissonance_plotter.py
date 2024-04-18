@@ -29,7 +29,7 @@ from tuning.visualization.utils import (
     PageContent,
     PlotItem,
     PlotType,
-    create_pdf_new,
+    create_pdf_with_plots,
     plot_graphs,
 )
 
@@ -114,6 +114,11 @@ def plot_dissonance_graphs(
                 )
             }
             noteratio_dict = analysis_results.noteratio_dict
+            nr_partials = len(analysis_results.optimal_consonances.partials)
+            nr_harmonics = len(analysis_results.optimal_consonances.harmonics)
+            ref_note = analysis_results.ref_note
+            ref_octave = analysis_results.ref_octave
+            amplitude = None
         else:
             # Generate the requested combinations of partials and harmonics for each aggregation group
             # First calculate the average note frequencies for the reference octave (octave 0)
@@ -246,8 +251,8 @@ def plot_dissonance_graphs(
     filename = filename.format(
         ref_note=ref_note, ref_octave=ref_octave, aggregation="-".join(group.aggregation or ("all",))
     )
-    filepath = get_path(groupname=groupname, folder=Folder.ANALYSES, filename=filename)
-    create_pdf_new(document=document, filepath=filepath)
+    filepath = get_path(groupname=groupname, folder=Folder.ANALYSES_DISS, filename=filename)
+    create_pdf_with_plots(document=document, filepath=filepath)
 
 
 if __name__ == "__main__":

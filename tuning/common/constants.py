@@ -64,7 +64,6 @@ class AmplUnit(Enum):
 
 
 class InstrumentGroupName(Enum):
-    # The values are the names of the data folders
     TEST = "test"
     GONG_KEBYAR = "gongkebyar"
     SEMAR_PAGULINGAN = "semarpagulingan"
@@ -77,6 +76,9 @@ class Folder(Enum):
     SOUND = "soundfiles"
     SPECTRUM = "spectrumfiles"
     ANALYSES = "analyses"
+    ANALYSES_DISS = ANALYSES + "\\dissonance"
+    ANALYSES_PARTIALS = ANALYSES + "\\partials"
+    ANALYSES_SPECTRA = ANALYSES + "\\spectra"
     SETTINGS = ""
 
 

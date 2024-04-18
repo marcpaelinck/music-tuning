@@ -116,6 +116,37 @@ def get_fundamental(note: Note) -> Tone:
     return note.aggr_partials[note.fundamental_index].tone
 
 
+def open_create_file(filepath: str, mode: str, warn_if_open: bool = True):
+    """
+    Opens the file in the requested mode. Creates folders in the path if necessary.
+
+    Args:
+        filepath (str): path to the file.
+        mode (str): file open mode (r, r+, w, a, a+)
+        warn_if_open (bool, optional): Give a warning if the file is opened in another application
+                                       that prevents writing, and waits for user to close it. Defaults to True.
+
+    Returns:
+        _type_: File handle that can be opened: `with open_create_file(mypath, "w", True) as myfile:`.
+    """
+    os.makedirs(os.path.dirname(filepath), exist_ok=True)
+    if warn_if_open and os.path.isfile(filepath):
+        # Try to open the file for writing
+        success = False
+        warned = False
+        while not success:
+            try:
+                with open(filepath, "r+") as file:
+                    success = True
+            except:
+                if not warned:
+                    logger.error(
+                        f"File {filepath} is opened in another application. Please close the file and try again."
+                    )
+                warned = True
+    return open(filepath, mode)
+
+
 def save_object_to_jsonfile(
     object: BaseModel,
     groupname: InstrumentGroupName,
@@ -124,7 +155,7 @@ def save_object_to_jsonfile(
 ) -> BaseModel:
     filepath = get_path(groupname, folder, filename)
     tempfilepath = filepath + "x"
-    with open(tempfilepath, "w") as outfile:
+    with open_create_file(tempfilepath, "w") as outfile:
         outfile.write(object.model_dump_json(indent=4))
     if os.path.exists(filepath):
         os.remove(filepath)
@@ -253,3 +284,10 @@ def convert_spectrum_freq(spectrum: Spectrum, to_unit: FreqUnit, step: float = 5
 
 def get_instrument_by_id(group: InstrumentGroup, code: str) -> Instrument:
     return next((instr for instr in group.instruments if instr.code == code), None)
+
+
+if __name__ == "__main__":
+    path = get_path(InstrumentGroupName.SEMAR_PAGULINGAN, Folder.ANALYSES_DISS, "test_file.pdf")
+    with open_create_file(path, "a+", True):
+        pass
+    print("Thank you")

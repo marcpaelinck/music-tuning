@@ -6,7 +6,7 @@ from scipy.io import wavfile
 from tuning.common.classes import InstrumentGroup
 from tuning.common.constants import Folder
 from tuning.common.utils import get_logger, get_path
-from tuning.visualization.utils import PlotItem, PlotType, create_pdf_new
+from tuning.visualization.utils import PlotItem, PlotType, create_pdf_with_plots
 
 logger = get_logger(__name__)
 
@@ -88,7 +88,7 @@ def plot_sounddata(
         )
 
     filepath = get_path(groupname=group.grouptype, folder=Folder.ANALYSES, filename=filename)
-    create_pdf_new(document=document, filepath=filepath)
+    create_pdf_with_plots(document=document, filepath=filepath)
 
 
 if __name__ == "__main__":

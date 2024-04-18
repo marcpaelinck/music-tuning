@@ -21,7 +21,7 @@ from tuning.visualization.utils import (
     PlotComponent,
     PlotItem,
     PlotType,
-    create_pdf_new,
+    create_pdf_with_plots,
 )
 
 logger = get_logger(__name__)
@@ -182,5 +182,5 @@ def plot_note_spectra(
         }
         page[PlotItem.CONTENT].append(content)
 
-    filepath = get_path(groupname=group.grouptype, folder=Folder.ANALYSES, filename=filename)
-    create_pdf_new(document=document, filepath=filepath)
+    filepath = get_path(groupname=group.grouptype, folder=Folder.ANALYSES_SPECTRA, filename=filename)
+    create_pdf_with_plots(document=document, filepath=filepath)

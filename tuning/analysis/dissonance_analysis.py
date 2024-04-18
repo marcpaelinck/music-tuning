@@ -15,6 +15,7 @@ from tuning.common.classes import (
     ConsonanceAnalysis,
     ConsonanceValues,
     Dissonance,
+    Partial,
     Ratio,
 )
 from tuning.common.constants import (
@@ -108,15 +109,31 @@ def step_perform_consonance_analysis(
     return analysis
 
 
+def selection_subsequent(partials: list[Partial], partial_dict: dict[Partial, int]) -> bool:
+    ranks = [partial_dict[str(p)] for p in partials]
+    return min(ranks) == 0 and max(ranks) == len(ranks) - 1
+
+
+def selection_comparable_numbers(partials: list[Partial], harmonics: list[Partial]) -> bool:
+    return abs(len(partials) - len(harmonics)) <= 1
+
+
 def step_determine_best_matching_dissonance_curves(analysis: ConsonanceAnalysis) -> ConsonanceAnalysis:
+    # Select only results with subsequent partials
+    partial_dict = {str(p): id for p, id in zip(analysis.all_partials, range(len(analysis.all_partials)))}
+    selected_results = [
+        result
+        for result in analysis.results
+        # if selection_subsequent(result.partials, partial_dict)
+        # and selection_comparable_numbers(result.partials, result.harmonics)
+    ]
     cons_dict = {
         result_id: {
             result.consonances[combi][id]: {"consonancevalues": result, "partialcombi": combi, "diss_id": id}
             for combi, diss_list in result.consonances.items()
-            # if combi == PartialCombiType.HARMONICS_PARTIALS
             for id in range(len(diss_list))
         }
-        for result, result_id in zip(analysis.results, range(len(analysis.results)))
+        for result, result_id in zip(selected_results, range(len(selected_results)))
     }
     best_matches_per_result = {
         result_id: {
@@ -132,7 +149,7 @@ def step_determine_best_matching_dissonance_curves(analysis: ConsonanceAnalysis)
     best_result_id = min(sumsq.keys(), key=lambda x: sumsq[x])
 
     best_result = analysis.model_copy(deep=True)
-    best_result.optimal_consonances = analysis.results[best_result_id]
+    best_result.optimal_consonances = selected_results[best_result_id]
     best_result.optimal_matches = {
         note: (
             analysis.noteratio_dict[note],
@@ -164,7 +181,7 @@ if __name__ == "__main__":
     analysis: ConsonanceAnalysis = read_object_from_jsonfile(
         groupname=groupname,
         objecttype=ConsonanceAnalysis,
-        folder=Folder.ANALYSES,
+        folder=Folder.ANALYSES_DISS,
         filename=CONSONANCE_ANALYSIS_FILE,
     )
     analysis = step_determine_best_matching_dissonance_curves(analysis=analysis)

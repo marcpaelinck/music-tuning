@@ -26,7 +26,7 @@ from tuning.common.utils import (
 def get_notelist_summary():
     note_list = parse_json_file(
         Instrument,
-        get_path(InstrumentGroupName.GONG_KEBYAR, Folder.ANALYSES, "partials_per_note.json"),
+        get_path(InstrumentGroupName.GONG_KEBYAR, Folder.ANALYSES_PARTIALS, "partials_per_note.json"),
     )
 
     summary = [
