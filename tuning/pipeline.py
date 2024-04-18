@@ -1,6 +1,5 @@
 from dataclasses import dataclass, field
-from enum import Enum, auto
-from functools import partial
+from enum import Enum
 from typing import Any
 
 from pydantic import BaseModel
@@ -22,7 +21,6 @@ from tuning.common.classes import (
     Instrument,
     InstrumentGroup,
     InstrumentType,
-    Note,
     NoteName,
 )
 from tuning.common.constants import (
@@ -33,7 +31,6 @@ from tuning.common.constants import (
 )
 from tuning.common.utils import (
     get_logger,
-    get_path,
     read_object_from_jsonfile,
     save_object_to_jsonfile,
     step_read_group_from_jsonfile,
@@ -73,7 +70,7 @@ class Action:
 
 class Step(Enum):
     """
-    All possible steps in a pipeline with associated action.
+    All possible steps that can be combined in a pipeline, with associated action.
     """
 
     CREATE_INSTRUMENT_GROUP = Action(
@@ -136,10 +133,8 @@ class Step(Enum):
         output=AggregatedPartialDict,
     )
     AGGREGATE_PARTIALS_ENTIREGROUP = Action(
-        method=partial(
-            step_create_aggregated_partials_dict,
-            aggregation=(),
-        ),
+        method=step_create_aggregated_partials_dict,
+        parameters={"aggregation": ()},
         expected_input={"group": InstrumentGroup},
         output=AggregatedPartialDict,
     )
@@ -167,13 +162,13 @@ class Step(Enum):
         output=InstrumentGroup,
     )
     PLOT_NOTE_SPECTRA = Action(
-        method=partial(
-            plot_note_spectra,
-            max_partials=7,
-            ratio=(is_ratio := True),
-            what=["spectra", "aggregatedpartials"],
-            filename="spectra_with_partials_{type}.pdf".format(type="ratio" if is_ratio else "frequency"),
-        ),
+        method=plot_note_spectra,
+        parameters={
+            "max_partials": 7,
+            "ratio": (is_ratio := True),
+            "what": ["spectra", "aggregatedpartials"],
+            "filename": "spectra_with_partials_{type}.pdf".format(type="ratio" if is_ratio else "frequency"),
+        },
         expected_input={
             "group": InstrumentGroup,
             "groupname": InstrumentGroupName,
@@ -195,11 +190,11 @@ class Step(Enum):
         output=AggregatedPartialDict,
     )
     PLOT_DISSONANCE_RESULTS_OF_ANALYSIS = Action(
-        method=partial(
-            plot_dissonance_graphs,
-            iterlist=InstrumentType,
-            filename="analysis_graph-{ref_note}{ref_octave}_aggr[{aggregation}].pdf",
-        ),
+        method=plot_dissonance_graphs,
+        parameters={
+            "iterlist": InstrumentType,
+            "filename": "analysis_graph-{ref_note}{ref_octave}_aggr[{aggregation}].pdf",
+        },
         expected_input={
             "group": AggregatedPartialDict,
             "groupname": InstrumentGroupName,
@@ -208,13 +203,13 @@ class Step(Enum):
         output=AggregatedPartialDict,
     )
     PLOT_SPECTRA_OF_ANALYSIS = Action(
-        method=partial(
-            plot_note_spectra,
-            ratio=True,
-            what=["spectra", "analysis-partials"],
-            filename="analysis_spectra.pdf",
-            pageby=Instrument,
-        ),
+        method=plot_note_spectra,
+        parameters={
+            "ratio": True,
+            "what": ["spectra", "analysis-partials"],
+            "filename": "analysis_spectra.pdf",
+            "pageby": Instrument,
+        },
         expected_input={
             "group": InstrumentGroup,
             "groupname": InstrumentGroupName,
@@ -227,7 +222,7 @@ class Step(Enum):
         expected_input={"aggregatedpartials": AggregatedPartialDict},
         output=ConsonanceAnalysis,
     )
-    STEP_DETERMINE_BEST_MATCHING_DISSONANCE_CURVES = Action(
+    DETERMINE_BEST_MATCHING_DISSONANCE_CURVES = Action(
         method=step_determine_best_matching_dissonance_curves,
         expected_input={"analysis": ConsonanceAnalysis},
         output=ConsonanceAnalysis,
@@ -364,7 +359,7 @@ PIPE_OPTIMIZE_AND_PLOT = [
     Step.READ_INSTRUMENT_GROUP,
     Step.AGGREGATE_PARTIALS_ENTIREGROUP,
     Step.READ_CONSONANCE_ANALYSIS,
-    Step.STEP_DETERMINE_BEST_MATCHING_DISSONANCE_CURVES,
+    Step.DETERMINE_BEST_MATCHING_DISSONANCE_CURVES,
     Step.SAVE_CONSONANCE_ANALYSIS,
     Step.PLOT_DISSONANCE_RESULTS_OF_ANALYSIS,
 ]
