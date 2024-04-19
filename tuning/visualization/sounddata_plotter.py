@@ -4,9 +4,17 @@ import numpy as np
 from scipy.io import wavfile
 
 from tuning.common.classes import InstrumentGroup
-from tuning.common.constants import Folder
+from tuning.common.constants import Folder, PageSizes
 from tuning.common.utils import get_logger, get_path
-from tuning.visualization.utils import PlotItem, PlotType, create_pdf_with_plots
+from tuning.visualization.utils import (
+    ComponentObject,
+    DocumentObject,
+    GraphObject,
+    PageObject,
+    PlotItem,
+    PlotType,
+    create_pdf_with_plots,
+)
 
 logger = get_logger(__name__)
 
@@ -26,14 +34,12 @@ def plot_sounddata(
                                         the enhanced files. Defaults to True.
     """
 
-    document = dict()
-    document[PlotItem.CONTENT]: DocContent = list()  # type: ignore
+    document = DocumentObject(id=1)
 
     for instrument in group.instruments:
-        page = dict()
-        document[PlotItem.CONTENT].append(page)
-        page[PlotItem.CONTENT]: PageContent = list()  # type: ignore
-        page[PlotItem.PAGETITLE] = (
+        document.add_content(page := PageObject())
+        page.properties[PlotItem.PAGESIZE] = PageSizes.A4
+        page.properties[PlotItem.TITLE] = (
             f"Sound graph for {group.grouptype.value} {instrument.instrumenttype.value} {instrument.code}"
         )
 
@@ -44,19 +50,25 @@ def plot_sounddata(
                 instrument.original_soundfilename if original_file else instrument.soundfilename,
             )
         )
-        channels = [c for c in range(data.shape[-1])]
-        page[PlotItem.XMIN] = 0
-        page[PlotItem.XMAX] = math.ceil(len(data) / sample_rate)
-        page[PlotItem.YMIN] = ymin = math.floor(np.min(data))
-        page[PlotItem.YMAX] = ymax = math.ceil(np.max(data))
+        nr_of_channels = data.shape[-1]
 
-        sounddata = [
-            ([i / sample_rate for i in range(len(data[:, channel]))], data[:, channel]) for channel in channels
-        ]
-        page[PlotItem.CONTENT].append({PlotItem.CONTENT: sounddata, PlotItem.PLOTTYPE: PlotType.SOUNDDATAPLOT})
+        page.properties[PlotItem.XMIN] = 0
+        page.properties[PlotItem.XMAX] = math.ceil(len(data) / sample_rate)
+        page.properties[PlotItem.YMIN] = ymin = math.floor(np.min(data))
+        page.properties[PlotItem.YMAX] = ymax = math.ceil(np.max(data))
+        page.properties[PlotItem.NBR_ROWS] = nr_of_channels
+        page.properties[PlotItem.NBR_COLUMNS] = 1
 
-        cliprange_borders = [
-            list(
+        # Stereo or mono
+        for channel in range(nr_of_channels):
+            page.add_content(graph := GraphObject())
+
+            sounddata = [[i / sample_rate for i in range(len(data[:, channel]))], data[:, channel]]
+            graph.add_content(component := ComponentObject())
+            component.properties[PlotItem.PLOTTYPE] = PlotType.LINE
+            component.content.extend(sounddata)
+
+            cliprange_borders = list(
                 zip(
                     *[
                         (border / sample_rate, ymin, ymax, "r")
@@ -66,10 +78,11 @@ def plot_sounddata(
                     ]
                 )
             )
-            for _ in channels
-        ]
-        plottexts = [
-            [
+            graph.add_content(component := ComponentObject())
+            component.properties[PlotItem.PLOTTYPE] = PlotType.VLINES
+            component.content.extend(cliprange_borders)
+
+            plottexts = [
                 {
                     "x": (sample.cliprange.start + sample.cliprange.end) / (2 * sample_rate),
                     "y": ymax - 0.1 * (ymax - ymin),
@@ -80,12 +93,10 @@ def plot_sounddata(
                 }
                 for note in instrument.notes
                 for sample in note.samples
-            ],
-            [],
-        ]
-        page[PlotItem.CONTENT].append(
-            {PlotItem.CONTENT: cliprange_borders, PlotItem.PLOTTYPE: PlotType.VLINES, PlotItem.PLOTTEXTS: plottexts}
-        )
+            ]
+            graph.add_content(component := ComponentObject())
+            component.properties[PlotItem.PLOTTYPE] = PlotType.TEXT
+            component.content.extend(plottexts)
 
     filepath = get_path(groupname=group.grouptype, folder=Folder.ANALYSES, filename=filename)
     create_pdf_with_plots(document=document, filepath=filepath)

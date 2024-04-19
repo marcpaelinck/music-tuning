@@ -21,11 +21,14 @@ from tuning.common.classes import (
     Instrument,
     InstrumentGroup,
     InstrumentType,
+    Note,
     NoteName,
 )
 from tuning.common.constants import (
     AGGREGATED_PARTIALS_FILE,
     CONSONANCE_ANALYSIS_FILE,
+    INSTRUMENTTYPE,
+    OMBAKTYPE,
     Folder,
     InstrumentGroupName,
 )
@@ -129,6 +132,7 @@ class Step(Enum):
     )
     AGGREGATE_PARTIALS = Action(
         method=step_create_aggregated_partials_dict,
+        parameters={"aggregation": (INSTRUMENTTYPE, OMBAKTYPE)},
         expected_input={"group": InstrumentGroup},
         output=AggregatedPartialDict,
     )
@@ -164,10 +168,11 @@ class Step(Enum):
     PLOT_NOTE_SPECTRA = Action(
         method=plot_note_spectra,
         parameters={
-            "max_partials": 7,
+            "max_partials": 10,
             "ratio": (is_ratio := True),
             "what": ["spectra", "aggregatedpartials"],
             "filename": "spectra_with_partials_{type}.pdf".format(type="ratio" if is_ratio else "frequency"),
+            "pageby": Note,
         },
         expected_input={
             "group": InstrumentGroup,
@@ -184,7 +189,7 @@ class Step(Enum):
             "ref_note": NoteName.DING,
         },
         expected_input={
-            "group": AggregatedPartialDict,
+            "aggr_partials": AggregatedPartialDict,
             "groupname": InstrumentGroupName,
         },
         output=AggregatedPartialDict,
@@ -196,7 +201,7 @@ class Step(Enum):
             "filename": "analysis_graph-{ref_note}{ref_octave}_aggr[{aggregation}].pdf",
         },
         expected_input={
-            "group": AggregatedPartialDict,
+            "aggr_partials": AggregatedPartialDict,
             "groupname": InstrumentGroupName,
             "analysis_results": ConsonanceAnalysis,
         },
@@ -249,7 +254,7 @@ class Step(Enum):
         self.action = args[0]  # Better name to improve code readability.
 
     def params(self, p):
-        # Updates the params
+        # Updates/overwrites the parameters of the action.
         self.action.parameters.update(p)
         return self
 
@@ -334,6 +339,11 @@ class PipeLine:
     # Step.READ_CONSONANCE_ANALYSIS,
 
 
+PIPE_AGGREGATE_PARTIALS_AND_SAVE = [
+    Step.READ_INSTRUMENT_GROUP,
+    Step.AGGREGATE_PARTIALS,
+    Step.SAVE_AGGREGATED_PARTIALS,
+]
 PIPE_PLOT_DISS_GRAPH = [
     Step.READ_AGGREGATED_PARTIALS,
     Step.PLOT_DISSONANCE_GRAPHS,
@@ -363,11 +373,17 @@ PIPE_OPTIMIZE_AND_PLOT = [
     Step.SAVE_CONSONANCE_ANALYSIS,
     Step.PLOT_DISSONANCE_RESULTS_OF_ANALYSIS,
 ]
-PIPE_CREATE_SOUND_GRAPH = [
+PIPE_PLOT_DISS_OF_OPTIMUM = [
+    Step.READ_INSTRUMENT_GROUP,
+    Step.AGGREGATE_PARTIALS_ENTIREGROUP,
+    Step.READ_CONSONANCE_ANALYSIS,
+    Step.PLOT_DISSONANCE_RESULTS_OF_ANALYSIS,
+]
+PIPE_PLOT_SOUND_GRAPH = [
     Step.READ_GROUP_WITH_SOUNDDATA,
     Step.PLOT_SOUNDDATA,
 ]
 
 if __name__ == "__main__":
-    pipeline = PipeLine(InstrumentGroupName.SEMAR_PAGULINGAN, PIPE_PLOT_DISS_GRAPH)
+    pipeline = PipeLine(InstrumentGroupName.ANGKLUNG, PIPE_PLOT_SOUND_GRAPH)
     pipeline.execute()
