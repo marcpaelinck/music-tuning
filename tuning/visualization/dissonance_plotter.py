@@ -32,6 +32,7 @@ from tuning.visualization.utils import (
     ComponentObject,
     DocumentObject,
     GraphObject,
+    GroupName,
     PageObject,
     PlotItem,
     PlotType,
@@ -207,6 +208,7 @@ def plot_dissonance_graphs(
     amplitude: float = None,
     ref_note: NoteName = NoteName.DING,
     ref_octave: int = 3,
+    skip: list[GroupName] = list(),
 ):
     """
     Generates dissonance plots using aggregated partials as input, and saves them in a PDF document.
@@ -251,6 +253,7 @@ def plot_dissonance_graphs(
     # Create the graphs
     #
     document = DocumentObject(id=1)
+    document.properties[PlotItem.SKIP_GROUPS] = skip
 
     for instrumenttype in InstrumentType:
         # TODO retrieving dict entry by using string literal is error prone
@@ -280,14 +283,14 @@ def plot_dissonance_graphs(
             # Add the dissonance line graphs
             for combi in PartialCombiType:
                 # Add a line
-                graph.add_content(component := ComponentObject())
+                graph.add_content(component := ComponentObject(group=GroupName.DISSONANCE_PLOT))
                 component.properties[PlotItem.PLOTTYPE] = PlotType.LINE
                 component.content = diss_result[combi]
                 component.properties[PlotItem.COLOR] = get_line_format(combi, PlotItem.COLOR)
                 component.properties[PlotItem.LABEL] = get_line_format(combi, PlotItem.LABEL, nr_partials, nr_harmonics)
 
                 # add values of minima
-                graph.add_content(component := ComponentObject())
+                graph.add_content(component := ComponentObject(group=GroupName.DISSONANCE_TEXT_MINIMA))
                 component.properties[PlotItem.PLOTTYPE] = PlotType.TEXT
                 component.content = [
                     {
@@ -302,7 +305,7 @@ def plot_dissonance_graphs(
                 ]
 
             # Add graph title
-            graph.add_content(component := ComponentObject())
+            graph.add_content(component := ComponentObject(group=GroupName.GRAPH_TITLE))
             component.properties[PlotItem.PLOTTYPE] = PlotType.TEXT
             component.content.append(
                 {
@@ -316,7 +319,7 @@ def plot_dissonance_graphs(
 
             # Add vertical lines to indicate note ratios
             notenames = list(noteratio_dict[subgroup].keys())
-            graph.add_content(component := ComponentObject())
+            graph.add_content(component := ComponentObject(group=GroupName.DISSONANCE_NOTELINES))
             component.properties[PlotItem.PLOTTYPE] = PlotType.VLINES
             component.content = [
                 list(np.array(list(noteratio_dict[subgroup].values()))),
@@ -329,7 +332,7 @@ def plot_dissonance_graphs(
             ]
 
             # Add note abbreviations to vertical lines
-            graph.add_content(component := ComponentObject())
+            graph.add_content(component := ComponentObject(group=GroupName.DISSONANCE_NOTELINES))
             component.properties[PlotItem.PLOTTYPE] = PlotType.TEXT
             component.content = [
                 {

@@ -10,6 +10,7 @@ from tuning.visualization.utils import (
     ComponentObject,
     DocumentObject,
     GraphObject,
+    GroupName,
     PageObject,
     PlotItem,
     PlotType,
@@ -23,6 +24,7 @@ def plot_sounddata(
     group: InstrumentGroup,
     filename: str,
     original_file: bool = True,
+    skip: list[GroupName] = list(),
 ) -> bool:
     """
     Creates plots of the sound data with an indication of the detected clippings with note names.
@@ -35,6 +37,7 @@ def plot_sounddata(
     """
 
     document = DocumentObject(id=1)
+    document.properties[PlotItem.SKIP_GROUPS] = skip
 
     for instrument in group.instruments:
         document.add_content(page := PageObject())
@@ -64,7 +67,7 @@ def plot_sounddata(
             page.add_content(graph := GraphObject())
 
             sounddata = [[i / sample_rate for i in range(len(data[:, channel]))], data[:, channel]]
-            graph.add_content(component := ComponentObject())
+            graph.add_content(component := ComponentObject(group=GroupName.SOUND_PLOT))
             component.properties[PlotItem.PLOTTYPE] = PlotType.LINE
             component.content.extend(sounddata)
 
@@ -78,7 +81,7 @@ def plot_sounddata(
                     ]
                 )
             )
-            graph.add_content(component := ComponentObject())
+            graph.add_content(component := ComponentObject(group=GroupName.SOUND_DELIMITERS))
             component.properties[PlotItem.PLOTTYPE] = PlotType.VLINES
             component.content.extend(cliprange_borders)
 
@@ -94,7 +97,7 @@ def plot_sounddata(
                 for note in instrument.notes
                 for sample in note.samples
             ]
-            graph.add_content(component := ComponentObject())
+            graph.add_content(component := ComponentObject(group=GroupName.GRAPH_TITLE))
             component.properties[PlotItem.PLOTTYPE] = PlotType.TEXT
             component.content.extend(plottexts)
 

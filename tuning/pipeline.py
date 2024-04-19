@@ -44,6 +44,7 @@ from tuning.soundfiles.process_soundfiles import step_process_sound_files
 from tuning.visualization.dissonance_plotter import plot_dissonance_graphs
 from tuning.visualization.sounddata_plotter import plot_sounddata
 from tuning.visualization.spectra_plotter import plot_note_spectra
+from tuning.visualization.utils import GroupName
 
 logger = get_logger("Pipeline")
 
@@ -346,7 +347,7 @@ PIPE_AGGREGATE_PARTIALS_AND_SAVE = [
 ]
 PIPE_PLOT_DISS_GRAPH = [
     Step.READ_AGGREGATED_PARTIALS,
-    Step.PLOT_DISSONANCE_GRAPHS,
+    Step.PLOT_DISSONANCE_GRAPHS.params({"skip": [GroupName.DISSONANCE_NOTELINES]}),
     # Step.PLOT_DISSONANCE_GRAPHS.params({"filename": "dissonance_graph-DING2_aggr[InstrumentType-OmbakType](1).pdf"}),
 ]
 PIPE_PLOT_NOTE_SPECTRA = [
@@ -385,5 +386,5 @@ PIPE_PLOT_SOUND_GRAPH = [
 ]
 
 if __name__ == "__main__":
-    pipeline = PipeLine(InstrumentGroupName.ANGKLUNG, PIPE_PLOT_SOUND_GRAPH)
+    pipeline = PipeLine(InstrumentGroupName.ANGKLUNG, PIPE_PLOT_DISS_GRAPH)
     pipeline.execute()

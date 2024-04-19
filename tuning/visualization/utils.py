@@ -47,6 +47,7 @@ class PlotItem(Enum):
     YMIN = "ymin"
     YMAX = "ymax"
     AUTOX = "autox"
+    SKIP_GROUPS = "skip"
 
     # def __str__(self):
     #     return self.value
@@ -99,13 +100,24 @@ class PageObject(HierachicalPlotObject): ...
 class GraphObject(HierachicalPlotObject): ...
 
 
-class ComponentObject(PlotObject): ...
+class GroupName(Enum):
+    SOUND_PLOT = auto()
+    SOUND_DELIMITERS = auto()
+    DISSONANCE_PLOT = auto()
+    DISSONANCE_TEXT_MINIMA = auto()
+    DISSONANCE_GRAPH_TITLE = auto()
+    DISSONANCE_NOTELINES = auto()
+    SPECTRA_PLOT = auto()
+    SPECTRA_PARTIALS = auto()
+    SPECTRA_ANALYSIS_PARTIALS = auto()
+    SPECTRA_AGGR_PARTIALS = auto()
+    LEGEND = auto()
+    GRAPH_TITLE = auto()
 
 
-PlotComponent: TypeAlias = list[dict[PlotItem, Any]]
-PlotContent: TypeAlias = list[dict[PlotItem, list[PlotComponent]]]
-PageContent: TypeAlias = list[dict[PlotItem, list[PlotContent]]]
-DocContent: TypeAlias = list[PageContent]
+@dataclass
+class ComponentObject(PlotObject):
+    group: GroupName = None
 
 
 def plot_graphs(
@@ -218,17 +230,18 @@ def create_pdf_with_plots(
             axes = None
             for plot in page.content:
                 handles = None
-                for plotcontent in plot.content:
-                    figure, axes, handles = plot_graphs(
-                        plotcontent.content,
-                        figure=figure,
-                        axes=axes,
-                        handles=handles,
-                        component_args=plotcontent.properties,
-                        plot_args=plot.properties,
-                        page_args=page.properties,
-                        doc_args=document.properties,
-                    )
+                for component in plot.content:
+                    if component.group not in document.properties[PlotItem.SKIP_GROUPS]:
+                        figure, axes, handles = plot_graphs(
+                            component.content,
+                            figure=figure,
+                            axes=axes,
+                            handles=handles,
+                            component_args=component.properties,
+                            plot_args=plot.properties,
+                            page_args=page.properties,
+                            doc_args=document.properties,
+                        )
             pdf.savefig()
             plt.close()
 
