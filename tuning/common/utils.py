@@ -147,13 +147,15 @@ def open_create_file(filepath: str, mode: str, warn_if_open: bool = True):
     return open(filepath, mode)
 
 
-def save_object_to_jsonfile(
+def step_save_object_to_jsonfile(
     object: BaseModel,
     groupname: InstrumentGroupName,
     folder: Folder,
     filename: str,
+    logginginfo: str = None,
 ) -> BaseModel:
     filepath = get_path(groupname, folder, filename)
+    logger.info(f"Saving {logginginfo or type(object).__name__} information to {filepath}")
     tempfilepath = filepath + "x"
     with open_create_file(tempfilepath, "w") as outfile:
         outfile.write(object.model_dump_json(indent=4))
@@ -167,23 +169,26 @@ def save_object_to_jsonfile(
 def step_save_group_to_jsonfile(group: InstrumentGroup, save_spectrumdata=False) -> InstrumentGroup:
     if save_spectrumdata:
         # set save flag of Spectrum objects
-        logger.info("Saving spectra")
         for instrument in group.instruments:
             for note in instrument.notes:
                 for spectrum in note.spectra:
-                    spectrum.save_spectrum_data = True
-    filepath = get_path(group.grouptype, Folder.SETTINGS, f"{group.grouptype.value}.json")
-    save_object_to_jsonfile(group, filepath)
+                    spectrum.save_spectrum_data = save_spectrumdata
+    filename = f"{group.grouptype.value}.json"
+    step_save_object_to_jsonfile(
+        object=group, groupname=group.grouptype, folder=Folder.SETTINGS, filename=filename, logginginfo="spectrum data"
+    )
     return group
 
 
-def read_object_from_jsonfile(
+def step_read_object_from_jsonfile(
     groupname: InstrumentGroupName,
     objecttype: type,
     folder: Folder,
     filename: str,
+    logginginfo: str = None,
 ) -> BaseModel:
     filepath = get_path(groupname, folder, filename)
+    logger.info(f"Reading {logginginfo or type(object).__name__} information from {filename}")
     with open(filepath, "r") as infile:
         jsonvalue = infile.read()
         return objecttype.model_validate_json(jsonvalue)
@@ -201,11 +206,6 @@ def step_read_group_from_jsonfile(
         groupname (InstrumentGroupName): Name of the group to import. This determines the forlder containing the json file.
         read_sounddata (bool, optional): If True, the .wav soundfiles will be imported. This can take several seconds. Defaults to False.
         read_spectrumdata (bool, optional): Same for spectrum data. Defaults to False.
-        save_spectrumdata (bool, optional): Set this value to False if you don't want the spectrum data to be saved by the save_group_to_jsonfile
-                                            method.
-                                            Ideally this argument should be passed to the save_group_to_jsonfile method,
-                                            but context values can't be passed to the Pydantic serializer. As a workaround, the
-                                            value is set in Spectrum objects when they are created. Defaults to True.
 
     Returns:
         _type_: _description_

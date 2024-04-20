@@ -2,7 +2,7 @@ import pathlib
 from dataclasses import dataclass, field
 from enum import Enum, auto
 from itertools import count
-from typing import Any, TypeAlias
+from typing import Any
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -11,9 +11,7 @@ from matplotlib.backends.backend_pdf import PdfPages
 from matplotlib.figure import Figure
 from matplotlib.lines import Line2D
 
-from tuning.common.classes import AggregatedPartialDict, InstrumentGroup
-from tuning.common.constants import Folder, InstrumentGroupName, PageSizes
-from tuning.common.utils import get_logger, get_path, open_create_file
+from tuning.common.utils import get_logger, open_create_file
 
 logger = get_logger(__name__)
 
@@ -49,12 +47,6 @@ class PlotItem(Enum):
     AUTOX = "autox"
     SKIP_GROUPS = "skip"
 
-    # def __str__(self):
-    #     return self.value
-
-    # def __repr__(self):
-    #     return self.value
-
     @classmethod
     def kwargs(cls, d: dict["PlotItem", Any]) -> dict["PlotItem", Any]:
         return {key.value: d[key] for key in PlotItem if key not in {cls.CONTENT} and key in d}
@@ -69,15 +61,9 @@ class PlotObject:
     def __setid__(self, id: int):
         self.id = id
         self.properties[PlotItem.ID] = self.id
-        if not isinstance(self, ComponentObject):
-            print(f"{self.__class__.__name__} {self.id=}")
 
 
 class HierachicalPlotObject(PlotObject):
-    id: int  # = field(default_factory=itertools.count().__next__)
-    content: list["PlotObject"] = field(default_factory=list)
-    properties: dict = field(default_factory=dict)
-
     def __init__(self, *args, **kwargs):
         super().__init__(*args)
         self.__count__ = count()
@@ -122,10 +108,10 @@ class ComponentObject(PlotObject):
 
 def plot_graphs(
     content: tuple[list[float]],
-    component_args: dict[PlotItem, Any] = {},
-    plot_args: dict[PlotItem, Any] = {},
-    page_args: dict[PlotItem, Any] = {},
-    doc_args: dict[PlotItem, Any] = {},
+    component_args: dict[PlotItem, Any] = dict(),
+    plot_args: dict[PlotItem, Any] = dict(),
+    page_args: dict[PlotItem, Any] = dict(),
+    doc_args: dict[PlotItem, Any] = dict(),
     figure: Figure = None,
     axes: Axes = None,
     handles: list[Line2D] = None,

@@ -28,7 +28,7 @@ from tuning.common.constants import (
     NoteName,
     PartialCombiType,
 )
-from tuning.common.utils import get_logger, read_object_from_jsonfile
+from tuning.common.utils import get_logger, step_read_object_from_jsonfile
 
 logger = get_logger(__name__)
 
@@ -44,6 +44,9 @@ def step_perform_consonance_analysis(
     max_partials: int = MAX_NR_PARTIALS_OPTIMIZATION,
     max_harmonics: int = MAX_NR_HARMONICS_OPTIMIZATION,
 ) -> ConsonanceAnalysis:
+    logger.info("Generating consonance profiles for different combinations of partials and harmonics")
+
+    # This is a runtime-intensive task. We will measure the total time.
     start_time = time.time()
     # aggregatedpartials should contain a full aggregation.
     if count := len(list(aggregatedpartials.root.values())) > 1:
@@ -94,6 +97,7 @@ def step_perform_consonance_analysis(
     # Determine the consonance dips for each combination
     for (partials, harmonics), counter in zip(partial_harmonics_combinations, range(1, nbr_combis + 1)):
         if not (counter % 100):
+            # Log every 100 steps
             logger.info(f"Calculating dissonance for combination {counter} of {nbr_combis}")
         pairs = {
             PartialCombiType.PARTIALS_PARTIALS: (partials, partials),
@@ -105,7 +109,7 @@ def step_perform_consonance_analysis(
         for combitype in PartialCombiType:
             consonances[combitype] = get_minima(*diss_result[combitype])
         analysis.results.append(ConsonanceValues(partials=partials, harmonics=harmonics, consonances=consonances))
-    logger.info(f"CONSONANCE ANALYSIS TOOK {time.time() - start_time} SECONDS")
+    logger.info(f"Analysis took {time.time() - start_time} seconds")
     return analysis
 
 
@@ -127,6 +131,7 @@ def step_determine_best_matching_dissonance_curves(analysis: ConsonanceAnalysis)
         # if selection_subsequent(result.partials, partial_dict)
         # and selection_comparable_numbers(result.partials, result.harmonics)
     ]
+    logger.info("Finding the dissonance graph that best matches the average tuning of the instruments.")
     cons_dict = {
         result_id: {
             result.consonances[combi][id]: {"consonancevalues": result, "partialcombi": combi, "diss_id": id}
@@ -178,7 +183,7 @@ def summarize_optimal_result(analysis: ConsonanceAnalysis):
 if __name__ == "__main__":
     groupname = InstrumentGroupName.ANGKLUNG
 
-    analysis: ConsonanceAnalysis = read_object_from_jsonfile(
+    analysis: ConsonanceAnalysis = step_read_object_from_jsonfile(
         groupname=groupname,
         objecttype=ConsonanceAnalysis,
         folder=Folder.ANALYSES_DISS,

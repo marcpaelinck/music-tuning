@@ -55,18 +55,18 @@ def matchespartial(
     )
 
 
-def plot_note_spectra(
+def step_plot_note_spectra(
     group: InstrumentGroup,
     *,
     aggregatedpartials: Optional[AggregatedPartialDict] = AggregatedPartialDict(root={}),
     filename: str,
     analysis: Optional[ConsonanceAnalysis] = None,
-    what: list[str] = ["spectra", "aggregatedpartials"],
     max_partials: int = 100,
     ratio: bool = True,  # X-axis is ratios if True, otherwise frequencies
     pageby: type = Instrument,  # Instrument or Note
     skip: list[GroupName] = list(),
 ):
+    logger.info(f"Creating plots of the frequency spectra and saving them to file {filename}")
 
     document = DocumentObject(id=1)
     document.properties[PlotItem.SKIP_GROUPS] = skip
@@ -96,7 +96,7 @@ def plot_note_spectra(
         page.properties[PlotItem.YMAX] = max(
             np.max(spectrum.amplitudes) for note in notelist for spectrum in note.spectra
         )
-        if "aggregatedpartials" in what:
+        if aggregatedpartials:
             aggr = partial(get_aggr_partials, aggregatedpartials=aggregatedpartials, instrument=instrument)
             page.properties[PlotItem.XMAX] = max(
                 page.properties[PlotItem.XMAX],
@@ -166,7 +166,7 @@ def plot_note_spectra(
                     }
                 ]
 
-                if "aggregatedpartials" in what:
+                if aggregatedpartials:
                     # Define vlines for the aggregated partials
                     aggr_partials = np.array(
                         get_aggr_partials(note, aggregatedpartials=aggregatedpartials, instrument=instrument)

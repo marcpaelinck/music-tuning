@@ -196,7 +196,7 @@ def generate_dissonance_data(
     )
 
 
-def plot_dissonance_graphs(
+def step_plot_dissonance_graphs(
     *,
     groupname: InstrumentGroupName,
     filename: str,
@@ -234,6 +234,8 @@ def plot_dissonance_graphs(
                         the frequencies that remain fixed in the consonance ComponentObject(). Defaults to NoteName.DING.
         ref_octave (int, optional): Octave sequence of the reference note. Defaults to 3.
     """
+    logger.info("Creating dissonance graphs")
+
     #
     # Generate the data for the graphs
     #
@@ -242,11 +244,15 @@ def plot_dissonance_graphs(
         (noteratio_dict, nr_partials, nr_harmonics, ref_note, ref_octave, diss_results) = (
             generate_dissonance_data_optimized(analysis_results)
         )
+        logger.info(f"Graphs will be based on optimal average partial combinations over all instruments")
     else:
         # Generate the requested combinations of partials and harmonics for each aggregation group
         # First calculate the average note frequencies for the reference octave (octave 0)
         (noteratio_dict, nr_partials, nr_harmonics, ref_note, ref_octave, diss_results) = generate_dissonance_data(
             aggr_partials, nr_partials, nr_harmonics, ref_note, ref_octave
+        )
+        logger.info(
+            f"Data is aggregated {'by [' + ', '.join(aggr_partials.aggregation) + ']' if aggr_partials.aggregation else 'over all instruments'}"
         )
 
     #

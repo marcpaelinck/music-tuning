@@ -331,6 +331,8 @@ def process_wav_file(
 
 
 def step_process_sound_files(group: InstrumentGroup) -> InstrumentGroup:
+    logger.info("Parsing the content of the audio files")
+
     notefreq_dict = get_notefreq_dict(group.grouptype)
     for instrument in group.instruments:
         process_wav_file(group=group, instrument=instrument, notefreq_dict=notefreq_dict[instrument.instrumenttype])

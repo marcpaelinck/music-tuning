@@ -10,8 +10,8 @@ from tuning.common.constants import (
 from tuning.common.utils import (
     db_to_ampl,
     get_path,
-    read_object_from_jsonfile,
     step_read_group_from_jsonfile,
+    step_read_object_from_jsonfile,
 )
 
 
@@ -78,7 +78,7 @@ def avg_note_freq_per_instrument_type(
 
 
 def aggregated_partials(groupname: InstrumentGroupName):
-    aggr_partials = read_object_from_jsonfile(
+    aggr_partials = step_read_object_from_jsonfile(
         AggregatedPartialDict, groupname, Folder.ANALYSES_PARTIALS, AGGREGATED_PARTIALS_FILE
     )
     aggr_dict = [

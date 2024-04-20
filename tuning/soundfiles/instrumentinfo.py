@@ -36,7 +36,9 @@ from tuning.common.constants import (
     Folder,
     InstrumentGroupName,
 )
-from tuning.common.utils import get_path, note_from_shortcode
+from tuning.common.utils import get_logger, get_path, note_from_shortcode
+
+logger = get_logger(__name__)
 
 
 def get_octave_dict(groupname: InstrumentGroupName) -> dict[int, Octave]:
@@ -84,6 +86,8 @@ def step_create_group_from_info_file(groupname: InstrumentGroupName) -> Instrume
     """
     Parses the excel document containing information about the instruments files.
     """
+    logger.info(f"Creating a data structure from file {INSTRUMENT_INFO_FILE}")
+
     octave_dict = get_octave_dict(groupname)
     clipping_dict = get_clipping_dict(groupname)
     note_dict = get_notefreq_dict(groupname)

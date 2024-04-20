@@ -20,7 +20,7 @@ from tuning.visualization.utils import (
 logger = get_logger(__name__)
 
 
-def plot_sounddata(
+def step_plot_sounddata(
     group: InstrumentGroup,
     filename: str,
     original_file: bool = True,
@@ -35,6 +35,7 @@ def plot_sounddata(
         original_file (bool, optional): If True, the original sound files will be used, otherwise
                                         the enhanced files. Defaults to True.
     """
+    logger.info(f"Creating plots of the audio data and saving them to file {filename}")
 
     document = DocumentObject(id=1)
     document.properties[PlotItem.SKIP_GROUPS] = skip

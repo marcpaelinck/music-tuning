@@ -7,7 +7,7 @@ Völk 2015: Florian Völk 1 2015, Updated analytical expressions for critical ba
 
 import time
 from itertools import product
-from typing import Any, Iterable
+from typing import Any
 
 import numpy as np
 
@@ -17,14 +17,7 @@ from tuning.common.constants import (
     DEFAULT_NR_PARTIALS_DISS_GRAPH,
     HARMONICS_AMPL_DB,
 )
-from tuning.common.utils import (
-    ampl_to_loudness,
-    db_to_ampl,
-    get_logger,
-    get_path,
-    read_object_from_jsonfile,
-)
-from tuning.visualization.utils import PlotType, plot_graphs
+from tuning.common.utils import get_logger
 
 logger = get_logger(__name__)
 

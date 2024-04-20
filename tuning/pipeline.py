@@ -1,6 +1,22 @@
+""" This module enables the user to create a 'pipeline', which is a list of actions
+that should be performed sequentially.
+e.g. :  1. Read and process soundfiles 
+        2. Create frequency spectra
+        3. Determine partials
+        4. Create and plot a dissonance graph
+Most Actions produce output that can be used by subsequent actions in the pipeline.
+Before running a sequence, the PipeLine class checks its validity by determining whether
+the input that is required in each step is available from previous steps. The required
+input for each step can consist of multiple values or objects.
+The application mostly uses Pydantic object structures to pass the data from one
+step to the other. The output of intermediate steps can be saved to JSON files and retrieved
+later. This enables to read and use this data at the start of a pipeline instead of
+re-running the steps that were used to generate this data.
+"""
+
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any
+from typing import Any, Optional
 
 from pydantic import BaseModel
 
@@ -11,9 +27,9 @@ from tuning.analysis.dissonance_analysis import (
 )
 from tuning.analysis.partials import step_create_partials
 from tuning.analysis.spectrum import (
-    create_spectra,
     create_spectrum,
     create_spectrum_audacity,
+    step_create_spectra,
 )
 from tuning.common.classes import (
     AggregatedPartialDict,
@@ -34,16 +50,16 @@ from tuning.common.constants import (
 )
 from tuning.common.utils import (
     get_logger,
-    read_object_from_jsonfile,
-    save_object_to_jsonfile,
     step_read_group_from_jsonfile,
+    step_read_object_from_jsonfile,
     step_save_group_to_jsonfile,
+    step_save_object_to_jsonfile,
 )
 from tuning.soundfiles.instrumentinfo import step_create_group_from_info_file
 from tuning.soundfiles.process_soundfiles import step_process_sound_files
-from tuning.visualization.dissonance_plotter import plot_dissonance_graphs
-from tuning.visualization.sounddata_plotter import plot_sounddata
-from tuning.visualization.spectra_plotter import plot_note_spectra
+from tuning.visualization.dissonance_plotter import step_plot_dissonance_graphs
+from tuning.visualization.sounddata_plotter import step_plot_sounddata
+from tuning.visualization.spectra_plotter import step_plot_note_spectra
 from tuning.visualization.utils import GroupName
 
 logger = get_logger("Pipeline")
@@ -53,13 +69,17 @@ logger = get_logger("Pipeline")
 class Action:
     """
     This class defines actions that correspond with each step of a pipeline (see class Step below).
-    method: function that should be called.
-    expected_input: dict containing {keyword: type} combinations representing arguments for the function.
-                    This parameter should only be used for output from a previous step in the pipeline that
-                    should be passed to the function. The value of `expected_input` will be passed as **kwargs
-                    during the execution of the pipeline, whereby the type indicator will be replaced
-                    with the actual output of a previous step.
-                    Other arguments of the function should be pre-defined using the Python `partial` function.
+    Args:
+    method (callable): The function that should be called.
+    expected_input: (dict[str, Enum | BaseModel], optional) dict containing {keyword: type} combinations
+            representing arguments for the function. This parameter should only be used to determine which
+            output from previous steps in the pipeline should be passed to the function.
+            The value of `expected_input` will be passed as **kwargs during the execution of the pipeline,
+            whereby the type indicator will be replaced with the actual output of a previous step.
+            Function arguments of which the value is known in advance (e.g. a file name) should be
+            defined with the `parameters` argument.
+    parameters: Function parameters of which the value is known in advance. E.g. a file name or a requested
+            number of
     output: the output type of the function.
     paramters: additional parameters for the method that can be defined before executing the pipeline.
     The values `expected_input` and `output` will be used to perform a validity check before running the pipeline.
@@ -67,9 +87,9 @@ class Action:
     """
 
     method: callable
-    expected_input: dict[str, Enum | BaseModel]
-    output: BaseModel
-    parameters: dict[str, Any] = field(default_factory=dict)
+    expected_input: Optional[dict[str, Enum | BaseModel]] = field(default_factory=dict)
+    output: Optional[BaseModel] = field(default_factory=dict)
+    parameters: Optional[dict[str, Any]] = field(default_factory=dict)
 
 
 class Step(Enum):
@@ -100,7 +120,7 @@ class Step(Enum):
         output=InstrumentGroup,
     )
     READ_AGGREGATED_PARTIALS = Action(
-        method=read_object_from_jsonfile,
+        method=step_read_object_from_jsonfile,
         parameters={
             "objecttype": AggregatedPartialDict,
             "folder": Folder.ANALYSES_PARTIALS,
@@ -109,19 +129,29 @@ class Step(Enum):
         expected_input={"groupname": InstrumentGroupName},
         output=AggregatedPartialDict,
     )
+    READ_CONSONANCE_ANALYSIS = Action(
+        method=step_read_object_from_jsonfile,
+        parameters={
+            "objecttype": ConsonanceAnalysis,
+            "folder": Folder.ANALYSES_DISS,
+            "filename": CONSONANCE_ANALYSIS_FILE,
+        },
+        expected_input={"groupname": InstrumentGroupName},
+        output=ConsonanceAnalysis,
+    )
     PROCESS_SOUNDFILES = Action(
         method=step_process_sound_files,
         expected_input={"group": InstrumentGroup},
         output=InstrumentGroup,
     )
     CREATE_SPECTRA = Action(
-        method=create_spectra,
+        method=step_create_spectra,
         parameters={"spectrum_method": create_spectrum},
         expected_input={"group": InstrumentGroup},
         output=InstrumentGroup,
     )
     CREATE_SPECTRA_AUDACITY = Action(
-        method=create_spectra,
+        method=step_create_spectra,
         parameters={"spectrum_method": create_spectrum_audacity},
         expected_input={"group": InstrumentGroup},
         output=InstrumentGroup,
@@ -143,35 +173,50 @@ class Step(Enum):
         expected_input={"group": InstrumentGroup},
         output=AggregatedPartialDict,
     )
+    PERFORM_CONSONANCE_ANALYSIS = Action(
+        method=step_perform_consonance_analysis,
+        expected_input={"aggregatedpartials": AggregatedPartialDict},
+        output=ConsonanceAnalysis,
+    )
+    DETERMINE_BEST_MATCHING_DISSONANCE_CURVES = Action(
+        method=step_determine_best_matching_dissonance_curves,
+        expected_input={"analysis": ConsonanceAnalysis},
+        output=ConsonanceAnalysis,
+    )
     SAVE_INSTRUMENT_GROUP_WITHOUT_SPECTRA = Action(
         method=step_save_group_to_jsonfile,
         expected_input={"group": InstrumentGroup},
         output=InstrumentGroup,
     )
-    SAVE_INSTRUMENT_GROUP_JSON_AND_SPECTRA = Action(
+    SAVE_INSTRUMENT_GROUP_AND_SPECTRA = Action(
         method=step_save_group_to_jsonfile,
         parameters={"save_spectrumdata": True},
         expected_input={"group": InstrumentGroup},
         output=InstrumentGroup,
     )
     SAVE_AGGREGATED_PARTIALS = Action(
-        method=save_object_to_jsonfile,
+        method=step_save_object_to_jsonfile,
         parameters={"folder": Folder.ANALYSES_PARTIALS, "filename": AGGREGATED_PARTIALS_FILE},
         expected_input={"object": AggregatedPartialDict, "groupname": InstrumentGroupName},
         output=AggregatedPartialDict,
     )
+    SAVE_CONSONANCE_ANALYSIS = Action(
+        method=step_save_object_to_jsonfile,
+        parameters={"folder": Folder.ANALYSES_DISS, "filename": CONSONANCE_ANALYSIS_FILE},
+        expected_input={"object": ConsonanceAnalysis, "groupname": InstrumentGroupName},
+        output=ConsonanceAnalysis,
+    )
     PLOT_SOUNDDATA = Action(
-        method=plot_sounddata,
+        method=step_plot_sounddata,
         parameters={"filename": "sounddata.pdf"},
         expected_input={"group": InstrumentGroup},
         output=InstrumentGroup,
     )
     PLOT_NOTE_SPECTRA = Action(
-        method=plot_note_spectra,
+        method=step_plot_note_spectra,
         parameters={
             "max_partials": 10,
             "ratio": (is_ratio := True),
-            "what": ["spectra", "aggregatedpartials"],
             "filename": "spectra_with_partials_{type}.pdf".format(type="ratio" if is_ratio else "frequency"),
             "pageby": Note,
         },
@@ -182,34 +227,8 @@ class Step(Enum):
         },
         output=InstrumentGroup,
     )
-    PLOT_DISSONANCE_GRAPHS = Action(
-        method=plot_dissonance_graphs,
-        parameters={
-            "filename": "dissonance_graph-{ref_note}{ref_octave}_aggr[{aggregation}].pdf",
-            "ref_octave": 2,
-            "ref_note": NoteName.DING,
-        },
-        expected_input={
-            "aggr_partials": AggregatedPartialDict,
-            "groupname": InstrumentGroupName,
-        },
-        output=AggregatedPartialDict,
-    )
-    PLOT_DISSONANCE_RESULTS_OF_ANALYSIS = Action(
-        method=plot_dissonance_graphs,
-        parameters={
-            "iterlist": InstrumentType,
-            "filename": "analysis_graph-{ref_note}{ref_octave}_aggr[{aggregation}].pdf",
-        },
-        expected_input={
-            "aggr_partials": AggregatedPartialDict,
-            "groupname": InstrumentGroupName,
-            "analysis_results": ConsonanceAnalysis,
-        },
-        output=AggregatedPartialDict,
-    )
     PLOT_SPECTRA_OF_ANALYSIS = Action(
-        method=plot_note_spectra,
+        method=step_plot_note_spectra,
         parameters={
             "ratio": True,
             "what": ["spectra", "analysis-partials"],
@@ -223,31 +242,31 @@ class Step(Enum):
         },
         output=InstrumentGroup,
     )
-    PERFORM_CONSONANCE_ANALYSIS = Action(
-        method=step_perform_consonance_analysis,
-        expected_input={"aggregatedpartials": AggregatedPartialDict},
-        output=ConsonanceAnalysis,
-    )
-    DETERMINE_BEST_MATCHING_DISSONANCE_CURVES = Action(
-        method=step_determine_best_matching_dissonance_curves,
-        expected_input={"analysis": ConsonanceAnalysis},
-        output=ConsonanceAnalysis,
-    )
-    SAVE_CONSONANCE_ANALYSIS = Action(
-        method=save_object_to_jsonfile,
-        parameters={"folder": Folder.ANALYSES_DISS, "filename": CONSONANCE_ANALYSIS_FILE},
-        expected_input={"object": ConsonanceAnalysis, "groupname": InstrumentGroupName},
-        output=ConsonanceAnalysis,
-    )
-    READ_CONSONANCE_ANALYSIS = Action(
-        method=read_object_from_jsonfile,
+    PLOT_DISSONANCE_GRAPHS = Action(
+        method=step_plot_dissonance_graphs,
         parameters={
-            "objecttype": ConsonanceAnalysis,
-            "folder": Folder.ANALYSES_DISS,
-            "filename": CONSONANCE_ANALYSIS_FILE,
+            "filename": "dissonance_graph-{ref_note}{ref_octave}_aggr[{aggregation}].pdf",
+            "ref_octave": 2,
+            "ref_note": NoteName.DING,
         },
-        expected_input={"groupname": InstrumentGroupName},
-        output=ConsonanceAnalysis,
+        expected_input={
+            "aggr_partials": AggregatedPartialDict,
+            "groupname": InstrumentGroupName,
+        },
+        output=AggregatedPartialDict,
+    )
+    PLOT_DISSONANCE_RESULTS_OF_ANALYSIS = Action(
+        method=step_plot_dissonance_graphs,
+        parameters={
+            "iterlist": InstrumentType,
+            "filename": "analysis_graph-{ref_note}{ref_octave}_aggr[{aggregation}].pdf",
+        },
+        expected_input={
+            "aggr_partials": AggregatedPartialDict,
+            "groupname": InstrumentGroupName,
+            "analysis_results": ConsonanceAnalysis,
+        },
+        output=AggregatedPartialDict,
     )
 
     def __init__(self, *args, **kwargs):
@@ -307,8 +326,9 @@ class PipeLine:
         return {keyword: self.data[datatype] for keyword, datatype in datatypes.items()}
 
     def execute(self):
-        logger.info(f"Starting pipeline for {self.data[InstrumentGroupName].value}")
+        logger.info(f"STARTING PIPELINE FOR {self.data[InstrumentGroupName].value.upper()}")
         for step in self.pipe:
+            logger.info(f"STEP {step.name}")
             function = step.action.method
             inputdict = self.__get_data_items__(step.action.expected_input)
             result = function(**inputdict, **step.action.parameters)
@@ -319,6 +339,7 @@ class PipeLine:
     # Step.READ_GROUP_WITH_SOUNDDATA,
     # Step.READ_GROUP_WITH_SPECTRUMDATA,
     # Step.READ_AGGREGATED_PARTIALS,
+    # Step.READ_CONSONANCE_ANALYSIS,
     # Step.PROCESS_SOUNDFILES,
     # Step.CREATE_SPECTRA,
     # Step.CREATE_SPECTRA_AUDACITY,
@@ -326,10 +347,9 @@ class PipeLine:
     # Step.AGGREGATE_PARTIALS,
     # Step.AGGREGATE_PARTIALS_ENTIREGROUP,
     # Step.SAVE_INSTRUMENT_GROUP_WITHOUT_SPECTRA,
-    # Step.SAVE_INSTRUMENT_GROUP_JSON_AND_SPECTRA,
+    # Step.SAVE_INSTRUMENT_GROUP_AND_SPECTRA,
     # Step.SAVE_AGGREGATED_PARTIALS,
     # Step.PLOT_SOUNDDATA,
-    # Step.is_ratio,
     # Step.PLOT_NOTE_SPECTRA,
     # Step.PLOT_DISSONANCE_GRAPHS,
     # Step.PLOT_DISSONANCE_RESULTS_OF_ANALYSIS,
@@ -337,7 +357,6 @@ class PipeLine:
     # Step.PERFORM_CONSONANCE_ANALYSIS,
     # Step.STEP_DETERMINE_BEST_MATCHING_DISSONANCE_CURVES,
     # Step.SAVE_CONSONANCE_ANALYSIS,
-    # Step.READ_CONSONANCE_ANALYSIS,
 
 
 PIPE_AGGREGATE_PARTIALS_AND_SAVE = [

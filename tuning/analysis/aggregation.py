@@ -150,6 +150,9 @@ def step_create_aggregated_partials_dict(
     Returns:
         AggregatedPartialDict:
     """
+    logger.info(
+        f"Aggregating partials {'by ' + ', '.join(aggregation) + ']' if aggregation else 'over all instruments'}"
+    )
     partials_dict = defaultdict(list)
     note_dict = defaultdict(list)
     for instrument in group.instruments:

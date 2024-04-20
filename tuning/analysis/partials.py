@@ -187,6 +187,7 @@ def step_create_partials(group: InstrumentGroup, count: int = DEFAULT_NR_OF_PART
         orchestra (InstrumentGroup): set of instruments
         keep (int): maximum number of partials to keep
     """
+    logger.info("Finding the most prominent partials.")
 
     if not group.has_spectra:
         logger.warning("No spectra available: call create_spectra first.")

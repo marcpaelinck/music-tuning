@@ -182,7 +182,9 @@ def get_spectrum_filepath(group: InstrumentGroup, instrument: Instrument, note: 
     return get_path(group.grouptype, Folder.SPECTRUM, filename)
 
 
-def create_spectra(group: InstrumentGroup, spectrum_method: Callable = create_spectrum_audacity) -> InstrumentGroup:
+def step_create_spectra(
+    group: InstrumentGroup, spectrum_method: Callable = create_spectrum_audacity
+) -> InstrumentGroup:
     """
     This method creates Spectrum objects which contain the frequency spectrum
     of the individual notes and adds each Spectrum object to the corresponding Note object.
@@ -190,6 +192,8 @@ def create_spectra(group: InstrumentGroup, spectrum_method: Callable = create_sp
     Args:
         orchestra (InstrumentGroup): The instrument group.
     """
+    logger.info(f"Creating spectra with method {spectrum_method.__name__}")
+
     if not group.has_sound_samples:
         logger.warning("No sound samples available: call get_sound_samples first.")
         return
@@ -218,5 +222,5 @@ if __name__ == "__main__":
     GROUPNAME = InstrumentGroupName.SEMAR_PAGULINGAN
 
     orchestra = step_read_group_from_jsonfile(GROUPNAME, read_sounddata=True)
-    create_spectra(orchestra)
+    step_create_spectra(orchestra)
     step_save_group_to_jsonfile(orchestra, save_spectrumdata=True)
