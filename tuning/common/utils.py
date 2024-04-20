@@ -188,7 +188,7 @@ def step_read_object_from_jsonfile(
     logginginfo: str = None,
 ) -> BaseModel:
     filepath = get_path(groupname, folder, filename)
-    logger.info(f"Reading {logginginfo or type(object).__name__} information from {filename}")
+    logger.info(f"Reading {logginginfo or objecttype.__name__} information from {filename}")
     with open(filepath, "r") as infile:
         jsonvalue = infile.read()
         return objecttype.model_validate_json(jsonvalue)

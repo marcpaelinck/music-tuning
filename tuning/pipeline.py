@@ -258,7 +258,6 @@ class Step(Enum):
     PLOT_DISSONANCE_RESULTS_OF_ANALYSIS = Action(
         method=step_plot_dissonance_graphs,
         parameters={
-            "iterlist": InstrumentType,
             "filename": "analysis_graph-{ref_note}{ref_octave}_aggr[{aggregation}].pdf",
         },
         expected_input={
@@ -405,5 +404,5 @@ PIPE_PLOT_SOUND_GRAPH = [
 ]
 
 if __name__ == "__main__":
-    pipeline = PipeLine(InstrumentGroupName.ANGKLUNG, PIPE_PLOT_DISS_GRAPH)
+    pipeline = PipeLine(InstrumentGroupName.ANGKLUNG, PIPE_OPTIMIZE_AND_PLOT)
     pipeline.execute()

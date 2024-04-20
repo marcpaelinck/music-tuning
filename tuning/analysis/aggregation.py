@@ -182,7 +182,7 @@ def step_create_aggregated_partials_dict(
             # aggregate.ratio = aggregate.tone.frequency / fundamental.tone.frequency
             ratio_list = [p.ratio for p in aggregate.partials]
             aggregate.ratio = sum(ratio_list) / len(ratio_list)
-            logger.info(f"{key}: ratio {oldratio} corrected to {aggregate.ratio}")
+            # logger.info(f"{key}: ratio {oldratio} corrected to {aggregate.ratio}")
 
     return aggregated
 
