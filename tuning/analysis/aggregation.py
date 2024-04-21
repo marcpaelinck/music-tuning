@@ -11,23 +11,17 @@ from tuning.common.classes import (
     AggregatedPartialDict,
     Instrument,
     InstrumentGroup,
-    InstrumentType,
     Note,
-    Octave,
-    OmbakType,
     Partial,
     Tone,
 )
 from tuning.common.constants import (
-    AGGREGATED_PARTIALS_FILE,
     AGGREGATION,
     DISTINCTIVENESS_CENT,
     INSTRUMENTTYPE,
     KEEP_NR_PARTIALS,
     OCTAVE,
     OMBAKTYPE,
-    Folder,
-    InstrumentGroupName,
 )
 from tuning.common.utils import get_logger
 

@@ -153,7 +153,6 @@ def plot_graphs(
 
     match plottype:
         case PlotType.LINE:
-            kwargs = {}
             if component_args.get(PlotItem.LABEL, None):
                 (handle,) = axis.plot(*content, **kwargs)
                 handles.append(handle)

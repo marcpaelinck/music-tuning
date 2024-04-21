@@ -16,12 +16,10 @@ from scipy.io import wavfile
 from tuning.common.classes import (
     ClipInfo,
     ClipRange,
-    FileName,
     Frequency,
     Instrument,
     InstrumentGroup,
     InstrumentType,
-    IntFrequency,
     NoteName,
     OctaveNbr,
     Sample,
@@ -33,7 +31,6 @@ from tuning.common.constants import (
     EXPECTED_SAMPLE_DURATION,
     MINIMUM_SAMPLE_DURATION,
     NOTE_PATTERN,
-    SHORT_BLANKS_DURATION_THRESHOLD,
     SKIP_STRIKE_DURATION,
     SOUNDFILE_CLIP_FIX,
     SOUNDFILE_EQUALIZE_NOTES,
@@ -50,7 +47,6 @@ from tuning.soundfiles.enhance_soundfiles import (
     equalize_note_amplitudes,
     reconstruct_clipped_regions,
 )
-from tuning.soundfiles.instrumentinfo import get_notefreq_dict
 from tuning.soundfiles.utils import create_soundclip_ranges
 
 logger = get_logger(__name__)
@@ -101,18 +97,23 @@ def determine_fundamental_freq(
     # Return corresponding frequency
     return int(xval[fundamental_idx])
 
+
 def envelope(clip: SoundData, rate, threshold):
     """
     Inputs audio data in the form of a numpy array. Converts to pandas series
     to find the rolling average and apply the absolute value to the signal at all points.
-    
+
     Additionally takes in the sample rate and threshold (amplitude). Data below the threshold
-    will be filtered out. This is useful for filtering out environmental noise from recordings. 
+    will be filtered out. This is useful for filtering out environmental noise from recordings.
     """
     mask = []
-    signal = pd.Series(np.abs(clip)) # Convert to series to find rolling average and apply absolute value to the signal at all points. 
-    signal_mean = signal.rolling(window = int(rate/10), min_periods = 1, center = True).mean() # Take the rolling average of the series within our specified window.
-    
+    signal = pd.Series(
+        np.abs(clip)
+    )  # Convert to series to find rolling average and apply absolute value to the signal at all points.
+    signal_mean = signal.rolling(
+        window=int(rate / 10), min_periods=1, center=True
+    ).mean()  # Take the rolling average of the series within our specified window.
+
     for mean in signal_mean:
         if mean > threshold:
             mask.append(True)
@@ -193,7 +194,6 @@ def detect_individual_notes(
             and matches_note_pattern(data[block.start : block.end], block.start)
         )
     ]
-
     ##########
     diff = [
         (
@@ -201,10 +201,12 @@ def detect_individual_notes(
             (block.end - block.start <= expected_length),
             not matches_note_pattern(data[block.start : block.end], block.start),
         )
-        for block in cliprange_list_copy if (block not in cliprange_list) and (block.end - block.start > minimum_length)]
+        for block in cliprange_list_copy
+        if (block not in cliprange_list) and (block.end - block.start > minimum_length)
+    ]
     for cliprange, tooshort, nomatch in diff:
         logger.warning(
-            f"---        ({(cliprange.start/sample_rate):.2f} sec., {(cliprange.end/sample_rate):.2f} sec.) {"is too short" if tooshort else ""} {"does not match pattern" if nomatch else ""}"
+            f"---        ({(cliprange.start/sample_rate):.2f} sec., {(cliprange.end/sample_rate):.2f} sec.) {'is too short' if tooshort else ''} {'does not match pattern' if nomatch else ''}"
         )
 
     ##########
@@ -312,7 +314,7 @@ def process_wav_file(
         )
         if not note:
             logger.warning(
-                f"{noteinfo} detected but does occur in {instrument.instrumenttype.value}. Clip range will be ignored."
+                f"{noteinfo} detected but does not occur in {instrument.instrumenttype.value}. Clip range will be ignored."
             )
         else:
             note.samples = list()
@@ -330,12 +332,29 @@ def process_wav_file(
             note.frequency = freq_sum / len(freq_clip_list)
 
 
-def step_process_sound_files(group: InstrumentGroup) -> InstrumentGroup:
+def step_process_sound_files(
+    group: InstrumentGroup,
+    clip_fix: bool = SOUNDFILE_CLIP_FIX,
+    equalize_notes: bool = SOUNDFILE_EQUALIZE_NOTES,
+    save: bool = True,
+    suffix: str = ENHANCED_SOUNDFILE_SUFFIX,
+) -> InstrumentGroup:
     logger.info("Parsing the content of the audio files")
 
-    notefreq_dict = get_notefreq_dict(group.grouptype)
+    notefreq_dict = {
+        instrument.instrumenttype: {(note.name, note.octave.index): note.frequency for note in instrument.notes}
+        for instrument in group.instruments
+    }
     for instrument in group.instruments:
-        process_wav_file(group=group, instrument=instrument, notefreq_dict=notefreq_dict[instrument.instrumenttype])
+        process_wav_file(
+            group=group,
+            instrument=instrument,
+            notefreq_dict=notefreq_dict[instrument.instrumenttype],
+            clip_fix=clip_fix,
+            equalize_notes=equalize_notes,
+            save=save,
+            suffix=suffix,
+        )
     group.has_sound_samples = True
     return group
 

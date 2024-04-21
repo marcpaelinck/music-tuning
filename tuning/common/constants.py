@@ -94,6 +94,29 @@ class PartialCombiType(Enum):
     HARMONICS_PARTIALS = "HP"
 
 
+# SHEET NAMES AND COLUMN NAMES OF FILE INFO.XLSX
+class InfoFile(str, Enum):
+    SOUNDFILE_SHEET = "Sound Files"
+    OCTAVE_SHEET = "Octaves"
+    NOTE_SHEET = "Notes"
+    CLIPPING_SHEET = "Clippings"
+    FILENAME = "filename"
+    INSTRUMENT_GROUP = "instrument group"
+    INSTRUMENT = "instrument"
+    INSTRUMENTS = "instruments"
+    CODE = "code"
+    OMBAKTYPE = "ombaktype"
+    NOTE = "note"
+    FREQUENCY = "frequency"
+    OCTAVE_SEQ = "octave seq"
+    START_FREQ = "start freq"
+    END_FREQ = "end freq"
+    CLIPPING_SEQ = "clipping"
+
+    def __repr__(self):
+        return self.value
+
+
 # GENERAL
 DATA_FOLDER = ".\\data"
 INSTRUMENT_INFO_FILE = "info.xlsx"
@@ -102,23 +125,6 @@ OCTAVE_RANGE_FILE = "octave_ranges.json"
 AGGREGATED_PARTIALS_FILE = "aggregated_partials.json"
 CONSONANCE_ANALYSIS_FILE = "consonance_analysis.json"
 
-# SHEET NAMES AND COLUMN NAMES OF FILE INFO.XLSX
-SOUNDFILE_SHEET = "Sound Files"
-OCTAVE_SHEET = "Octaves"
-NOTE_SHEET = "Notes"
-CLIPPING_SHEET = "Clippings"
-FILENAME = "filename"
-INSTRUMENT_GROUP = "instrument group"
-INSTRUMENT = "instrument"
-INSTRUMENTS = "instruments"
-CODE = "code"
-OMBAKTYPE = "ombaktype"
-NOTE = "note"
-FREQUENCY = "frequency"
-OCTAVE_SEQ = "octave seq"
-START_FREQ = "start freq"
-END_FREQ = "end freq"
-CLIPPING_SEQ = "clipping"
 
 # SOUNDFILES
 AMPLITUDE_THRESHOLD_TO_AVERAGE_RATIO = 0.5  # minimum amplitude for note detection
@@ -150,7 +156,7 @@ MAX_OCTAVES = 4  # maximum number of octaves to consider when selecting partials
 INSTRUMENTTYPE = "InstrumentType"
 OMBAKTYPE = "OmbakType"
 OCTAVE = "Octave"
-NOTE = "NoteName"
+NOTENAME = "NoteName"
 ALL = "all"
 AGGREGATION = ()
 
