@@ -12,6 +12,7 @@ from tuning.common.classes import (
     Instrument,
     InstrumentGroup,
     Note,
+    Octave,
     Partial,
     Tone,
 )
@@ -109,7 +110,7 @@ def aggregated_partials_list(
                 ),
                 amplitude=np.average([p.tone.amplitude for p in cluster]),
             ),
-            reduced_frequency=Tone(
+            fundamental_tone=Tone(
                 frequency=(
                     fund_freq := np.average(
                         [reduce_frequency(p.fundamental.frequency, p.fund_octave.index) for p in cluster]
@@ -122,6 +123,7 @@ def aggregated_partials_list(
             # ratio0=tone_freq / fund_freq,
             prominence=np.average([p.prominence for p in cluster]),
             partials=cluster,
+            octave_idx=0,
         )
         for cluster in largest_clusters
     ]
@@ -148,13 +150,45 @@ def step_create_aggregated_partials_dict(
         f"Aggregating partials {'by ' + ', '.join(aggregation) + ']' if aggregation else 'over all instruments'}"
     )
     partials_dict = defaultdict(list)
-    note_dict = defaultdict(list)
+
+    # Create a dict of partials per instrument/note combination
+    note_dict = defaultdict(lambda: defaultdict(list))
+    all_notes = list()
     for instrument in group.instruments:
         for note in instrument.notes:
-            partials_dict[dict_key_str(instrument, note, aggregation)].extend(
-                [partial for p_list in note.partials for partial in p_list]
+            key = dict_key_str(instrument, note, aggregation)
+            partials_dict[key].extend([partial for p_list in note.partials for partial in p_list])
+            note_dict[key][note.name].append(note)
+            all_notes.append(note)
+
+    # Aggregate the note_dict by taking the average reduced frequency per note
+    octave_0 = Octave(
+        index=0,
+        start_frequency=min([note.octave.start_frequency / pow(2, note.octave.index) for note in all_notes]),
+        end_frequency=max([note.octave.end_frequency / pow(2, note.octave.index) for note in all_notes]),
+    )
+    notes_octave_0_dict = dict()
+    for key, note_list in note_dict.items():
+        notenames = sorted(list(note_list.keys()), key=lambda n: n.index())
+        notes_octave_0_dict[key] = {
+            notename: Note(
+                name=notename,
+                octave=octave_0,
+                frequency=np.mean([note.frequency for note in note_list[notename]]),
             )
-            note_dict[dict_key_str(instrument, note, aggregation)].append(note)
+            for notename in notenames
+        }
+
+    # Create an aggregated 'octave 0' note list for the entire instrument group
+    global_notenames = sorted(list(set([note.name for note in all_notes])), key=lambda n: n.index())
+    global_notes_octave_0_dict = {
+        notename: Note(
+            name=notename,
+            octave=octave_0,
+            frequency=np.mean([note.frequency for note in all_notes if note.name == notename]),
+        )
+        for notename in global_notenames
+    }
 
     partials_dict = dict(sorted(partials_dict.items()))
 
@@ -162,20 +196,21 @@ def step_create_aggregated_partials_dict(
     for key, partials in partials_dict.items():
         aggregated_dict[key] = (
             aggregated_partials_list(partials),
-            note_dict[key],
+            notes_octave_0_dict[key],
         )
 
-    aggregated = AggregatedPartialDict(aggregation=aggregation, root=aggregated_dict)
+    aggregated = AggregatedPartialDict(
+        aggregation=aggregation, root=aggregated_dict, notes_octave_0=global_notes_octave_0_dict
+    )
     # Recalculate the ratio, based on average frequencies
     for key, (agglist, _) in aggregated.root.items():
-        fundamental = next((agg for agg in agglist if agg.isfundamental), None)
+        fundamental = next((agg_partial for agg_partial in agglist if agg_partial.isfundamental), None)
         if not fundamental:
             raise Exception(f"Fundamental is missing for {key}, aggr partials are {[agg.ratio for agg in agglist]}")
-        for aggregate in agglist:
-            oldratio = aggregate.ratio
+        for agg_partial in agglist:
             # aggregate.ratio = aggregate.tone.frequency / fundamental.tone.frequency
-            ratio_list = [p.ratio for p in aggregate.partials]
-            aggregate.ratio = sum(ratio_list) / len(ratio_list)
+            ratio_list = [p.ratio for p in agg_partial.partials]
+            agg_partial.ratio = sum(ratio_list) / len(ratio_list)
             # logger.info(f"{key}: ratio {oldratio} corrected to {aggregate.ratio}")
 
     return aggregated

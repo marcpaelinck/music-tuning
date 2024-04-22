@@ -91,7 +91,7 @@ class AggregatedPartial(Partial):
     # reduced_frequency is the equivalent frequency within
     # octave 0 range (reference octave).
     partials: Optional[list[Partial]] = Field(default=None)
-    reduced_frequency: Optional[Tone] = None
+    fundamental_tone: Optional[Tone] = None
     ratio0: Optional[float] = None
 
 
@@ -99,7 +99,7 @@ class Note(BaseModel):
     name: NoteName
     octave: Octave
     frequency: Optional[Frequency] = None
-    fundamental_index: int = None
+    fundamental_index: Optional[int] = None
     samples: Optional[list[Sample]] = None
     spectra: Optional[list["Spectrum"]] = None
     partials: Optional[list[list[Partial]]] = None
@@ -108,7 +108,8 @@ class Note(BaseModel):
 
 class AggregatedPartialDict(BaseModel):
     aggregation: Optional[tuple[str, ...]] = None
-    root: dict[str, tuple[list[AggregatedPartial], list[Note]]]
+    root: dict[str, tuple[list[AggregatedPartial], dict[NoteName, Note]]]
+    notes_octave_0: dict[NoteName, Note]
 
 
 class Spectrum(BaseModel):
@@ -219,6 +220,7 @@ class ConsonanceValues(BaseModel):
 class ConsonanceAnalysis(BaseModel):
     ref_note: NoteName
     ref_octave: OctaveNbr
+    ref_frequency: Frequency
     fundamental: Partial
     all_partials: list[Partial]
     all_harmonics: list[Partial]

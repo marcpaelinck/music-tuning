@@ -58,7 +58,7 @@ def matchespartial(
 def step_plot_note_spectra(
     group: InstrumentGroup,
     *,
-    aggregatedpartials: Optional[AggregatedPartialDict] = AggregatedPartialDict(root={}),
+    aggregatedpartials: Optional[AggregatedPartialDict],
     filename: str,
     analysis: Optional[ConsonanceAnalysis] = None,
     max_partials: int = 100,

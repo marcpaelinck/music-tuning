@@ -11,7 +11,7 @@ from typing import Any
 
 import numpy as np
 
-from tuning.common.classes import Frequency, Note, NoteName, Partial, Tone
+from tuning.common.classes import Frequency, Note, NoteName, Partial, Ratio, Tone
 from tuning.common.constants import (
     DEFAULT_NR_HARMONICS_DISS_GRAPH,
     DEFAULT_NR_PARTIALS_DISS_GRAPH,
@@ -254,12 +254,10 @@ def create_partials_from_list(p_list: list[tuple[float, float]]) -> list[Partial
 
 def generate_partial_harmonic_pair(
     partials: list[Partial],
-    reduced_freqs: dict[NoteName, Frequency],
+    reference_frequency: dict[NoteName, Frequency],
     nbr_partials: int = DEFAULT_NR_PARTIALS_DISS_GRAPH,
     nbr_harmonics: int = DEFAULT_NR_HARMONICS_DISS_GRAPH,
     harmonics_ampl_db: int = HARMONICS_AMPL_DB,
-    ref_note: NoteName = NoteName.DING,
-    ref_octave: int = 3,
 ):
     """
     Generates a list of partials and a list of harmonics for a dissonance graph.
@@ -277,44 +275,35 @@ def generate_partial_harmonic_pair(
         _type_: _description_
     """
     partials = sorted(partials[:nbr_partials], key=lambda x: x.tone.frequency)
-    reference_freq = reduced_freqs[ref_note] * pow(2, ref_octave)
     for partial in partials:
-        partial.tone.frequency = partial.ratio * reference_freq
+        partial.tone.frequency = partial.ratio * reference_frequency
     harmonics = create_partials_from_list(
-        [(reference_freq * i, harmonics_ampl_db) for i in range(1, nbr_harmonics + 1)]
+        [(reference_frequency * i, harmonics_ampl_db) for i in range(1, nbr_harmonics + 1)]
     )
     return (partials, harmonics)
 
 
-def reduced_freq_dict(
-    group_notes: list[Note], all_notes: list[Note], ref_note: NoteName, ref_octave: int = 3
-) -> dict[NoteName, Frequency]:
-    # Convert all note frequencies to octave 0 relative to the ref_note
-    reduced_freq_list = {
-        notename: [
-            note.frequency / pow(2, note.octave.index - (1 if note.name.index() < ref_note.index() else 0))
-            for note in group_notes
-            if note.name == notename
-        ]
-        for notename in NoteName
+def get_noteratio_dict(note_dict: dict[NoteName, Note], reference_note: Note) -> dict[NoteName, Ratio]:
+    """Creates a dict of the ratio of note frequencies relative to a reference note. All notes
+    are expected to span no more than one octave. Notes with a lower frequency than the reference notes
+    will be moved up one octave.
+
+    Args:
+        note_dict (dict[NoteName, Note]): The notes to evaluate.
+        reference_note (Note): The reference note.
+
+    Returns:
+         dict[NoteName, Ratio]: frequency ratios, where the ratio has value 1 for the reference note and all other
+                                notes have a value between 1 and 2.
+    """
+    # Reduce all frequencies to the same octave (octave 0) and calculate ratio
+    ref_freq = reference_note.frequency / pow(2, reference_note.octave.index)
+    noteratio_dict = {
+        notename: note.frequency / (pow(2, note.octave.index) * ref_freq) for notename, note in note_dict.items()
     }
-    # Calculate average frequency per note. Remove entries without values.
-    reduced_freqs = {key: np.mean(np.array(freqs)) for key, freqs in reduced_freq_list.items() if freqs}
-
-    # Check if the reference note occurs in the dict. If not, look for a ref. note in another group.
-    if not reduced_freqs.get(ref_note, None):
-        # First try to find a note in the same octave
-        note = next((note for note in all_notes if note.name == ref_note and note.octave.index == ref_octave), None)
-        if not note:
-            # If no success, try any octave
-            note = next((note for note in all_notes if note.name == ref_note), None)
-        if note:
-            reduced_freqs[ref_note] = note.frequency / pow(
-                2, note.octave.index - (1 if note.name.index() < ref_note.index() else 0)
-            )
-            return reduced_freqs
-
-    return reduced_freqs
+    # correction if ref note is not DING
+    noteratio_dict = {notename: freq * 2 if freq < 1 else freq for notename, freq in noteratio_dict.items()}
+    return noteratio_dict
 
 
 if __name__ == "__main__":

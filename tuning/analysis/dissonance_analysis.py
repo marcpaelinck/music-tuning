@@ -7,7 +7,7 @@ from pprint import pprint
 from tuning.analysis.dissonance import (
     dissonance_profile,
     generate_partial_harmonic_pair,
-    reduced_freq_dict,
+    get_noteratio_dict,
 )
 from tuning.analysis.utils import get_minima
 from tuning.common.classes import (
@@ -54,16 +54,15 @@ def step_perform_consonance_analysis(
 
     all_partials, notes = list(aggregatedpartials.root.values())[0]
     # Determine the note frequencies for octave 0
-    reduced_freqs = reduced_freq_dict(group_notes=notes, all_notes=notes, ref_note=ref_note, ref_octave=ref_octave)
+    refnote_oct_0 = aggregatedpartials.notes_octave_0[ref_note]
+    reference_frequency = refnote_oct_0.frequency * pow(2, ref_octave)
 
     # Generate the maximum number of partials and harmonics
     total_partials, total_harmonics = generate_partial_harmonic_pair(
         partials=all_partials,
-        reduced_freqs=reduced_freqs,
+        reference_frequency=reference_frequency,
         nbr_partials=max_partials,
         nbr_harmonics=max_harmonics,
-        ref_note=ref_note,
-        ref_octave=ref_octave,
     )
     fundamental = next(
         (partial for partial in total_partials if partial.isfundamental),
@@ -83,10 +82,16 @@ def step_perform_consonance_analysis(
     nbr_combis = len(partial_harmonics_combinations)
 
     # Determine the ratio of each note relative to the reference note.
-    noteratio_dict = {notename: freq / reduced_freqs[ref_note] for notename, freq in reduced_freqs.items()}
+    note_dict = aggregatedpartials.notes_octave_0
+    noteratio_dict = get_noteratio_dict(
+        note_dict=note_dict,
+        reference_note=note_dict[ref_note],
+    )
+
     analysis = ConsonanceAnalysis(
         ref_note=ref_note,
         ref_octave=ref_octave,
+        ref_frequency=reference_frequency,
         fundamental=fundamental,
         all_partials=[fundamental] + total_partials,
         all_harmonics=total_harmonics,

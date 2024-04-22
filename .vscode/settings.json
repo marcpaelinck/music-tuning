@@ -17,6 +17,7 @@
     "python.testing.pytestEnabled": true,
     "python.envFile": "${workspaceFolder}/.env",
     "terminal.integrated.env.windows": {
-        "PYTHONPATH" : "${workspaceFolder};${env:PYTHONPATH}"
+        "PYTHONPATH" : "${workspaceFolder};${env:PYTHONPATH}",
+    "jupyter.notebookFileRoot": "${workspaceFolder}"
  }
 }

@@ -89,7 +89,9 @@ class GraphObject(HierachicalPlotObject): ...
 class GroupName(Enum):
     SOUND_PLOT = auto()
     SOUND_DELIMITERS = auto()
-    DISSONANCE_PLOT = auto()
+    DISSONANCE_PLOT_PP = auto()
+    DISSONANCE_PLOT_PH = auto()
+    DISSONANCE_PLOT_HP = auto()
     DISSONANCE_TEXT_MINIMA = auto()
     DISSONANCE_GRAPH_TITLE = auto()
     DISSONANCE_NOTELINES = auto()

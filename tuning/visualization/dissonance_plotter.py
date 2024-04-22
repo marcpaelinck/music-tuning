@@ -8,7 +8,7 @@ from tuning.analysis.dissonance import (
     dissonance_profile,
     dissonance_s,
     generate_partial_harmonic_pair,
-    reduced_freq_dict,
+    get_noteratio_dict,
 )
 from tuning.analysis.utils import get_minima
 from tuning.common.classes import (
@@ -161,23 +161,18 @@ def generate_dissonance_data(
 ):
     # Generate the requested combinations of partials and harmonics for each aggregation group
     # First calculate the average note frequencies for the reference octave (octave 0)
-    allnotes = [note for _, notes in group.root.values() for note in notes]
-    groupnotes = {key: [note for note in group.root[key][1]] for key in group.root.keys()}
     noteratio_dict = dict()
     diss_results = dict()
-    for key in group.root.keys():
-        reduced_freqs = reduced_freq_dict(
-            group_notes=groupnotes[key], all_notes=allnotes, ref_note=ref_note, ref_octave=ref_octave
-        )
+
+    for key, (agg_partials, notes_oct_0) in group.root.items():
+        refnote_oct_0 = notes_oct_0.get(ref_note, None) or group.notes_octave_0[ref_note]
+        reference_frequency = refnote_oct_0.frequency * pow(2, ref_octave)
         # Then determine the ratio of each note relative to the reference note and retrieve the partials.
-        noteratio_dict[key] = {notename: freq / reduced_freqs[ref_note] for notename, freq in reduced_freqs.items()}
         partials, harmonics = generate_partial_harmonic_pair(
-            group.root[key][0],
+            agg_partials,
             nbr_partials=nr_partials,
             nbr_harmonics=nr_harmonics,
-            reduced_freqs=reduced_freqs,
-            ref_note=ref_note,
-            ref_octave=ref_octave,
+            reference_frequency=reference_frequency,
         )
         partial_harmonic_pairs = {
             PartialCombiType.PARTIALS_PARTIALS: (partials, partials),
@@ -186,6 +181,14 @@ def generate_dissonance_data(
         }
         fundamental = next((partial for partial in partials if partial.isfundamental), None)
         diss_results[key] = dissonance_profile(partial_harmonic_pairs, fundamental)
+
+        # list of note frequencies relative to the referenc note
+        note_dict = {
+            notename: (notes_oct_0.get(notename, None) or group.notes_octave_0[notename])
+            for notename in group.notes_octave_0.keys()
+        }
+        noteratio_dict[key] = get_noteratio_dict(note_dict=note_dict, reference_note=note_dict[ref_note])
+
     return (
         noteratio_dict,
         nr_partials,
@@ -289,7 +292,12 @@ def step_plot_dissonance_graphs(
             # Add the dissonance line graphs
             for combi in PartialCombiType:
                 # Add a line
-                graph.add_content(component := ComponentObject(group=GroupName.DISSONANCE_PLOT))
+                componentgroupname = {
+                    PartialCombiType.PARTIALS_HARMONICS: GroupName.DISSONANCE_PLOT_PH,
+                    PartialCombiType.HARMONICS_PARTIALS: GroupName.DISSONANCE_PLOT_HP,
+                    PartialCombiType.PARTIALS_PARTIALS: GroupName.DISSONANCE_PLOT_PP,
+                }[combi]
+                graph.add_content(component := ComponentObject(group=componentgroupname))
                 component.properties[PlotItem.PLOTTYPE] = PlotType.LINE
                 component.content = diss_result[combi]
                 component.properties[PlotItem.COLOR] = get_line_format(combi, PlotItem.COLOR)
