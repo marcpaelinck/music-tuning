@@ -89,6 +89,7 @@ class GraphObject(HierachicalPlotObject): ...
 class GroupName(Enum):
     SOUND_PLOT = auto()
     SOUND_DELIMITERS = auto()
+    DISSONANCE_PLOT = auto()
     DISSONANCE_PLOT_PP = auto()
     DISSONANCE_PLOT_PH = auto()
     DISSONANCE_PLOT_HP = auto()
@@ -105,7 +106,7 @@ class GroupName(Enum):
 
 @dataclass
 class ComponentObject(PlotObject):
-    group: GroupName = None
+    groups: list[GroupName] = field(default_factory=list)
 
 
 def plot_graphs(
@@ -218,7 +219,7 @@ def create_pdf_with_plots(
             for plot in page.content:
                 handles = None
                 for component in plot.content:
-                    if component.group not in document.properties[PlotItem.SKIP_GROUPS]:
+                    if not any(group in document.properties[PlotItem.SKIP_GROUPS] for group in component.groups):
                         figure, axes, handles = plot_graphs(
                             component.content,
                             figure=figure,

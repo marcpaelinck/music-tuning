@@ -68,7 +68,7 @@ def step_plot_sounddata(
             page.add_content(graph := GraphObject())
 
             sounddata = [[i / sample_rate for i in range(len(data[:, channel]))], data[:, channel]]
-            graph.add_content(component := ComponentObject(group=GroupName.SOUND_PLOT))
+            graph.add_content(component := ComponentObject(groups=[GroupName.SOUND_PLOT]))
             component.properties[PlotItem.PLOTTYPE] = PlotType.LINE
             component.content.extend(sounddata)
 
@@ -82,7 +82,7 @@ def step_plot_sounddata(
                     ]
                 )
             )
-            graph.add_content(component := ComponentObject(group=GroupName.SOUND_DELIMITERS))
+            graph.add_content(component := ComponentObject(groups=[GroupName.SOUND_DELIMITERS]))
             component.properties[PlotItem.PLOTTYPE] = PlotType.VLINES
             component.content.extend(cliprange_borders)
 
@@ -98,7 +98,7 @@ def step_plot_sounddata(
                 for note in instrument.notes
                 for sample in note.samples
             ]
-            graph.add_content(component := ComponentObject(group=GroupName.GRAPH_TITLE))
+            graph.add_content(component := ComponentObject(groups=[GroupName.GRAPH_TITLE]))
             component.properties[PlotItem.PLOTTYPE] = PlotType.TEXT
             component.content.extend(plottexts)
 
