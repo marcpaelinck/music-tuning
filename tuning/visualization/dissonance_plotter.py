@@ -14,7 +14,6 @@ from tuning.common.classes import (
     ConsonanceAnalysis,
     Frequency,
     InstrumentType,
-    Tone,
 )
 from tuning.common.constants import (
     DEFAULT_NR_HARMONICS_DISS_GRAPH,
@@ -25,7 +24,7 @@ from tuning.common.constants import (
     PageSizes,
     PartialCombiType,
 )
-from tuning.common.utils import get_logger, get_path
+from tuning.common.utils import get_logger, get_path, step_save_object_to_jsonfile
 from tuning.visualization.utils import (
     ComponentObject,
     DocumentObject,
@@ -33,6 +32,7 @@ from tuning.visualization.utils import (
     GroupName,
     PageObject,
     PlotItem,
+    PlotObject,
     PlotType,
     create_pdf_with_plots,
 )
@@ -170,6 +170,7 @@ def step_plot_dissonance_graphs(
     *,
     groupname: InstrumentGroupName,
     filename: str,
+    generator: callable = create_pdf_with_plots,
     analysis_results: ConsonanceAnalysis = None,
     # All following arguments will be ignored if analysis_results is given.
     aggr_partials: AggregatedPartialDict,
@@ -181,8 +182,8 @@ def step_plot_dissonance_graphs(
     skip: list[GroupName] = list(),
 ):
     """
-    Generates dissonance plots using aggregated partials as input, and saves them in a PDF document.
-    For an explanation of the structure that is being built in this method, please read the comment
+    Generates dissonance plot data using aggregated partials as input, and calls generator to process the data.
+    For an explanation of the structure that is built in this method, please read the comment
     of method :func:`utils.create_pdf_with_plots`.
     Note: Each page will contain the graphs for one instrument type
     Args:
@@ -337,7 +338,10 @@ def step_plot_dissonance_graphs(
         ref_note=ref_note, ref_octave=ref_octave, aggregation="-".join(aggr_partials.aggregation or ("all",))
     )
     filepath = get_path(groupname=groupname, folder=Folder.ANALYSES_DISS, filename=filename)
-    create_pdf_with_plots(document=document, filepath=filepath)
+    step_save_object_to_jsonfile(
+        document, groupname=groupname, folder=Folder.ANALYSES_DISS, filename=filename[:-4] + ".json"
+    )
+    generator(document=document, filepath=filepath)
 
 
 if __name__ == "__main__":

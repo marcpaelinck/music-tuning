@@ -55,6 +55,7 @@ from tuning.common.utils import (
     step_save_group_to_jsonfile,
     step_save_object_to_jsonfile,
 )
+from tuning.presentation.graph_animation import step_plot_animated_diss_graph
 from tuning.soundfiles.instrumentinfo import step_create_group_from_info_file
 from tuning.soundfiles.process_soundfiles import step_process_sound_files
 from tuning.visualization.dissonance_plotter import step_plot_dissonance_graphs
@@ -379,8 +380,20 @@ PIPE_PLOT_DISS_GRAPH = [
     Step.PLOT_DISSONANCE_GRAPHS.action().params(
         {
             "ref_octave": 2,
-            "ref_note": NoteName.DENG,
+            "ref_note": NoteName.DING,
             "skip": [GroupName.DISSONANCE_PLOT_PP, GroupName.DISSONANCE_PLOT_HP],
+        }
+    ),
+    # Step.PLOT_DISSONANCE_GRAPHS.action().params({"skip": [GroupName.DISSONANCE_NOTELINES]}),
+]
+PIPE_PLOT_ANIMATED_DISS_GRAPH = [
+    Step.READ_AGGREGATED_PARTIALS.action(),
+    Step.PLOT_DISSONANCE_GRAPHS.action().params(
+        {
+            "ref_octave": 2,
+            "ref_note": NoteName.DING,
+            "skip": [GroupName.DISSONANCE_PLOT_PP, GroupName.DISSONANCE_PLOT_HP],
+            "generator": step_plot_animated_diss_graph,
         }
     ),
     # Step.PLOT_DISSONANCE_GRAPHS.action().params({"skip": [GroupName.DISSONANCE_NOTELINES]}),
