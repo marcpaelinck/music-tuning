@@ -1,6 +1,14 @@
 import numpy as np
 
-from tuning.common.classes import Dissonance, Frequency
+from tuning.common.classes import (
+    ConsonanceAnalysis,
+    ConsonanceValues,
+    Dissonance,
+    Frequency,
+    Partial,
+    Tone,
+)
+from tuning.common.constants import NoteName
 
 
 def remove_min_region(index, x_vector, y_vector) -> tuple[np.array]:
@@ -39,6 +47,45 @@ def reduce_frequency(frequency: Frequency, octaves: int) -> Frequency:
     """
     #
     return frequency / pow(2, octaves)
+
+
+def create_consonance_analysis(
+    part_freq: list[Frequency],
+    harmonics_freq: list[Frequency],
+) -> ConsonanceAnalysis:
+    """Creates ConsonanceAnalysis object based one lists of frequencies. The list can be used
+    as input for the generation of a dissonance curve.
+
+    Args:
+        part_freq (list[Frequency]): Sorted frequencies of the partials, including the fundamental.
+        harmonics_freq (list[Frequency]): Sorted frequencies of the harmonics, including the fundamental.
+        noteratio_dict (_type_, optional): Not used. Defaults to {NoteName.DING: 1.0}.
+
+    Returns:
+        ConsonanceAnalysis: _description_
+    """
+    ref_part = part_freq[0]
+    partials = [
+        Partial(tone=Tone(frequency=freq, amplitude=1), ratio=freq / ref_part, isfundamental=(freq == ref_part))
+        for freq in part_freq
+    ]
+    ref_harm = harmonics_freq[0]
+    harmonics = [
+        Partial(tone=Tone(frequency=freq, amplitude=1), ratio=freq / ref_harm, isfundamental=(freq == ref_part))
+        for freq in harmonics_freq
+    ]
+    noteratio_dict = {NoteName.DING: 1.0}
+    return ConsonanceAnalysis(
+        ref_note=NoteName.DING,
+        ref_octave=0,
+        ref_frequency=part_freq[0],
+        fundamental=partials[0],
+        all_partials=partials,
+        all_harmonics=harmonics,
+        noteratio_dict=noteratio_dict,
+        optimal_consonances=(opt := ConsonanceValues(partials=partials, harmonics=harmonics, consonances=dict())),
+        results=[opt],
+    )
 
 
 if __name__ == "__main__":

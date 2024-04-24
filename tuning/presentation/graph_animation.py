@@ -1,4 +1,5 @@
 import itertools
+from enum import Enum
 from functools import partial
 
 import matplotlib.animation as animation
@@ -6,18 +7,40 @@ import matplotlib.pyplot as plt
 import numpy as np
 from matplotlib.axis import Axis
 
+from tuning.common.classes import Frequency
 from tuning.common.constants import Folder, InstrumentGroupName, PageSizes
 from tuning.common.utils import get_path, step_read_object_from_jsonfile
 from tuning.visualization.utils import (
+    ComponentType,
     DocumentObject,
     GraphObject,
+    GroupName,
+    HierachicalPlotObject,
     PageObject,
-    PlotItem,
-    PlotType,
-    plot_graphs,
+    PlotObject,
+    PltProperty,
+    plot_component,
 )
 
-plt.rcParams["animation.ffmpeg_path"] = "C:\\Users\\marcb\\Desktop\\ffmpeg\\bin\\ffmpeg.exe"
+plt.rcParams["animation.ffmpeg_path"] = "C:\\Users\\marcb\\AppData\\Roaming\\ffmpeg\\bin\\ffmpeg.exe"
+
+
+def get_children_old(parent: HierachicalPlotObject, include: list[GroupName] = [], skip: list[GroupName] = []):
+    returnval = [
+        child
+        for child in parent.children
+        if (not include or any(group.value in include for group in child.groups))
+        and not any(group.value in skip for group in child.groups)
+    ]
+    return returnval
+
+
+def get_children(parent: HierachicalPlotObject, groups: list[GroupName] = [], skip: bool | None = None):
+    return [
+        child
+        for child in parent.children
+        if (not groups or any(group in groups for group in child.groups)) and (skip == None or child.skip == skip)
+    ]
 
 
 def data_gen(data):
@@ -27,7 +50,7 @@ def data_gen(data):
 
 def init(ax: Axis, line, vlines, xdata: list, ydata: list, vlinedata: list):
     ax.set_ylim(0, 3500)
-    ax.set_xlim(0.9, 2.6)
+    ax.set_xlim(0.9, 6.6)
     del xdata[:]
     del ydata[:]
     line.set_data(xdata, ydata)
@@ -39,29 +62,34 @@ def init(ax: Axis, line, vlines, xdata: list, ydata: list, vlinedata: list):
 
 
 def create_fig(
-    graph: GraphObject, page: PageObject, document=DocumentObject, line_compo_id: int = -1, vline_compo_id: int = -1
+    graph: GraphObject,
+    page: PageObject,
+    document=DocumentObject,
+    line_compo_id: int = -1,
+    harmonics_compo_id: int = -1,
 ):
     figure = axes = line = vlines = None
     handles = list()
-    for component in graph.content:
-        figure, axes, handles = plot_graphs(
-            component.content,
-            figure=figure,
-            axes=axes,
-            handles=handles,
-            component_args=component.properties,
-            plot_args=graph.properties,
-            page_args=page.properties,
-            doc_args=document.properties,
-        )
-        if component.id == line_compo_id:
-            line = handles[-1]
-        if component.id == vline_compo_id:
-            vlines = handles[-1]
-    return figure, axes[0], line, vlines
+    for component in graph.children:
+        if not component.skip:
+            figure, axes, handles = plot_component(
+                component.content,
+                figure=figure,
+                axes=axes,
+                handles=handles,
+                component_args=component.properties,
+                plot_args=graph.properties,
+                page_args=page.properties,
+                doc_args=document.properties,
+            )
+            if component.id == line_compo_id:
+                line = handles[-1]
+            if component.id == harmonics_compo_id:
+                vlines = handles[-1]
+    return figure, axes, line, vlines
 
 
-def run(data, xdata, ydata, vlinedata, ax, line, vlines):
+def run(data, xdata, ydata, ax, line, vlines):
     # update the data
     x, y = data
     delta = (x - xdata[-1]) if xdata else 0
@@ -74,45 +102,55 @@ def run(data, xdata, ydata, vlinedata, ax, line, vlines):
         ax.set_xlim(xmin, 2 * xmax)
         ax.figure.canvas.draw()
     line.set_data(xdata, ydata)
-    seg_new = [np.array([seg[:, 0] + delta, seg[:, 1]]).T for seg in vlines.get_segments()]
+    seg_new = np.array(vlines.get_segments())
+    # seg_new = [np.array([seg[:, 0] + seg[:, 0] * delta / seg[0, 0], seg[:, 1]]).T for seg in vlines.get_segments()]
+    # Keep respective ratios intact
+    seg_new[:, :, 0] = seg_new[:, :, 0] * (1 + delta / seg_new[0, 0, 0])
+    seg_new = list(seg_new)
     vlines.set_segments(seg_new)
     return (line,)
 
 
 # Only save last 100 frames, but run forever
-def step_plot_animated_diss_graph(document: DocumentObject, filepath: str):
-    page = document.content[0]
-    document.properties[PlotItem.PAGESIZE] = PageSizes.A4
-    graph = page.content[0]
-    filepath = filepath[:-4] + ".mp4"
-    line_compo = next(
-        (compo for compo in graph.content if compo.properties.get(PlotItem.PLOTTYPE, None) == PlotType.LINE.value), None
+def plot_animated_diss_graph(document: DocumentObject, filepath: str):
+    page = document.children[0]
+    page.properties.pop(PltProperty.PAGESIZE)
+    page.properties[PltProperty.NBR_ROWS] = 1
+    # include_list = document.include_only_list
+    # skip_list = document.skip_list
+
+    graph = get_children(page, skip=False)[0]
+    components = get_children(
+        graph, groups=[GroupName.DISSONANCE_LINE, GroupName.PARTIALS, GroupName.HARMONICS], skip=False
     )
-    vline_compo = next(
-        (compo for compo in graph.content if compo.properties.get(PlotItem.PLOTTYPE, None) == PlotType.VLINES.value),
-        None,
-    )
-    if not (line_compo and vline_compo):
+    line_compo = next((compo for compo in components if GroupName.DISSONANCE_LINE in compo.groups), None)
+    partials_compo = next((compo for compo in components if GroupName.PARTIALS in compo.groups), None)
+    harmonics_compo = next((compo for compo in components if GroupName.HARMONICS in compo.groups), None)
+    if not (line_compo and partials_compo and harmonics_compo):
         exit()
+
     line_data = [
         [x for x, i in zip(line_compo.content[0], itertools.count()) if not i % 20],
         [y for y, i in zip(line_compo.content[1], itertools.count()) if not i % 20],
     ]
     xdata, ydata = [], []
-    vlinedata = [vline.copy() for vline in vline_compo.content]
+    harmonics_data = [vline.copy() for vline in harmonics_compo.content]
 
-    fig, axis, line, vlines = create_fig(graph, page, document, line_compo.id, vline_compo.id)
-    run_func = partial(run, xdata=xdata, ydata=ydata, vlinedata=vlinedata, ax=axis, line=line, vlines=vlines)
-    init_func = partial(init, ax=axis, line=line, vlines=vlines, xdata=xdata, ydata=ydata, vlinedata=vlinedata)
+    fig, axis, line, harmonics_vlines = create_fig(graph, page, document, line_compo.id, harmonics_compo.id)
+    run_func = partial(run, xdata=xdata, ydata=ydata, ax=axis, line=line, vlines=harmonics_vlines)
+    init_func = partial(
+        init, ax=axis, line=line, vlines=harmonics_vlines, xdata=xdata, ydata=ydata, vlinedata=harmonics_data
+    )
     data_gen_func = partial(data_gen, data=line_data)
-    (line, vlines) = init(axis, line, vlines, xdata, ydata, vlinedata)
+    (line, harmonics_vlines) = init(axis, line, harmonics_vlines, xdata, ydata, harmonics_data)
     ani = animation.FuncAnimation(
         fig, run_func, data_gen_func, interval=10, init_func=init_func, save_count=len(line_data[0])
     )
+    filepath = filepath[:-4] + ".mp4"
     metadata = dict(title=filepath[:-4], artist="Matplotlib", comment="Animated dissonance graph")
     FFwriter = animation.FFMpegWriter(fps=15, metadata=metadata)
     ani.save(filepath, writer=FFwriter)
-    plt.show()
+    # plt.show()
 
 
 if __name__ == "__main__":
@@ -123,4 +161,4 @@ if __name__ == "__main__":
     document = step_read_object_from_jsonfile(
         groupname=groupname, objecttype=DocumentObject, folder=folder, filename=json_filename
     )
-    step_plot_animated_diss_graph(document, get_path(groupname, folder, mp4_filename))
+    plot_animated_diss_graph(document, get_path(groupname, folder, mp4_filename))

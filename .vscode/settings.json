@@ -10,6 +10,7 @@
         "--profile",
         "black"
     ],
+    "python.analysis.completeFunctionParens": false,
     "python.testing.pytestArgs": [
         "tests"
     ],

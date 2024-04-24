@@ -55,7 +55,7 @@ from tuning.common.utils import (
     step_save_group_to_jsonfile,
     step_save_object_to_jsonfile,
 )
-from tuning.presentation.graph_animation import step_plot_animated_diss_graph
+from tuning.presentation.graph_animation import plot_animated_diss_graph
 from tuning.soundfiles.instrumentinfo import step_create_group_from_info_file
 from tuning.soundfiles.process_soundfiles import step_process_sound_files
 from tuning.visualization.dissonance_plotter import step_plot_dissonance_graphs
@@ -381,7 +381,7 @@ PIPE_PLOT_DISS_GRAPH = [
         {
             "ref_octave": 2,
             "ref_note": NoteName.DING,
-            "skip": [GroupName.DISSONANCE_PLOT_PP, GroupName.DISSONANCE_PLOT_HP],
+            "skip": [GroupName.DISSONANCE_LINE_PP, GroupName.DISSONANCE_LINE_HP],
         }
     ),
     # Step.PLOT_DISSONANCE_GRAPHS.action().params({"skip": [GroupName.DISSONANCE_NOTELINES]}),
@@ -392,8 +392,14 @@ PIPE_PLOT_ANIMATED_DISS_GRAPH = [
         {
             "ref_octave": 2,
             "ref_note": NoteName.DING,
-            "skip": [GroupName.DISSONANCE_PLOT_PP, GroupName.DISSONANCE_PLOT_HP],
-            "generator": step_plot_animated_diss_graph,
+            "include_only": [GroupName.DISSONANCE_ANIMATION_GRAPH],
+            "skip": [
+                GroupName.DISSONANCE_LINE_PP,
+                GroupName.DISSONANCE_LINE_HP,
+                GroupName.DISSONANCE_NOTELINES,
+                GroupName.DISSONANCE_TEXT,
+            ],
+            "generator": plot_animated_diss_graph,
         }
     ),
     # Step.PLOT_DISSONANCE_GRAPHS.action().params({"skip": [GroupName.DISSONANCE_NOTELINES]}),
@@ -423,7 +429,7 @@ PIPE_PLOT_DISS_OF_OPTIMUM = [
     Step.AGGREGATE_PARTIALS_ENTIREGROUP.action(),
     Step.READ_CONSONANCE_ANALYSIS.action(),
     Step.PLOT_DISSONANCE_RESULTS_OF_ANALYSIS.action().params(
-        {"ref_octave": 2, "ref_note": NoteName.DING, "skip": [GroupName.DISSONANCE_PLOT_HP]}
+        {"ref_octave": 2, "ref_note": NoteName.DING, "skip": [GroupName.DISSONANCE_LINE_HP]}
     ),
 ]
 # FULL SEQUENCE ENDS HERE
@@ -433,5 +439,5 @@ TEST = [
 ]
 
 if __name__ == "__main__":
-    pipeline = PipeLine(InstrumentGroupName.GENDERWAYANG, PIPE_PLOT_DISS_GRAPH)
+    pipeline = PipeLine(InstrumentGroupName.GENDERWAYANG, PIPE_PLOT_ANIMATED_DISS_GRAPH)
     pipeline.execute()

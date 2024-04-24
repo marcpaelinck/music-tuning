@@ -1,3 +1,4 @@
+import math
 from itertools import chain
 from xmlrpc.client import MAXINT
 
@@ -27,20 +28,21 @@ from tuning.common.constants import (
 from tuning.common.utils import get_logger, get_path, step_save_object_to_jsonfile
 from tuning.visualization.utils import (
     ComponentObject,
+    ComponentType,
     DocumentObject,
     GraphObject,
     GroupName,
     PageObject,
-    PlotItem,
-    PlotObject,
-    PlotType,
+    PltProperty,
     create_pdf_with_plots,
 )
 
 logger = get_logger(__name__)
 
 
-def get_line_format(combi: PartialCombiType, item: PlotItem, nr_partials: int = None, nr_harmonics: int = None) -> str:
+def get_line_format(
+    combi: PartialCombiType, item: PltProperty, nr_partials: int = None, nr_harmonics: int = None
+) -> str:
     """
     Returns formatting components for a specific dissonance curve
 
@@ -56,18 +58,18 @@ def get_line_format(combi: PartialCombiType, item: PlotItem, nr_partials: int = 
     match combi:
         case PartialCombiType.PARTIALS_PARTIALS:
             return {
-                PlotItem.COLOR: "b",
-                PlotItem.LABEL: f"partials[{nr_partials}]-partials[{nr_partials}]",
+                PltProperty.COLOR: "b",
+                PltProperty.LABEL: f"partials[{nr_partials}]-partials[{nr_partials}]",
             }.get(item, None)
         case PartialCombiType.PARTIALS_HARMONICS:
             return {
-                PlotItem.COLOR: "g",
-                PlotItem.LABEL: f"partials[{nr_partials}]-harmonics[{nr_harmonics}]",
+                PltProperty.COLOR: "g",
+                PltProperty.LABEL: f"partials[{nr_partials}]-harmonics[{nr_harmonics}]",
             }.get(item, None)
         case PartialCombiType.HARMONICS_PARTIALS:
             return {
-                PlotItem.COLOR: "c",
-                PlotItem.LABEL: f"harmonics[{nr_harmonics}]-partials[{nr_partials}]",
+                PltProperty.COLOR: "c",
+                PltProperty.LABEL: f"harmonics[{nr_harmonics}]-partials[{nr_partials}]",
             }.get(item, None)
     return None
 
@@ -98,8 +100,8 @@ def generate_dissonance_data_optimized(analysis_results: ConsonanceAnalysis):
         partials = analysis_results.optimal_consonances.partials
         harmonics = analysis_results.optimal_consonances.harmonics
         noteratio_dict = {InstrumentType.ALL.value: analysis_results.noteratio_dict}
-        nr_partials = len(analysis_results.optimal_consonances.partials)
-        nr_harmonics = len(analysis_results.optimal_consonances.harmonics)
+        nr_partials = len(partials)
+        nr_harmonics = len(harmonics)
         ref_note = analysis_results.ref_note
         ref_octave = analysis_results.ref_octave
         partial_harmonic_pairs = {
@@ -111,8 +113,8 @@ def generate_dissonance_data_optimized(analysis_results: ConsonanceAnalysis):
         diss_results = {key: dissonance_profile(partial_harmonic_pairs, fundamental)}
     return (
         noteratio_dict,
-        nr_partials,
-        nr_harmonics,
+        partials,
+        harmonics,
         ref_note,
         ref_octave,
         diss_results,
@@ -158,8 +160,8 @@ def generate_dissonance_data(
 
     return (
         noteratio_dict,
-        nr_partials,
-        nr_harmonics,
+        partials,
+        harmonics,
         ref_note,
         ref_octave,
         diss_results,
@@ -173,12 +175,13 @@ def step_plot_dissonance_graphs(
     generator: callable = create_pdf_with_plots,
     analysis_results: ConsonanceAnalysis = None,
     # All following arguments will be ignored if analysis_results is given.
-    aggr_partials: AggregatedPartialDict,
+    aggr_partials: AggregatedPartialDict = None,
     nr_partials: int = DEFAULT_NR_PARTIALS_DISS_GRAPH,
     nr_harmonics: int = DEFAULT_NR_HARMONICS_DISS_GRAPH,
     amplitude: float = None,
     ref_note: NoteName = NoteName.DING,
     ref_octave: int = 3,
+    include_only: list[GroupName] = list(),
     skip: list[GroupName] = list(),
 ):
     """
@@ -204,6 +207,10 @@ def step_plot_dissonance_graphs(
         ref_note (NoteName, optional): Note that will be used to provide the frequency of the fundamental of
                         the frequencies that remain fixed in the consonance ComponentObject(). Defaults to NoteName.DING.
         ref_octave (int, optional): Octave sequence of the reference note. Defaults to 3.
+        skip (list[GroupName], optional): List of groups of objects that should not be included in the plot(s).
+        include_only (list[GroupName], optional): List of groups of objects that should be included in the plot.
+                        Other objects will be excluded. The skip parameter can be used to exclude subgroups of
+                        the included object groups.
     """
     logger.info("Creating dissonance graphs")
 
@@ -212,16 +219,20 @@ def step_plot_dissonance_graphs(
     #
     if analysis_results:
         # Retrieve the combinations of partials and harmonics for each aggregation group
-        (noteratio_dict, nr_partials, nr_harmonics, ref_note, ref_octave, diss_results) = (
-            generate_dissonance_data_optimized(analysis_results)
+        (noteratio_dict, partials, harmonics, ref_note, ref_octave, diss_results) = generate_dissonance_data_optimized(
+            analysis_results
         )
+        nr_partials = len(partials)
+        nr_harmonics = len(harmonics)
+        aggregation = [InstrumentType.ALL.value]
         logger.info(f"Graphs will be based on optimal average partial combinations over all instruments")
     else:
         # Generate the requested combinations of partials and harmonics for each aggregation group
         # First calculate the average note frequencies for the reference octave (octave 0)
-        (noteratio_dict, nr_partials, nr_harmonics, ref_note, ref_octave, diss_results) = generate_dissonance_data(
+        (noteratio_dict, partials, harmonics, ref_note, ref_octave, diss_results) = generate_dissonance_data(
             aggr_partials, nr_partials, nr_harmonics, ref_note, ref_octave
         )
+        aggregation = aggr_partials.aggregation
         logger.info(
             f"Data is aggregated {'by [' + ', '.join(aggr_partials.aggregation) + ']' if aggr_partials.aggregation else 'over all instruments'}"
         )
@@ -229,53 +240,58 @@ def step_plot_dissonance_graphs(
     #
     # Create the graphs
     #
-    document = DocumentObject(id=1)
-    document.properties[PlotItem.SKIP_GROUPS] = skip
+    document = DocumentObject()
+    document.include_only_list = include_only
+    document.skip_list = skip
 
     for instrumenttype in InstrumentType:
         # TODO retrieving dict entry by using string literal is error prone
         # Key is a string with format "instrumenttype#ombak-octave"
-        keys = [key for key in aggr_partials.root.keys() if key.startswith(instrumenttype.value)]
+        keys = [key for key in diss_results.keys() if key.startswith(instrumenttype.value)]
         if not keys:
+            # No instrument for this key
             continue
 
         logger.info(f"--- generating data for {instrumenttype.value}")
 
         # Generate the data for the graphs and set values if necessary
 
-        document.add_content(page := PageObject())
-        page.properties[PlotItem.PAGESIZE] = PageSizes.A4
-        page.properties[PlotItem.TITLE] = f"Dissonance graph for {groupname.value} {instrumenttype.value}" + (
+        document.add_child(page := PageObject())
+        page.properties[PltProperty.PAGESIZE] = PageSizes.A4
+        page.properties[PltProperty.TITLE] = f"Dissonance graph for {groupname.value} {instrumenttype.value}" + (
             " (same amplitude for all partials)" if amplitude else ""
         )
-        x_min = page.properties[PlotItem.XMIN] = 0.95 * get_stat(min, diss_results, 0, keys)
-        x_max = page.properties[PlotItem.XMAX] = 1.05 * get_stat(max, diss_results, 0, keys)
-        y_min = page.properties[PlotItem.YMIN] = 0.95 * get_stat(min, diss_results, 1, keys)
-        y_max = page.properties[PlotItem.YMAX] = 1.05 * get_stat(max, diss_results, 1, keys)
+        x_min = page.properties[PltProperty.XMIN] = 0.95 * get_stat(min, diss_results, 0, keys)
+        x_max = page.properties[PltProperty.XMAX] = 1.05 * get_stat(max, diss_results, 0, keys)
+        y_min = page.properties[PltProperty.YMIN] = 0.95 * get_stat(min, diss_results, 1, keys)
+        y_max = page.properties[PltProperty.YMAX] = 1.05 * get_stat(max, diss_results, 1, keys)
 
         for subgroup in keys:
-            page.add_content(graph := GraphObject())
+            graph_groups = {GroupName.DISSONANCE_GRAPH}
+            if len(page.children) == 0:
+                graph_groups.add(GroupName.DISSONANCE_ANIMATION_GRAPH)
+            page.add_child(graph := GraphObject(groups=graph_groups))
             diss_result = diss_results[subgroup]
 
             # Add the dissonance line graphs
             for combi in PartialCombiType:
                 # Add a line
-                componentgroupname = {
-                    PartialCombiType.PARTIALS_HARMONICS: GroupName.DISSONANCE_PLOT_PH,
-                    PartialCombiType.HARMONICS_PARTIALS: GroupName.DISSONANCE_PLOT_HP,
-                    PartialCombiType.PARTIALS_PARTIALS: GroupName.DISSONANCE_PLOT_PP,
-                }[combi]
-                graph.add_content(component := ComponentObject(groups=[GroupName.DISSONANCE_PLOT, componentgroupname]))
-                component.properties[PlotItem.PLOTTYPE] = PlotType.LINE
+                componentgroup = GroupName.from_enum(combi)
+                graph.add_child(component := ComponentObject(groups={GroupName.DISSONANCE_LINE, componentgroup}))
+                component.properties[PltProperty.COMPONENTTYPE] = ComponentType.LINE
                 component.content = diss_result[combi]
-                component.properties[PlotItem.COLOR] = get_line_format(combi, PlotItem.COLOR)
-                component.properties[PlotItem.LABEL] = get_line_format(combi, PlotItem.LABEL, nr_partials, nr_harmonics)
+                component.properties[PltProperty.COLOR] = get_line_format(combi, PltProperty.COLOR)
+                component.properties[PltProperty.LABEL] = get_line_format(
+                    combi, PltProperty.LABEL, nr_partials, nr_harmonics
+                )
 
                 # add values of minima
-                graph.add_content(
-                    component := ComponentObject(groups=[GroupName.DISSONANCE_TEXT_MINIMA, componentgroupname])
+                graph.add_child(
+                    component := ComponentObject(
+                        groups={GroupName.DISSONANCE_TEXT, GroupName.DISSONANCE_TEXT_MINIMA, componentgroup}
+                    )
                 )
-                component.properties[PlotItem.PLOTTYPE] = PlotType.TEXT
+                component.properties[PltProperty.COMPONENTTYPE] = ComponentType.TEXT
                 component.content = [
                     {
                         "x": dissonance.ratio,
@@ -287,10 +303,11 @@ def step_plot_dissonance_graphs(
                     }
                     for dissonance in get_minima(*diss_result[combi])
                 ]
-
+                diss = sorted(get_minima(*diss_result[combi]), key=lambda d: d.ratio)
+                print(f"{combi.value}: r=[{", ".join([str(round(d.ratio, 3)) for d in diss])}], d=[{", ".join([str(round(d.dissonance,3)) for d in diss])}]")
             # Add graph title
-            graph.add_content(component := ComponentObject(groups=[GroupName.GRAPH_TITLE]))
-            component.properties[PlotItem.PLOTTYPE] = PlotType.TEXT
+            graph.add_child(component := ComponentObject(groups={GroupName.DISSONANCE_TEXT, GroupName.GRAPH_TITLE}))
+            component.properties[PltProperty.COMPONENTTYPE] = ComponentType.TEXT
             component.content.append(
                 {
                     "x": x_min + 0.01 * (x_max - x_min),
@@ -303,12 +320,12 @@ def step_plot_dissonance_graphs(
 
             # Add vertical lines to indicate note ratios
             notenames = list(noteratio_dict[subgroup].keys())
-            graph.add_content(component := ComponentObject(groups=[GroupName.DISSONANCE_NOTELINES]))
-            component.properties[PlotItem.PLOTTYPE] = PlotType.VLINES
+            graph.add_child(component := ComponentObject(groups={GroupName.DISSONANCE_NOTELINES}))
+            component.properties[PltProperty.COMPONENTTYPE] = ComponentType.VLINES
             component.content = [
                 list(np.array(list(noteratio_dict[subgroup].values()))),
                 [0] * len(noteratio_dict[subgroup].values()),
-                [page.properties[PlotItem.YMAX]] * len(noteratio_dict[subgroup].values()),
+                [page.properties[PltProperty.YMAX]] * len(noteratio_dict[subgroup].values()),
                 [
                     "r" if notename is ref_note.kempyung(notenames) else "y"
                     for notename in noteratio_dict[subgroup].keys()
@@ -316,12 +333,14 @@ def step_plot_dissonance_graphs(
             ]
 
             # Add note abbreviations to vertical lines
-            graph.add_content(component := ComponentObject(groups=[GroupName.DISSONANCE_NOTELINES]))
-            component.properties[PlotItem.PLOTTYPE] = PlotType.TEXT
+            graph.add_child(
+                component := ComponentObject(groups={GroupName.DISSONANCE_TEXT, GroupName.DISSONANCE_NOTELINES})
+            )
+            component.properties[PltProperty.COMPONENTTYPE] = ComponentType.TEXT
             component.content = [
                 {
                     "x": ratio,
-                    "y": page.properties[PlotItem.YMAX] - 0.1,
+                    "y": page.properties[PltProperty.YMAX] - 0.1,
                     "s": notename.short,
                     "fontsize": "small",
                     "color": "r" if notename is ref_note.kempyung(notenames) else "y",
@@ -331,12 +350,34 @@ def step_plot_dissonance_graphs(
                 for notename, ratio in noteratio_dict[subgroup].items()
             ]
 
-        page.properties[PlotItem.NBR_ROWS] = len(page.content)
-        page.properties[PlotItem.NBR_COLUMNS] = 1
+            # ANIMATION: Add vertical lines for partials and harmonics
+            graph.add_child(
+                component := ComponentObject(groups={GroupName.DISSONANCE_ANIMATION_GRAPH, GroupName.PARTIALS})
+            )
+            component.properties[PltProperty.COMPONENTTYPE] = ComponentType.VLINES
+            partial_freqs = sorted(p.ratio for p in partials)
+            component.content = [
+                partial_freqs,
+                [0] * len(partial_freqs),
+                [page.properties[PltProperty.YMAX]] * len(partial_freqs),
+                ["r"] + ["b"] * (len(partial_freqs) - 1),
+            ]
+            graph.add_child(
+                component := ComponentObject(groups={GroupName.DISSONANCE_ANIMATION_GRAPH, GroupName.HARMONICS})
+            )
+            component.properties[PltProperty.COMPONENTTYPE] = ComponentType.VLINES
+            harmonic_freqs = sorted(p.ratio for p in harmonics)
+            component.content = [
+                harmonic_freqs,
+                [0] * len(harmonic_freqs),
+                [page.properties[PltProperty.YMAX]] * len(harmonic_freqs),
+                ["r"] + ["y"] * (len(harmonic_freqs) - 1),
+            ]
 
-    filename = filename.format(
-        ref_note=ref_note, ref_octave=ref_octave, aggregation="-".join(aggr_partials.aggregation or ("all",))
-    )
+        page.properties[PltProperty.NBR_ROWS] = len(page.children)
+        page.properties[PltProperty.NBR_COLUMNS] = 1
+
+    filename = filename.format(ref_note=ref_note, ref_octave=ref_octave, aggregation="-".join(aggregation or ("all",)))
     filepath = get_path(groupname=groupname, folder=Folder.ANALYSES_DISS, filename=filename)
     step_save_object_to_jsonfile(
         document, groupname=groupname, folder=Folder.ANALYSES_DISS, filename=filename[:-4] + ".json"
