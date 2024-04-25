@@ -38,11 +38,11 @@ def step_plot_sounddata(
     logger.info(f"Creating plots of the audio data and saving them to file {filename}")
 
     document = DocumentObject(id=1)
-    document.properties[PltProperty.SKIP] = skip
+    # document.properties[PltProperty.SKIP] = skip
 
     for instrument in group.instruments:
         document.add_child(page := PageObject())
-        page.properties[PltProperty.PAGESIZE] = PageSizes.A4
+        page.properties[PltProperty.PAGESIZE] = PageSizes.A4.value
         page.properties[PltProperty.TITLE] = (
             f"Sound graph for {group.grouptype.value} {instrument.instrumenttype.value} {instrument.code}"
         )
@@ -56,10 +56,8 @@ def step_plot_sounddata(
         )
         nr_of_channels = data.shape[-1]
 
-        page.properties[PltProperty.XMIN] = 0
-        page.properties[PltProperty.XMAX] = math.ceil(len(data) / sample_rate)
-        page.properties[PltProperty.YMIN] = ymin = math.floor(np.min(data))
-        page.properties[PltProperty.YMAX] = ymax = math.ceil(np.max(data))
+        page.properties[PltProperty.XRANGE] = (0, math.ceil(len(data) / sample_rate))
+        page.properties[PltProperty.YRANGE] = (ymin, ymax) = (math.floor(np.min(data)), math.ceil(np.max(data)))
         page.properties[PltProperty.NBR_ROWS] = nr_of_channels
         page.properties[PltProperty.NBR_COLUMNS] = 1
 

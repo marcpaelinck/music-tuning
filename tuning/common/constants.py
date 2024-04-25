@@ -86,6 +86,7 @@ class PageSizes(Enum):
     A4 = [8.3, 11.7]
     LETTER = [8.5, 11.0]
     LEGAL = [8.5, 14.0]
+    ANIMATION = 4.0, 2.5
 
 
 class PartialCombiType(Enum):

@@ -12,11 +12,13 @@ from tuning.common.classes import (
     Tone,
 )
 from tuning.common.constants import (
+    Folder,
     InstrumentGroupName,
     InstrumentType,
     NoteName,
     PartialCombiType,
 )
+from tuning.common.utils import step_save_object_to_jsonfile
 from tuning.visualization.dissonance_plotter import step_plot_dissonance_graphs
 from tuning.visualization.utils import GroupName
 
@@ -58,6 +60,13 @@ if __name__ == "__main__":
     part_freq = np.array(part_ratios) * fundamental_freq
     harmonic_freq = np.array(harm_ratios) * fundamental_freq
     analysis_results = create_consonance_analysis(part_freq=part_freq, harmonics_freq=harmonic_freq)
+    step_save_object_to_jsonfile(
+        object=analysis_results,
+        groupname=InstrumentGroupName.TEST,
+        folder=Folder.ANALYSES_DISS,
+        filename="dissonance_analysis_Sethares_bonang.json",
+        logginginfo="analysis data Sethares plot",
+    )
     step_plot_dissonance_graphs(
         groupname=InstrumentGroupName.TEST,
         analysis_results=analysis_results,

@@ -79,6 +79,7 @@ def get_stat(
     diss_results: dict[str, dict[PartialCombiType, list[Frequency], list[float]]],
     index: int,
     keys: list[str],
+    combi_filter: list[PartialCombiType] = PartialCombiType,
 ):
     """Returns an aggregation result for the given combination of aggregation keys, partial combination and instrument type.
     Args:
@@ -90,7 +91,7 @@ def get_stat(
     Returns:
         _type_: _description_
     """
-    return stat(chain.from_iterable([diss_results[key][combi][index] for key in keys for combi in PartialCombiType]))
+    return stat(chain.from_iterable([diss_results[key][combi][index] for key in keys for combi in combi_filter]))
 
 
 def generate_dissonance_data_optimized(analysis_results: ConsonanceAnalysis):
@@ -257,19 +258,29 @@ def step_plot_dissonance_graphs(
         # Generate the data for the graphs and set values if necessary
 
         document.add_child(page := PageObject())
-        page.properties[PltProperty.PAGESIZE] = PageSizes.A4
+        page.properties[PltProperty.PAGESIZE] = PageSizes.A4.value
         page.properties[PltProperty.TITLE] = f"Dissonance graph for {groupname.value} {instrumenttype.value}" + (
             " (same amplitude for all partials)" if amplitude else ""
         )
-        x_min = page.properties[PltProperty.XMIN] = 0.95 * get_stat(min, diss_results, 0, keys)
-        x_max = page.properties[PltProperty.XMAX] = 1.05 * get_stat(max, diss_results, 0, keys)
-        y_min = page.properties[PltProperty.YMIN] = 0.95 * get_stat(min, diss_results, 1, keys)
-        y_max = page.properties[PltProperty.YMAX] = 1.05 * get_stat(max, diss_results, 1, keys)
+        (x_min, x_max) = page.properties[PltProperty.XRANGE] = (
+            0.95 * get_stat(min, diss_results, 0, keys),
+            1.05 * get_stat(max, diss_results, 0, keys),
+        )
+        (y_min, y_max) = page.properties[PltProperty.YRANGE] = (
+            0.95 * get_stat(min, diss_results, 1, keys),
+            1.05 * get_stat(max, diss_results, 1, keys),
+        )
 
         for subgroup in keys:
             graph_groups = {GroupName.DISSONANCE_GRAPH}
             if len(page.children) == 0:
                 graph_groups.add(GroupName.DISSONANCE_ANIMATION_GRAPH)
+                page.properties[PltProperty.PAGESIZE] = PageSizes.ANIMATION.value
+                filter = [PartialCombiType.PARTIALS_HARMONICS]
+                (y_min, y_max) = page.properties[PltProperty.YRANGE] = (
+                    0.95 * get_stat(min, diss_results, 1, keys, filter),
+                    1.05 * get_stat(max, diss_results, 1, keys, filter),
+                )
             page.add_child(graph := GraphObject(groups=graph_groups))
             diss_result = diss_results[subgroup]
 
@@ -304,7 +315,7 @@ def step_plot_dissonance_graphs(
                     for dissonance in get_minima(*diss_result[combi])
                 ]
                 diss = sorted(get_minima(*diss_result[combi]), key=lambda d: d.ratio)
-                print(f"{combi.value}: r=[{", ".join([str(round(d.ratio, 3)) for d in diss])}], d=[{", ".join([str(round(d.dissonance,3)) for d in diss])}]")
+
             # Add graph title
             graph.add_child(component := ComponentObject(groups={GroupName.DISSONANCE_TEXT, GroupName.GRAPH_TITLE}))
             component.properties[PltProperty.COMPONENTTYPE] = ComponentType.TEXT
@@ -325,7 +336,7 @@ def step_plot_dissonance_graphs(
             component.content = [
                 list(np.array(list(noteratio_dict[subgroup].values()))),
                 [0] * len(noteratio_dict[subgroup].values()),
-                [page.properties[PltProperty.YMAX]] * len(noteratio_dict[subgroup].values()),
+                [page.properties[PltProperty.YRANGE][1]] * len(noteratio_dict[subgroup].values()),
                 [
                     "r" if notename is ref_note.kempyung(notenames) else "y"
                     for notename in noteratio_dict[subgroup].keys()
@@ -340,7 +351,7 @@ def step_plot_dissonance_graphs(
             component.content = [
                 {
                     "x": ratio,
-                    "y": page.properties[PltProperty.YMAX] - 0.1,
+                    "y": page.properties[PltProperty.YRANGE][1] - 0.1,
                     "s": notename.short,
                     "fontsize": "small",
                     "color": "r" if notename is ref_note.kempyung(notenames) else "y",
@@ -351,27 +362,51 @@ def step_plot_dissonance_graphs(
             ]
 
             # ANIMATION: Add vertical lines for partials and harmonics
-            graph.add_child(
+            # Remove the label of the line compos (don't need a legend)
+            line_compos = [
+                child
+                for child in graph.children
+                if child.get_property_value(PltProperty.COMPONENTTYPE) == ComponentType.LINE
+                and child.get_property_value(PltProperty.LABEL)
+            ]
+            for compo in line_compos:
+                del compo.properties[PltProperty.LABEL]
+
+            if component.properties.get(PltProperty.LABEL, None):
+                del component.properties[PltProperty.LABEL]
+            if page.properties.get(PltProperty.TITLE, None):
+                del page.properties[PltProperty.TITLE]
+            page.add_child(ani_graph := GraphObject(groups=graph_groups))
+            ani_graph.add_child(
                 component := ComponentObject(groups={GroupName.DISSONANCE_ANIMATION_GRAPH, GroupName.PARTIALS})
             )
-            component.properties[PltProperty.COMPONENTTYPE] = ComponentType.VLINES
+            page.properties[PltProperty.CONSTRAINED_LAYOUT] = True
+            page.properties[PltProperty.HEIGHT_RATIOS] = [4, 1]
+            ani_graph.properties[PltProperty.AXIS_NOFRAME] = ["top", "left", "right"]
+            ani_graph.properties[PltProperty.AXIS_NOTICKS_X] = True
+            ani_graph.properties[PltProperty.AXIS_NOTICKS_Y] = True
+
             partial_freqs = sorted(p.ratio for p in partials)
+            ani_graph.properties[PltProperty.XRANGE] = (0.9, 1.3 * max(partial_freqs))
+            _, y_max_ani = ani_graph.properties[PltProperty.YRANGE] = (0, 1)
+
+            component.properties[PltProperty.COMPONENTTYPE] = ComponentType.VLINES
             component.content = [
-                partial_freqs,
+                list(np.array(partial_freqs)),
                 [0] * len(partial_freqs),
-                [page.properties[PltProperty.YMAX]] * len(partial_freqs),
-                ["r"] + ["b"] * (len(partial_freqs) - 1),
+                [y_max_ani] * len(partial_freqs),
+                ["b"] * len(partial_freqs),
             ]
-            graph.add_child(
+            ani_graph.add_child(
                 component := ComponentObject(groups={GroupName.DISSONANCE_ANIMATION_GRAPH, GroupName.HARMONICS})
             )
             component.properties[PltProperty.COMPONENTTYPE] = ComponentType.VLINES
             harmonic_freqs = sorted(p.ratio for p in harmonics)
             component.content = [
-                harmonic_freqs,
+                list(np.array(harmonic_freqs)),
                 [0] * len(harmonic_freqs),
-                [page.properties[PltProperty.YMAX]] * len(harmonic_freqs),
-                ["r"] + ["y"] * (len(harmonic_freqs) - 1),
+                [y_max_ani] * len(harmonic_freqs),
+                ["y"] * len(harmonic_freqs),
             ]
 
         page.properties[PltProperty.NBR_ROWS] = len(page.children)

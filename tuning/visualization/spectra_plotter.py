@@ -69,7 +69,7 @@ def step_plot_note_spectra(
     logger.info(f"Creating plots of the frequency spectra and saving them to file {filename}")
 
     document = DocumentObject(id=1)
-    document.properties[PltProperty.SKIP] = skip
+    # document.properties[PltProperty.SKIP] = skip
 
     # Option to paginate by instrument or by instrument/note combination
     if pageby is Instrument:
@@ -84,29 +84,27 @@ def step_plot_note_spectra(
         notelist = [note] if note else instrument.notes
 
         document.add_child(page := PageObject())
-        page.properties[PltProperty.PAGESIZE] = PageSizes.A4
+        page.properties[PltProperty.PAGESIZE] = PageSizes.A4.value
         page.properties[PltProperty.TITLE] = (
             f"{group.grouptype.value} - {instrument.instrumenttype.value} {instrument.ombaktype.value} {instrument.code} {note.name if note else ' '}"
         )
-        page.properties[PltProperty.XMIN] = 0
-        page.properties[PltProperty.XMAX] = max(
-            [p.ratio for note in notelist for part_list in note.partials[:max_partials] for p in part_list]
+        page.properties[PltProperty.XRANGE] = (
+            0,
+            max([p.ratio for note in notelist for part_list in note.partials[:max_partials] for p in part_list]),
         )
-        page.properties[PltProperty.YMIN] = -10
-        page.properties[PltProperty.YMAX] = max(
-            np.max(spectrum.amplitudes) for note in notelist for spectrum in note.spectra
+        page.properties[PltProperty.YRANGE] = (
+            -10,
+            max(np.max(spectrum.amplitudes) for note in notelist for spectrum in note.spectra),
         )
         if aggregatedpartials:
+            maxratio = max([ap.ratio if ratio else ap.tone.frequency for ap in aggr(note) for note in notelist])
             aggr = partial(get_aggr_partials, aggregatedpartials=aggregatedpartials, instrument=instrument)
-            page.properties[PltProperty.XMAX] = max(
-                page.properties[PltProperty.XMAX],
-                max([ap.ratio if ratio else ap.tone.frequency for ap in aggr(note) for note in notelist]),
-            )
         if analysis:
-            page.properties[PltProperty.XMAX] = max(
-                page.properties[PltProperty.XMAX],
-                max([p.ratio for p in analysis.optimal_consonances.partials + analysis.optimal_consonances.harmonics]),
+            maxratio = max(
+                [p.ratio for p in analysis.optimal_consonances.partials + analysis.optimal_consonances.harmonics]
             )
+        xmax = max(page.properties[PltProperty.XRANGE][1], maxratio)
+        page.properties[PltProperty.XRANGE] = (page.properties[PltProperty.XRANGE][0], xmax)
 
         for note in notelist:
             for spectrum, partials, sample_seq in zip(note.spectra, note.partials, count()):
@@ -119,7 +117,9 @@ def step_plot_note_spectra(
                     if ratio
                     else [spectrum.frequencies, spectrum.amplitudes]
                 )
-                max_idx = np.argmax(xy_values[0] > page.properties[PltProperty.XMAX] * 1.05) or len(xy_values[0] - 1)
+                max_idx = np.argmax(xy_values[0] > page.properties[PltProperty.XRANGE][0] * 1.05) or len(
+                    xy_values[0] - 1
+                )
                 xy_values = [xy_values[0][:max_idx], xy_values[1][:max_idx]]
                 graph.add_child(component := ComponentObject(groups=[GroupName.SPECTRA_PLOT]))
                 component.properties[PltProperty.COMPONENTTYPE] = ComponentType.LINE
@@ -128,7 +128,7 @@ def step_plot_note_spectra(
                 # Add Vlines for the first max_partials partials
                 note_partials = [
                     [p.ratio if ratio else p.tone.frequency for p in partials[:max_partials]],
-                    [page.properties[PltProperty.YMIN]] * len(partials[:max_partials]),
+                    [page.properties[PltProperty.YRANGE]] * len(partials[:max_partials]),
                     # [ap.tone.amplitude for ap in aggr(note)] +
                     [p.tone.amplitude for p in partials[:max_partials]],
                     ["r" if p.isfundamental else "c" for p in partials[:max_partials]],
@@ -156,10 +156,10 @@ def step_plot_note_spectra(
                 component.properties[PltProperty.COMPONENTTYPE] = ComponentType.TEXT
                 component.content = [
                     {
-                        "x": page.properties[PltProperty.XMIN]
-                        + 0.01 * (page.properties[PltProperty.XMAX] - page.properties[PltProperty.XMIN]),
-                        "y": page.properties[PltProperty.YMAX]
-                        - 0.1 * (page.properties[PltProperty.YMAX] - page.properties[PltProperty.YMIN]),
+                        "x": page.properties[PltProperty.XRANGE][0]
+                        + 0.01 * (page.properties[PltProperty.XRANGE][1] - page.properties[PltProperty.XRANGE][0]),
+                        "y": page.properties[PltProperty.YRANGE][0]
+                        - 0.1 * (page.properties[PltProperty.YRANGE][1] - page.properties[PltProperty.YRANGE][0]),
                         "s": note.name.value,
                         "fontsize": "small",
                         "color": "b",

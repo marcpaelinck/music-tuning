@@ -155,7 +155,7 @@ class Step(Enum):
             "folder": Folder.ANALYSES_DISS,
             "filename": CONSONANCE_ANALYSIS_FILE,
         },
-        "expected_input": {"groupname": InstrumentGroupName},
+        # "expected_input": {"groupname": InstrumentGroupName},
         "output": ConsonanceAnalysis,
     }
     PROCESS_SOUNDFILES = {
@@ -279,8 +279,8 @@ class Step(Enum):
             "filename": "analysis_graph-{ref_note}{ref_octave}_aggr[{aggregation}].pdf",
         },
         "expected_input": {
-            "aggr_partials": AggregatedPartialDict,
-            "groupname": InstrumentGroupName,
+            # "aggr_partials": AggregatedPartialDict,
+            # "groupname": InstrumentGroupName,
             "analysis_results": ConsonanceAnalysis,
         },
         "output": AggregatedPartialDict,
@@ -434,10 +434,36 @@ PIPE_PLOT_DISS_OF_OPTIMUM = [
 ]
 # FULL SEQUENCE ENDS HERE
 
+PIPE_PLOT_ANIMATED_ANALYSIS_GRAPH = [
+    Step.READ_CONSONANCE_ANALYSIS.action().params(
+        {
+            "groupname": InstrumentGroupName.TEST,
+            "folder": Folder.ANALYSES_DISS,
+            "filename": "dissonance_analysis_Sethares_bonang.json",
+        }
+    ),
+    Step.PLOT_DISSONANCE_RESULTS_OF_ANALYSIS.action().params(
+        {
+            "ref_octave": 2,
+            "groupname": InstrumentGroupName.TEST,
+            "ref_note": NoteName.DING,
+            "include_only": [GroupName.DISSONANCE_ANIMATION_GRAPH],
+            "skip": [
+                GroupName.DISSONANCE_LINE_PP,
+                GroupName.DISSONANCE_LINE_HP,
+                GroupName.DISSONANCE_NOTELINES,
+                GroupName.DISSONANCE_TEXT,
+            ],
+            "filename": "animation_dissonance_Sethares_bonang.mp4",
+            "generator": plot_animated_diss_graph,
+        }
+    ),
+]
+
 TEST = [
     Step.READ_AGGREGATED_PARTIALS.action(),
 ]
 
 if __name__ == "__main__":
-    pipeline = PipeLine(InstrumentGroupName.GENDERWAYANG, PIPE_PLOT_ANIMATED_DISS_GRAPH)
+    pipeline = PipeLine(InstrumentGroupName.TEST, PIPE_PLOT_ANIMATED_ANALYSIS_GRAPH)
     pipeline.execute()

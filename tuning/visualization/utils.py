@@ -1,11 +1,12 @@
 import pathlib
-from enum import Enum, auto
+from enum import Enum, auto, nonmember
 from itertools import count
 from typing import Any, Callable, Optional
 
 import matplotlib.pyplot as plt
 import numpy as np
 from matplotlib.axes import Axes
+from matplotlib.axis import Axis
 from matplotlib.backends.backend_pdf import PdfPages
 from matplotlib.figure import Figure
 from matplotlib.lines import Line2D
@@ -24,29 +25,40 @@ class ComponentType(Enum):
 
 
 class PltProperty(Enum):
-    # CONTENT = "content"
-    ID = "id"
-    SEQ = "sequence"
-    TITLE = "pagetitle"
-    PAGESIZE = "pagesize"
-    COMPONENTTYPE = "componenttype"
-    PLOTTEXTS = "plottexts"
-    NBR_COLUMNS = "nbr_columns"
-    NBR_ROWS = "nbr_rows"
-    DATA = "data"
-    COLOR = "color"
-    LABEL = "label"
-    LEGEND = "legend"
-    SHOW = "show"
-    FIGURE = "figure"
-    AXES = "axes"
-    XMIN = "xmin"
-    XMAX = "xmax"
-    YMIN = "ymin"
-    YMAX = "ymax"
-    AUTOX = "autox"
-    SKIP = "skip"
-    INCLUDE_ONLY = "include"
+
+    # Object types, used to determine
+    # if the property should be used as an argo or kwarg
+    FIGURE = nonmember("FIGURE")
+    AXIS = nonmember("AXIS")
+    COMPONENT = nonmember("COMPONENT")
+    ARG = nonmember("ARG")
+    KWARG = nonmember("KWARG")
+
+    # Actual properties
+    # arguments are: value, level indicator if value is kwarg
+    ID = "id", None, None
+    SEQ = "sequence", None, None
+    TITLE = "pagetitle", None, None
+    PAGESIZE = "figsize", KWARG, FIGURE
+    COMPONENTTYPE = "componenttype", None, None
+    PLOTTEXTS = "plottexts", None, None
+    NBR_COLUMNS = "nrows", ARG, FIGURE
+    NBR_ROWS = "ncols", ARG, FIGURE
+    CONSTRAINED_LAYOUT = "constrained_layout", KWARG, FIGURE
+    HEIGHT_RATIOS = "height_ratios", KWARG, FIGURE
+    AXIS_NOFRAME = "axis no frame", None, None
+    AXIS_NOTICKS_X = "axis no ticks x", None, None
+    AXIS_NOTICKS_Y = "axis no ticks y", None, None
+    COLOR = "color", KWARG, COMPONENT
+    LABEL = "label", KWARG, COMPONENT
+    XRANGE = "xlim", KWARG, AXIS
+    YRANGE = "ylim", KWARG, AXIS
+    SKIP = "skip", None, None
+
+    def __init__(self, label, argtype, artist):
+        self.label = label
+        self.argtype = argtype
+        self.artist = artist
 
 
 class ContentType(Enum):
@@ -127,16 +139,17 @@ class PlotObject(BaseModel):
         prop = prop.value if isinstance(prop, Enum) else prop
         return myprop == prop
 
-    def has_property_value(self, proptype: PltProperty, prop: Any):
+    def get_property_value(self, proptype: PltProperty):
         # TODO Flaw in properties attribute: values of this dict are of type Any.
         # As a consequence, when a JSON file is read, str values representing Enum variables
         # will not be cast into the corresponding Enum but will remain of type str.
         myprop = self.properties.get(proptype, None)
-        if not myprop:
-            return False
-        myprop = myprop.value if isinstance(myprop, Enum) else myprop
+        return myprop
+
+    def has_property_value(self, proptype: PltProperty, prop: Any):
         prop = prop.value if isinstance(prop, Enum) else prop
-        return myprop == prop
+        myprop = myprop.value if isinstance(myprop, Enum) else myprop
+        return self.get_property_value(proptype) == prop
 
     class Config:
         arbitrary_types_allowed = True
@@ -193,7 +206,7 @@ class DocumentObject(HierachicalPlotObject):
 def plot_component(
     content: tuple[list[float]],
     component_args: dict[PltProperty, Any] = dict(),
-    plot_args: dict[PltProperty, Any] = dict(),
+    graph_args: dict[PltProperty, Any] = dict(),
     page_args: dict[PltProperty, Any] = dict(),
     doc_args: dict[PltProperty, Any] = dict(),
     figure: Figure = None,
@@ -217,51 +230,75 @@ def plot_component(
             Any: The property value or None if none was found.
         """
         value = doc_args.get(
-            property, component_args.get(property, plot_args.get(property, page_args.get(property, None)))
+            property, component_args.get(property, graph_args.get(property, page_args.get(property, None)))
         )
 
         # If it is a componenttype string value, cast to ComponentType
-        # TODO This is a workaround becausa properties are of type Any. Need to find a better solution.
-        value = ComponentType(value) if value in ComponentType else value
+        # TODO This is a workaround because properties are of type Any. Need to find a better solution.
+        value = ComponentType(value) if str(value) in ComponentType else value
         if strict and value is None:
             raise Exception(f"Missing property {property}")
         return value
 
+    def get_args_kwargs(artist: str) -> dict[str, Any]:
+        """Returns all properties that are kwargs for the given artist type
+
+        Args:
+            level (PltProperty): the artist ("FIGURE", "AXIS" or "COMPONENT")
+
+        Returns:
+            dict[str, Any]: a dict of
+        """
+        all_args = page_args
+        all_args.update(graph_args)
+        all_args.update(component_args)
+        return (
+            [value for arg, value in all_args.items() if arg.argtype == PltProperty.ARG and arg.artist == artist],
+            {
+                arg.label: value
+                for arg, value in all_args.items()
+                if arg.argtype == PltProperty.KWARG and arg.artist == artist
+            },
+        )
+
     if not figure:
-        nbr_columns = get_arg(PltProperty.NBR_COLUMNS)
-        nbr_rows = get_arg(PltProperty.NBR_ROWS)
-        pagesize = get_arg(PltProperty.PAGESIZE, strict=False)
-        fig_kwargs = {"figsize": pagesize.value} if pagesize else dict()
-        figure, axes = plt.subplots(nbr_rows, nbr_columns, **fig_kwargs)
+        fig_args, fig_kwargs = get_args_kwargs(PltProperty.FIGURE)
+        figure, axes = plt.subplots(*fig_args, **fig_kwargs, dpi=300)
         if pagetitle := page_args.get(PltProperty.TITLE, None):
             figure.suptitle(pagetitle)
     if not handles:
         handles = list()
 
     axis_list = list(axes.flatten()) if isinstance(axes, np.ndarray) else [axes]
-    idx = plot_args.get(PltProperty.SEQ)
-    axis = axis_list[idx]
+    idx = graph_args.get(PltProperty.SEQ)
+    axis: Axis = axis_list[idx]
 
-    # Retrieve and apply settings
-    if (xmin := get_arg(PltProperty.XMIN, strict=False)) and (xmax := get_arg(PltProperty.XMAX, strict=False)):
-        plt.setp(axis, xlim=(xmin, xmax))
-    if (ymin := get_arg(PltProperty.YMIN, strict=False)) and (ymax := get_arg(PltProperty.YMAX, strict=False)):
-        plt.setp(axis, ylim=(ymin, ymax))
-    if color := component_args.get(PltProperty.COLOR, None):
-        kwargs["color"] = color
-    if label := component_args.get(PltProperty.LABEL, None):
-        kwargs["label"] = label
+    # Apply specific axis properties
+    if lines := graph_args.get(PltProperty.AXIS_NOFRAME, []):
+        for line in lines:
+            axis.spines[line].set_visible(False)
+    # Remove tick marks
+    if graph_args.get(PltProperty.AXIS_NOTICKS_X, False):
+        axis.tick_params(bottom=False, top=False)
+        axis.set_xticks([])
+    if graph_args.get(PltProperty.AXIS_NOTICKS_Y, False):
+        axis.tick_params(left=False, right=False)
+        axis.set_yticks([])
+
+    # Retrieve and apply settings for the axis
+    _, axis_kwargs = get_args_kwargs(PltProperty.AXIS)
+    if axis_kwargs:
+        plt.setp(axis, **axis_kwargs)
 
     # Draw the plot
     componenttype = get_arg(PltProperty.COMPONENTTYPE)
+    _, compo_kwargs = get_args_kwargs(PltProperty.COMPONENT)
     match componenttype:
         case ComponentType.LINE:
+            (handle,) = axis.plot(*content, **compo_kwargs)
+            handles.append(handle)
             if component_args.get(PltProperty.LABEL, None):
-                (handle,) = axis.plot(*content, **kwargs)
-                handles.append(handle)
                 axis.legend(handles=handles, loc="upper right")
-            else:
-                axis.plot(*content, **kwargs)
         case ComponentType.VLINES:
             # if component_args.get(PlotItem.LABEL, None):
             handle = axis.vlines(*content, **kwargs)
@@ -320,17 +357,13 @@ def create_pdf_with_plots(
                 handles = None
                 for component in graph.children:
                     if not component.skip:
-                        # all_groups = page.groups | graph.groups | component.groups
-                        # if any(group in document.properties[PltProperty.INCLUDE_ONLY] for group in all_groups) and not any(
-                        #     group in document.properties[PltProperty.SKIP] for group in all_groups
-                        # ):
                         figure, axes, handles = plot_component(
                             component.content,
                             figure=figure,
                             axes=axes,
                             handles=handles,
                             component_args=component.properties,
-                            plot_args=graph.properties,
+                            graph_args=graph.properties,
                             page_args=page.properties,
                             doc_args=document.properties,
                         )
