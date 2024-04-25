@@ -50,8 +50,9 @@ def reduce_frequency(frequency: Frequency, octaves: int) -> Frequency:
 
 
 def create_consonance_analysis(
-    part_freq: list[Frequency],
-    harmonics_freq: list[Frequency],
+    partial_ratios: list[Frequency],
+    harmonic_ratios: list[Frequency],
+    fundamental_freq: Frequency,
 ) -> ConsonanceAnalysis:
     """Creates ConsonanceAnalysis object based one lists of frequencies. The list can be used
     as input for the generation of a dissonance curve.
@@ -64,21 +65,24 @@ def create_consonance_analysis(
     Returns:
         ConsonanceAnalysis: _description_
     """
-    ref_part = part_freq[0]
+    partial_freqs = np.array(partial_ratios) * fundamental_freq
+    harmonic_freqs = np.array(harmonic_ratios) * fundamental_freq
+
+    ref_part = partial_freqs[0]
     partials = [
         Partial(tone=Tone(frequency=freq, amplitude=1), ratio=freq / ref_part, isfundamental=(freq == ref_part))
-        for freq in part_freq
+        for freq in partial_freqs
     ]
-    ref_harm = harmonics_freq[0]
+    ref_harm = harmonic_freqs[0]
     harmonics = [
-        Partial(tone=Tone(frequency=freq, amplitude=1), ratio=freq / ref_harm, isfundamental=(freq == ref_part))
-        for freq in harmonics_freq
+        Partial(tone=Tone(frequency=freq, amplitude=1), ratio=freq / ref_harm, isfundamental=(freq == ref_harm))
+        for freq in harmonic_freqs
     ]
     noteratio_dict = {NoteName.DING: 1.0}
     return ConsonanceAnalysis(
         ref_note=NoteName.DING,
         ref_octave=0,
-        ref_frequency=part_freq[0],
+        ref_frequency=partial_freqs[0],
         fundamental=partials[0],
         all_partials=partials,
         all_harmonics=harmonics,

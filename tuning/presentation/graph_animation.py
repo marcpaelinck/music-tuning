@@ -7,9 +7,16 @@ import matplotlib.pyplot as plt
 import numpy as np
 from matplotlib.axis import Axis
 
+from tuning.analysis.utils import create_consonance_analysis
 from tuning.common.classes import Frequency
-from tuning.common.constants import Folder, InstrumentGroupName, PageSizes
-from tuning.common.utils import get_logger, get_path, step_read_object_from_jsonfile
+from tuning.common.constants import Folder, InstrumentGroupName, NoteName, PageSizes
+from tuning.common.utils import (
+    get_logger,
+    get_path,
+    step_read_object_from_jsonfile,
+    step_save_object_to_jsonfile,
+)
+from tuning.visualization.dissonance_plotter import step_plot_dissonance_graphs
 from tuning.visualization.utils import (
     ComponentType,
     DocumentObject,
@@ -111,7 +118,12 @@ def run(data, xdata, ydata, ax, line, vlines):
 
 
 # Only save last 100 frames, but run forever
-def plot_animated_diss_graph(document: DocumentObject, filepath: str, duration: int = 30, fps=15):
+def plot_animated_diss_graph(
+    document: DocumentObject,
+    filepath: str,
+    duration: int = 30,
+    fps=15,
+):
     page = document.children[0]
     # page.properties.pop(PltProperty.PAGESIZE)
     # page.properties[PltProperty.NBR_ROWS] = 1
@@ -156,6 +168,30 @@ def plot_animated_diss_graph(document: DocumentObject, filepath: str, duration: 
 
 
 if __name__ == "__main__":
+    part_ratios = [1.0]
+    harm_ratios = [1.0]
+    fundamental_freq = 400
+
+    analysis_results = create_consonance_analysis(partial_ratios=part_ratios, harmonic_ratios=harm_ratios)
+    step_save_object_to_jsonfile(
+        object=analysis_results,
+        groupname=InstrumentGroupName.TEST,
+        folder=Folder.ANALYSES_DISS,
+        filename="PL_dissonance_plot.json",
+        logginginfo="analysis Plomp-Levelt dissonance plot",
+    )
+    step_plot_dissonance_graphs(
+        groupname=InstrumentGroupName.TEST,
+        analysis_results=analysis_results,
+        # filename="dissonance_graph-{ref_note}{ref_octave}_aggr[{aggregation}].pdf",
+        filename="dissonance_graph_PL.pdf",
+        ref_octave=2,
+        ref_note=NoteName.DING,
+        end_shift_ratio=1.5,
+        include_only=[GroupName.DISSONANCE_GRAPH],
+        skip=[GroupName.DISSONANCE_LINE_PP, GroupName.DISSONANCE_LINE_HP],
+    )
+
     groupname = InstrumentGroupName.GENDERWAYANG
     folder = Folder.ANALYSES_DISS
     json_filename = "dissonance_graph-DING2_aggr[InstrumentType-OmbakType].json"

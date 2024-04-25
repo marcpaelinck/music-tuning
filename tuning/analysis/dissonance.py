@@ -133,6 +133,7 @@ def dissonance_profile(
     pairs: dict[Any, tuple[list[Partial], list[Partial]]],
     fundamental: Partial,
     is_reverse=False,
+    end_shift_ratio=2.5,
 ) -> list[list[Frequency], list[float]]:
     """
     Calculated the dissonance graph values for two sets of partials.
@@ -153,7 +154,7 @@ def dissonance_profile(
     # Determine the step size by which the partials of g should be shifted
     # Create a list of stewise increments
     STEPS = 5000
-    step = (1.5 * fundamental_freq) / STEPS
+    step = ((end_shift_ratio - 1) * fundamental_freq) / STEPS
     increments = np.resize(
         np.array(list(range(STEPS))) * step, (1, STEPS, 1)
     )  # Vector containing the successive increments

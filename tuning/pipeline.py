@@ -439,7 +439,7 @@ PIPE_PLOT_ANIMATED_ANALYSIS_GRAPH = [
         {
             "groupname": InstrumentGroupName.TEST,
             "folder": Folder.ANALYSES_DISS,
-            "filename": "dissonance_analysis_Sethares_bonang.json",
+            "filename": "dissonance_analysis_PL.json",
         }
     ),
     Step.PLOT_DISSONANCE_RESULTS_OF_ANALYSIS.action().params(
@@ -454,7 +454,8 @@ PIPE_PLOT_ANIMATED_ANALYSIS_GRAPH = [
                 GroupName.DISSONANCE_NOTELINES,
                 GroupName.DISSONANCE_TEXT,
             ],
-            "filename": "animation_dissonance_Sethares_bonang.mp4",
+            "filename": "animation_dissonance_Plot_Levelt.mp4",
+            "end_shift_ratio": 1.5,
             "generator": plot_animated_diss_graph,
         }
     ),

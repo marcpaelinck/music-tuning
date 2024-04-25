@@ -215,7 +215,7 @@ def step_plot_note_spectra(
                     component.properties[PltProperty.COMPONENTTYPE] = ComponentType.VLINES
                     component.content.extend(aggr_partials)
 
-        page.properties[PltProperty.NBR_ROWS] = len(page.content)
+        page.properties[PltProperty.NBR_ROWS] = len(page.children)
         page.properties[PltProperty.NBR_COLUMNS] = 1
 
     filepath = get_path(groupname=group.grouptype, folder=Folder.ANALYSES_SPECTRA, filename=filename)

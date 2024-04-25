@@ -1,5 +1,6 @@
 import pathlib
 from enum import Enum, auto, nonmember
+from hashlib import file_digest
 from itertools import count
 from typing import Any, Callable, Optional
 
@@ -350,13 +351,13 @@ def create_pdf_with_plots(
         plotname = pathlib.Path(filepath).stem.replace("_", " ")
         logger.info(f"Generating PDF plots of {plotname}.")
         for page, counter in zip(document.children, count(1)):
-            logger.info(f"Plotting page {counter+1} of {len(document.content)}")
-            figure = None
-            axes = None
-            for graph in page.children:
-                handles = None
-                for component in graph.children:
-                    if not component.skip:
+            if not page.skip:
+                logger.info(f"Plotting page {counter} of {len(document.children)}")
+                figure = None
+                axes = None
+                for graph in [g for g in page.children if not g.skip]:
+                    handles = None
+                    for component in [c for c in graph.children if not c.skip]:
                         figure, axes, handles = plot_component(
                             component.content,
                             figure=figure,
@@ -369,6 +370,7 @@ def create_pdf_with_plots(
                         )
             pdf.savefig()
             plt.close()
+    logger.info(f"Plot(s) saved to {filepath}")
 
 
 def create_animation(

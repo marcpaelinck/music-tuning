@@ -61,17 +61,19 @@ def save_audio_to_wav(audio_data, sample_rate, filename, channels=2, sample_widt
 
 if __name__ == "__main__":
     fundamental = 200
-    partials = [list(np.array([1.0, 1.52, 3.46, 3.9]) * fundamental), [1, 1, 1, 1]]  # Frequencies of the partials
-    harmonics = [list(np.array([1.0, 2.0, 3.0, 4.0]) * fundamental), [1, 1, 1, 1]]  # Frequencies of the harmonics
-    # partials = [[300], [1, 1, 1, 1]]  # Frequencies of the partials
-    # harmonics = [[300], [1, 1, 1, 1]]  # Frequencies of the partials
+    # partials = [list(np.array([1.0, 1.52, 3.46, 3.9]) * fundamental), [1, 1, 1, 1]]  # Frequencies + amplitudes of the partials
+    # harmonics = [list(np.array([1.0, 2.0, 3.0, 4.0]) * fundamental), [1, 1, 1, 1]]  # Frequencies + amplitudes of the harmonics
+    partials = [list(np.array([1.0]) * fundamental), [1]]
+    harmonics = [list(np.array([1.0]) * fundamental), [1]]
     sounddata = generate_shift_data(partials=partials, harmonics=harmonics, duration=30)
     # Example usage
     # Stereo audio data
     # stereo_data = np.random.rand(10000, 2) * 2**15
 
     # Save as stereo WAV file
-    filepath = get_path(groupname=InstrumentGroupName.TEST, folder=Folder.ANALYSES_DISS, filename="stereo_audio.wav")
+    filepath = get_path(
+        groupname=InstrumentGroupName.TEST, folder=Folder.ANALYSES_DISS, filename="audio_animation_PL.wav"
+    )
     save_audio_to_wav(audio_data=sounddata, sample_rate=44100, filename=filepath, channels=1)
 
 # %%

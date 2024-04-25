@@ -94,15 +94,13 @@ def get_stat(
     return stat(chain.from_iterable([diss_results[key][combi][index] for key in keys for combi in combi_filter]))
 
 
-def generate_dissonance_data_optimized(analysis_results: ConsonanceAnalysis):
+def generate_dissonance_data_optimized(analysis_results: ConsonanceAnalysis, end_shift_ratio: Frequency = 2.5):
     if analysis_results:
         # Retrieve the combinations of partials and harmonics for each aggregation group
         key = InstrumentType.ALL.value
         partials = analysis_results.optimal_consonances.partials
         harmonics = analysis_results.optimal_consonances.harmonics
         noteratio_dict = {InstrumentType.ALL.value: analysis_results.noteratio_dict}
-        nr_partials = len(partials)
-        nr_harmonics = len(harmonics)
         ref_note = analysis_results.ref_note
         ref_octave = analysis_results.ref_octave
         partial_harmonic_pairs = {
@@ -111,7 +109,7 @@ def generate_dissonance_data_optimized(analysis_results: ConsonanceAnalysis):
             PartialCombiType.HARMONICS_PARTIALS: (harmonics, partials),
         }
         fundamental = next((partial for partial in partials if partial.isfundamental), None)
-        diss_results = {key: dissonance_profile(partial_harmonic_pairs, fundamental)}
+        diss_results = {key: dissonance_profile(partial_harmonic_pairs, fundamental, end_shift_ratio=end_shift_ratio)}
     return (
         noteratio_dict,
         partials,
@@ -128,6 +126,7 @@ def generate_dissonance_data(
     nr_harmonics: int = DEFAULT_NR_HARMONICS_DISS_GRAPH,
     ref_note: NoteName = NoteName.DING,
     ref_octave: int = 3,
+    end_shift_ratio: int = 2.5,  # indicates the end frequency of the shifted frequency relative to the fixed fundamental.
 ):
     # Generate the requested combinations of partials and harmonics for each aggregation group
     # First calculate the average note frequencies for the reference octave (octave 0)
@@ -150,7 +149,7 @@ def generate_dissonance_data(
             PartialCombiType.HARMONICS_PARTIALS: (harmonics, partials),
         }
         fundamental = next((partial for partial in partials if partial.isfundamental), None)
-        diss_results[key] = dissonance_profile(partial_harmonic_pairs, fundamental)
+        diss_results[key] = dissonance_profile(partial_harmonic_pairs, fundamental, end_shift_ratio=end_shift_ratio)
 
         # list of note frequencies relative to the referenc note
         note_dict = {
@@ -182,6 +181,7 @@ def step_plot_dissonance_graphs(
     amplitude: float = None,
     ref_note: NoteName = NoteName.DING,
     ref_octave: int = 3,
+    end_shift_ratio: float = 2.5,
     include_only: list[GroupName] = list(),
     skip: list[GroupName] = list(),
 ):
@@ -208,6 +208,7 @@ def step_plot_dissonance_graphs(
         ref_note (NoteName, optional): Note that will be used to provide the frequency of the fundamental of
                         the frequencies that remain fixed in the consonance ComponentObject(). Defaults to NoteName.DING.
         ref_octave (int, optional): Octave sequence of the reference note. Defaults to 3.
+        end_shift_ratio (float): Indicates the end frequency of the shifted fundamental relative to the fixed fundamental.
         skip (list[GroupName], optional): List of groups of objects that should not be included in the plot(s).
         include_only (list[GroupName], optional): List of groups of objects that should be included in the plot.
                         Other objects will be excluded. The skip parameter can be used to exclude subgroups of
@@ -221,7 +222,7 @@ def step_plot_dissonance_graphs(
     if analysis_results:
         # Retrieve the combinations of partials and harmonics for each aggregation group
         (noteratio_dict, partials, harmonics, ref_note, ref_octave, diss_results) = generate_dissonance_data_optimized(
-            analysis_results
+            analysis_results, end_shift_ratio=end_shift_ratio
         )
         nr_partials = len(partials)
         nr_harmonics = len(harmonics)
@@ -231,7 +232,7 @@ def step_plot_dissonance_graphs(
         # Generate the requested combinations of partials and harmonics for each aggregation group
         # First calculate the average note frequencies for the reference octave (octave 0)
         (noteratio_dict, partials, harmonics, ref_note, ref_octave, diss_results) = generate_dissonance_data(
-            aggr_partials, nr_partials, nr_harmonics, ref_note, ref_octave
+            aggr_partials, nr_partials, nr_harmonics, ref_note, ref_octave, end_shift_ratio=end_shift_ratio
         )
         aggregation = aggr_partials.aggregation
         logger.info(
@@ -376,12 +377,11 @@ def step_plot_dissonance_graphs(
                 del component.properties[PltProperty.LABEL]
             if page.properties.get(PltProperty.TITLE, None):
                 del page.properties[PltProperty.TITLE]
-            page.add_child(ani_graph := GraphObject(groups=graph_groups))
+            page.add_child(ani_graph := GraphObject(groups={GroupName.DISSONANCE_ANIMATION_GRAPH}))
             ani_graph.add_child(
                 component := ComponentObject(groups={GroupName.DISSONANCE_ANIMATION_GRAPH, GroupName.PARTIALS})
             )
             page.properties[PltProperty.CONSTRAINED_LAYOUT] = True
-            page.properties[PltProperty.HEIGHT_RATIOS] = [4, 1]
             ani_graph.properties[PltProperty.AXIS_NOFRAME] = ["top", "left", "right"]
             ani_graph.properties[PltProperty.AXIS_NOTICKS_X] = True
             ani_graph.properties[PltProperty.AXIS_NOTICKS_Y] = True
@@ -409,8 +409,10 @@ def step_plot_dissonance_graphs(
                 ["y"] * len(harmonic_freqs),
             ]
 
-        page.properties[PltProperty.NBR_ROWS] = len(page.children)
+        page.properties[PltProperty.NBR_ROWS] = nr_cols = len([child for child in page.children if not child.skip])
         page.properties[PltProperty.NBR_COLUMNS] = 1
+        if nr_cols == 2:
+            page.properties[PltProperty.HEIGHT_RATIOS] = [4, 1]
 
     filename = filename.format(ref_note=ref_note, ref_octave=ref_octave, aggregation="-".join(aggregation or ("all",)))
     filepath = get_path(groupname=groupname, folder=Folder.ANALYSES_DISS, filename=filename)

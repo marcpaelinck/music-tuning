@@ -11,7 +11,7 @@ from tuning.common.classes import (
     Tone,
 )
 from tuning.common.constants import NoteName, PartialCombiType
-from tuning.test import create_consonance_analysis
+from tuning.presentation.create_consonance_analysis import create_consonance_analysis
 from tuning.visualization.dissonance_plotter import generate_dissonance_data_optimized
 
 data = [
@@ -76,10 +76,9 @@ def test_generate_dissonance_data(
         harmonic_ratios (list[Partial]): list of harmonic ratios
         expected (dict[PartialCombiType, list[tuple[Ratio, float]]]): (ratio, dissonance) pairs corresponding with the minima of the curve.
     """
-    part_freq = np.array(partial_ratios) * fundamental_freq
-    harmonic_freq = np.array(harmonic_ratios) * fundamental_freq
-
-    analysis_results = create_consonance_analysis(part_freq=part_freq, harmonics_freq=harmonic_freq)
+    analysis_results = create_consonance_analysis(
+        partial_ratios=partial_ratios, harmonic_ratios=harmonic_ratios, fundamental_freq=fundamental_freq
+    )
     (_, _, _, _, _, diss_results) = generate_dissonance_data_optimized(analysis_results)
     diss_results = list(diss_results.values())[0]
     consonances = {
