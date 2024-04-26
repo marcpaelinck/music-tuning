@@ -17,6 +17,8 @@ from tuning.common.classes import (
     InstrumentType,
 )
 from tuning.common.constants import (
+    DEFAULT_ANIMATION_DURATION,
+    DEFAULT_ANIMATION_INTRO,
     DEFAULT_NR_HARMONICS_DISS_GRAPH,
     DEFAULT_NR_PARTIALS_DISS_GRAPH,
     Folder,
@@ -184,6 +186,8 @@ def step_plot_dissonance_graphs(
     end_shift_ratio: float = 2.5,
     include_only: list[GroupName] = list(),
     skip: list[GroupName] = list(),
+    duration: int = DEFAULT_ANIMATION_DURATION,
+    intro: int = DEFAULT_ANIMATION_INTRO,
 ):
     """
     Generates dissonance plot data using aggregated partials as input, and calls generator to process the data.
@@ -213,6 +217,8 @@ def step_plot_dissonance_graphs(
         include_only (list[GroupName], optional): List of groups of objects that should be included in the plot.
                         Other objects will be excluded. The skip parameter can be used to exclude subgroups of
                         the included object groups.
+        duration (int): Only used in case of an animation. Duration of the animation in seconds.
+        intro (int): Only used in case of an animation. Duration before the animation starts, in seconds.
     """
     logger.info("Creating dissonance graphs")
 
@@ -245,6 +251,8 @@ def step_plot_dissonance_graphs(
     document = DocumentObject()
     document.include_only_list = include_only
     document.skip_list = skip
+    document.properties[PltProperty.DURATION] = duration
+    document.properties[PltProperty.INTRO] = intro
 
     for instrumenttype in InstrumentType:
         # TODO retrieving dict entry by using string literal is error prone
@@ -283,6 +291,7 @@ def step_plot_dissonance_graphs(
                     1.05 * get_stat(max, diss_results, 1, keys, filter),
                 )
             page.add_child(graph := GraphObject(groups=graph_groups))
+            graph.properties[PltProperty.AXIS_NOTICKS_Y] = True
             diss_result = diss_results[subgroup]
 
             # Add the dissonance line graphs
@@ -387,7 +396,8 @@ def step_plot_dissonance_graphs(
             ani_graph.properties[PltProperty.AXIS_NOTICKS_Y] = True
 
             partial_freqs = sorted(p.ratio for p in partials)
-            ani_graph.properties[PltProperty.XRANGE] = (0.9, 1.3 * max(partial_freqs))
+            xmin, xmax = page.properties[PltProperty.XRANGE]
+            ani_graph.properties[PltProperty.XRANGE] = (xmin, 1.3 * xmax)
             _, y_max_ani = ani_graph.properties[PltProperty.YRANGE] = (0, 1)
 
             component.properties[PltProperty.COMPONENTTYPE] = ComponentType.VLINES

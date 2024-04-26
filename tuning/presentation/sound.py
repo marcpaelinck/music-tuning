@@ -8,7 +8,7 @@ from tuning.common.constants import Folder, InstrumentGroupName
 from tuning.common.utils import get_path
 
 
-def generate_shift_data(partials, harmonics, duration=2, channels=1):
+def generate_shift_data(partials, harmonics, duration=2, maxshift=2.5, channels=1):
     volume = 0.5  # range [0.0, 1.0]
     rate = 44100  # sampling rate, Hz, must be integer
 
@@ -16,7 +16,6 @@ def generate_shift_data(partials, harmonics, duration=2, channels=1):
     leftchannel = np.zeros_like(t)
     rightchannel = np.zeros_like(t)
 
-    maxshift = 2.5
     increase = (maxshift - 1) * np.arange(0, len(t)) / (2 * len(t)) + 1
     print(f"max increase ={np.max(increase)}")
     # increase = np.ones_like(t)
@@ -61,18 +60,19 @@ def save_audio_to_wav(audio_data, sample_rate, filename, channels=2, sample_widt
 
 if __name__ == "__main__":
     fundamental = 200
-    # partials = [list(np.array([1.0, 1.52, 3.46, 3.9]) * fundamental), [1, 1, 1, 1]]  # Frequencies + amplitudes of the partials
-    # harmonics = [list(np.array([1.0, 2.0, 3.0, 4.0]) * fundamental), [1, 1, 1, 1]]  # Frequencies + amplitudes of the harmonics
-    partials = [list(np.array([1.0]) * fundamental), [1]]
-    harmonics = [list(np.array([1.0]) * fundamental), [1]]
-    sounddata = generate_shift_data(partials=partials, harmonics=harmonics, duration=30)
+    # Frequencies + amplitudes of the partials
+    partials = [list(np.array([1.0, 1.52, 3.46, 3.9]) * fundamental), [1, 1, 1, 1]]  # Sethares
+    harmonics = [list(np.array([1.0, 2.0, 3.0, 4.0]) * fundamental), [1, 1, 1, 1]]  # Sethares
+    # partials = [list(np.array([1.0]) * fundamental), [1]]  # Plomp-Levelt
+    # harmonics = [list(np.array([1.0]) * fundamental), [1]]  # Plomp-Levelt
+    sounddata = generate_shift_data(partials=partials, harmonics=harmonics, duration=30, maxshift=2.5)
     # Example usage
     # Stereo audio data
     # stereo_data = np.random.rand(10000, 2) * 2**15
 
     # Save as stereo WAV file
     filepath = get_path(
-        groupname=InstrumentGroupName.TEST, folder=Folder.ANALYSES_DISS, filename="audio_animation_PL.wav"
+        groupname=InstrumentGroupName.TEST, folder=Folder.ANALYSES_DISS, filename="audio_animation_Sethares.wav"
     )
     save_audio_to_wav(audio_data=sounddata, sample_rate=44100, filename=filepath, channels=1)
 

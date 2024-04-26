@@ -55,6 +55,8 @@ class PltProperty(Enum):
     XRANGE = "xlim", KWARG, AXIS
     YRANGE = "ylim", KWARG, AXIS
     SKIP = "skip", None, None
+    DURATION = "duration", None, None
+    INTRO = "intro", None, None
 
     def __init__(self, label, argtype, artist):
         self.label = label
@@ -114,6 +116,8 @@ class PlotObject(BaseModel):
     sequence: Optional[int] = None
     kind: str = Field(default="PLOT", init=False)
     properties: Optional[dict[PltProperty, Any]] = Field(default_factory=dict)
+    pdfproperties: Optional[dict[PltProperty, Any]] = Field(default_factory=dict)
+    animationproperties: Optional[dict[PltProperty, Any]] = Field(default_factory=dict)
     groups: set[GroupName] = Field(default_factory=set)
     include_only_list: list[GroupName] = list()
     skip_list: list[GroupName] = list()
@@ -368,8 +372,9 @@ def create_pdf_with_plots(
                             page_args=page.properties,
                             doc_args=document.properties,
                         )
-            pdf.savefig()
-            plt.close()
+                # plt.show()
+                pdf.savefig()
+                plt.close()
     logger.info(f"Plot(s) saved to {filepath}")
 
 

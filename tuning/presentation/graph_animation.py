@@ -1,15 +1,23 @@
 import itertools
 from enum import Enum
 from functools import partial
+from typing import Any, Generator
 
 import matplotlib.animation as animation
 import matplotlib.pyplot as plt
 import numpy as np
 from matplotlib.axis import Axis
+from matplotlib.lines import Line2D
 
 from tuning.analysis.utils import create_consonance_analysis
 from tuning.common.classes import Frequency
-from tuning.common.constants import Folder, InstrumentGroupName, NoteName, PageSizes
+from tuning.common.constants import (
+    DEFAULT_ANIMATION_FPS,
+    Folder,
+    InstrumentGroupName,
+    NoteName,
+    PageSizes,
+)
 from tuning.common.utils import (
     get_logger,
     get_path,
@@ -100,7 +108,19 @@ def create_fig(
     return figure, axes, line, vlines
 
 
-def run(data, xdata, ydata, ax, line, vlines):
+def run(
+    data: list[float],
+    xdata: list[float],
+    ydata: list[float],
+    ax: Axis,
+    line: Line2D,
+    vlines: dict[str, Any],
+    countdown: Generator,  # count down for the intro before the animation starts
+):
+    # Do nothing during the intro time
+    if next(countdown) > 0:
+        return (line,)
+
     # update the data
     x, y = data
     delta = (x - xdata[-1]) if xdata else 0
@@ -121,9 +141,18 @@ def run(data, xdata, ydata, ax, line, vlines):
 def plot_animated_diss_graph(
     document: DocumentObject,
     filepath: str,
-    duration: int = 30,
-    fps=15,
 ):
+    """Create an MP4 animation
+
+    Args:
+        document (DocumentObject): Document containing the graph information
+        filepath (str): Destination path for the MP4 file
+        duration (int, optional): Required duration of the video in seconds. Defaults to 30 seconds.
+        intro (int, optional): Duration of the first part in seconds, during which an empty graph
+                               is displayed, before the animation starts. Defaults to 1 second.
+                               The total duration of the video will be the sum of duration and intro.
+        fps (int, optional): # frames per second. Defaults to 15.
+    """
     page = document.children[0]
     # page.properties.pop(PltProperty.PAGESIZE)
     # page.properties[PltProperty.NBR_ROWS] = 1
@@ -140,17 +169,30 @@ def plot_animated_diss_graph(
     if not (line_compo and partials_compo and harmonics_compo):
         logger.error("Missing partials and harmonics component")
         exit()
+    duration = document.get_property_value(PltProperty.DURATION)
+    intro = document.get_property_value(PltProperty.INTRO)
+    if not duration or not intro:
+        raise Exception("Missing video duration or intro")
 
+    # Generate data for the animation and add dummy data for the intro
+    fps = DEFAULT_ANIMATION_FPS
     step_size = int(len(line_compo.content[0]) / (duration * fps))
-    line_data = [
-        [x for x, i in zip(line_compo.content[0], itertools.count()) if not i % step_size],
-        [y for y, i in zip(line_compo.content[1], itertools.count()) if not i % step_size],
-    ]
+    data_with_intro = [(intro * step_size * fps * [0]) + data for data in line_compo.content]
+    line_data = [[x for i, x in enumerate(data) if not i % step_size] for data in data_with_intro]
+
     xdata, ydata = [], []
     harmonics_data = [vline.copy() for vline in harmonics_compo.content]
 
     fig, axis, line, harmonics_vlines = create_fig(graphs, page, document, line_compo.id, harmonics_compo.id)
-    run_func = partial(run, xdata=xdata, ydata=ydata, ax=axis, line=line, vlines=harmonics_vlines)
+    run_func = partial(
+        run,
+        xdata=xdata,
+        ydata=ydata,
+        ax=axis,
+        line=line,
+        vlines=harmonics_vlines,
+        countdown=itertools.count(intro * fps, -1),
+    )
     init_func = partial(
         init, ax=axis, line=line, vlines=harmonics_vlines, xdata=xdata, ydata=ydata, vlinedata=harmonics_data
     )

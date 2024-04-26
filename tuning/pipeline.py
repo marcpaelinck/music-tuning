@@ -16,6 +16,7 @@ re-running the steps that were used to generate this data.
 
 from dataclasses import dataclass, field
 from enum import Enum
+from random import random
 from typing import Any, Optional
 
 from pydantic import BaseModel
@@ -61,12 +62,12 @@ from tuning.soundfiles.process_soundfiles import step_process_sound_files
 from tuning.visualization.dissonance_plotter import step_plot_dissonance_graphs
 from tuning.visualization.sounddata_plotter import step_plot_sounddata
 from tuning.visualization.spectra_plotter import step_plot_note_spectra
-from tuning.visualization.utils import GroupName
+from tuning.visualization.utils import GroupName, create_pdf_with_plots
 
 logger = get_logger("Pipeline")
 
 
-@dataclass
+# @dataclass
 class Action:
     """
     This class defines actions that correspond with each step of a pipeline (see class Step below).
@@ -89,9 +90,19 @@ class Action:
 
     name: str
     method: callable
-    expected_input: Optional[dict[str, Enum | BaseModel]] = field(default_factory=dict)
-    output: Optional[BaseModel] = field(default_factory=dict)
-    parameters: Optional[dict[str, Any]] = field(default_factory=dict)
+    expected_input: Optional[dict[str, Enum | BaseModel]]  # field(default_factory=lambda: dict())
+    output: Optional[type] = None
+    parameters: Optional[dict[str, Any]]  # field(default_factory=lambda: dict())
+
+    def __init__(self, *, name, method, parameters=[], expected_input={}, output={}):
+        # The parameters are assigned by the pipeline and nead to be made unique
+        self.expected_input = dict()
+        self.parameters = dict()
+        self.name = name
+        self.method = method
+        self.parameters.update(parameters)
+        self.expected_input.update(expected_input)
+        self.output = output
 
     def params(self, p):
         # Updates/overwrites the parameters of the action.
@@ -155,7 +166,7 @@ class Step(Enum):
             "folder": Folder.ANALYSES_DISS,
             "filename": CONSONANCE_ANALYSIS_FILE,
         },
-        # "expected_input": {"groupname": InstrumentGroupName},
+        "expected_input": {"groupname": InstrumentGroupName},
         "output": ConsonanceAnalysis,
     }
     PROCESS_SOUNDFILES = {
@@ -280,7 +291,7 @@ class Step(Enum):
         },
         "expected_input": {
             # "aggr_partials": AggregatedPartialDict,
-            # "groupname": InstrumentGroupName,
+            "groupname": InstrumentGroupName,
             "analysis_results": ConsonanceAnalysis,
         },
         "output": AggregatedPartialDict,
@@ -425,11 +436,28 @@ PIPE_PLOT_SPECTRA_OF_ANALYSIS = [
     Step.PLOT_SPECTRA_OF_ANALYSIS.action(),
 ]
 PIPE_PLOT_DISS_OF_OPTIMUM = [
-    Step.READ_INSTRUMENT_GROUP.action(),
-    Step.AGGREGATE_PARTIALS_ENTIREGROUP.action(),
-    Step.READ_CONSONANCE_ANALYSIS.action(),
+    # Step.READ_INSTRUMENT_GROUP.action(),
+    # Step.AGGREGATE_PARTIALS_ENTIREGROUP.action(),
+    Step.READ_CONSONANCE_ANALYSIS.action().params(
+        {
+            # "folder": Folder.ANALYSES,
+            # "filename": "dissonance_analysis_PL.json",
+            "filename": "dissonance_analysis_Sethares_bonang.json",
+        }
+    ),
     Step.PLOT_DISSONANCE_RESULTS_OF_ANALYSIS.action().params(
-        {"ref_octave": 2, "ref_note": NoteName.DING, "skip": [GroupName.DISSONANCE_LINE_HP]}
+        {
+            "ref_octave": 2,
+            "ref_note": NoteName.DING,
+            "include_only": [GroupName.DISSONANCE_GRAPH],
+            "skip": [
+                GroupName.DISSONANCE_LINE_PP,
+                GroupName.DISSONANCE_LINE_HP,
+            ],
+            # "filename": "dissonance_Plot_Levelt.mp4",
+            "filename": "dissonance_Plot_Sethares_bonang.jpg",
+            "generator": create_pdf_with_plots,
+        }
     ),
 ]
 # FULL SEQUENCE ENDS HERE
@@ -437,15 +465,14 @@ PIPE_PLOT_DISS_OF_OPTIMUM = [
 PIPE_PLOT_ANIMATED_ANALYSIS_GRAPH = [
     Step.READ_CONSONANCE_ANALYSIS.action().params(
         {
-            "groupname": InstrumentGroupName.TEST,
             "folder": Folder.ANALYSES_DISS,
-            "filename": "dissonance_analysis_PL.json",
+            # "filename": "dissonance_analysis_PL.json",
+            "filename": "dissonance_analysis_Sethares_bonang.json",
         }
     ),
     Step.PLOT_DISSONANCE_RESULTS_OF_ANALYSIS.action().params(
         {
             "ref_octave": 2,
-            "groupname": InstrumentGroupName.TEST,
             "ref_note": NoteName.DING,
             "include_only": [GroupName.DISSONANCE_ANIMATION_GRAPH],
             "skip": [
@@ -454,17 +481,17 @@ PIPE_PLOT_ANIMATED_ANALYSIS_GRAPH = [
                 GroupName.DISSONANCE_NOTELINES,
                 GroupName.DISSONANCE_TEXT,
             ],
-            "filename": "animation_dissonance_Plot_Levelt.mp4",
-            "end_shift_ratio": 1.5,
+            # "filename": "animation_dissonance_Plot_Levelt.mp4",
+            "filename": "animation_dissonance_Plot_Sethares_bonang.mp4",
+            "end_shift_ratio": 2.5,
             "generator": plot_animated_diss_graph,
+            "duration": 30,
+            "intro": 2,
         }
     ),
 ]
 
-TEST = [
-    Step.READ_AGGREGATED_PARTIALS.action(),
-]
 
 if __name__ == "__main__":
-    pipeline = PipeLine(InstrumentGroupName.TEST, PIPE_PLOT_ANIMATED_ANALYSIS_GRAPH)
+    pipeline = PipeLine(InstrumentGroupName.GENDERWAYANG, PIPE_OPTIMIZE_AND_PLOT)
     pipeline.execute()
