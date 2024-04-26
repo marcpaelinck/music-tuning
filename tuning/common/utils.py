@@ -3,6 +3,7 @@ import logging
 import math
 import os
 import re
+from typing import Any
 
 import numpy as np
 from pydantic import BaseModel
@@ -284,6 +285,12 @@ def convert_spectrum_freq(spectrum: Spectrum, to_unit: FreqUnit, step: float = 5
 
 def get_instrument_by_id(group: InstrumentGroup, code: str) -> Instrument:
     return next((instr for instr in group.instruments if instr.code == code), None)
+
+
+def mergedict(dict1: dict[Any], dict2: dict[Any]):
+    newdict = dict1.copy()
+    newdict.update(dict2)
+    return newdict
 
 
 if __name__ == "__main__":

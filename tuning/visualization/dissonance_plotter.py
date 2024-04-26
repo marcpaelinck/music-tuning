@@ -176,6 +176,7 @@ def step_plot_dissonance_graphs(
     filename: str,
     generator: callable = create_pdf_with_plots,
     analysis_results: ConsonanceAnalysis = None,
+    output_type: GroupName,
     # All following arguments will be ignored if analysis_results is given.
     aggr_partials: AggregatedPartialDict = None,
     nr_partials: int = DEFAULT_NR_PARTIALS_DISS_GRAPH,
@@ -184,7 +185,6 @@ def step_plot_dissonance_graphs(
     ref_note: NoteName = NoteName.DING,
     ref_octave: int = 3,
     end_shift_ratio: float = 2.5,
-    include_only: list[GroupName] = list(),
     skip: list[GroupName] = list(),
     duration: int = DEFAULT_ANIMATION_DURATION,
     intro: int = DEFAULT_ANIMATION_INTRO,
@@ -249,8 +249,6 @@ def step_plot_dissonance_graphs(
     # Create the graphs
     #
     document = DocumentObject()
-    document.include_only_list = include_only
-    document.skip_list = skip
     document.properties[PltProperty.DURATION] = duration
     document.properties[PltProperty.INTRO] = intro
 
@@ -265,164 +263,183 @@ def step_plot_dissonance_graphs(
         logger.info(f"--- generating data for {instrumenttype.value}")
 
         # Generate the data for the graphs and set values if necessary
+        GRAPH = GroupName.DISSONANCE_GRAPH
+        ANIMATION = GroupName.DISSONANCE_ANIMATION_GRAPH
 
-        document.add_child(page := PageObject())
-        page.properties[PltProperty.PAGESIZE] = PageSizes.A4.value
+        page = PageObject()
+        page.pdfproperties[PltProperty.PAGESIZE] = PageSizes.A4.value
+        page.animationproperties[PltProperty.PAGESIZE] = PageSizes.ANIMATION.value
         page.properties[PltProperty.TITLE] = f"Dissonance graph for {groupname.value} {instrumenttype.value}" + (
             " (same amplitude for all partials)" if amplitude else ""
-        )
-        (x_min, x_max) = page.properties[PltProperty.XRANGE] = (
-            0.95 * get_stat(min, diss_results, 0, keys),
-            1.05 * get_stat(max, diss_results, 0, keys),
-        )
-        (y_min, y_max) = page.properties[PltProperty.YRANGE] = (
-            0.95 * get_stat(min, diss_results, 1, keys),
-            1.05 * get_stat(max, diss_results, 1, keys),
         )
 
         for subgroup in keys:
             graph_groups = {GroupName.DISSONANCE_GRAPH}
-            if len(page.children) == 0:
-                graph_groups.add(GroupName.DISSONANCE_ANIMATION_GRAPH)
-                page.properties[PltProperty.PAGESIZE] = PageSizes.ANIMATION.value
-                filter = [PartialCombiType.PARTIALS_HARMONICS]
-                (y_min, y_max) = page.properties[PltProperty.YRANGE] = (
-                    0.95 * get_stat(min, diss_results, 1, keys, filter),
-                    1.05 * get_stat(max, diss_results, 1, keys, filter),
-                )
-            page.add_child(graph := GraphObject(groups=graph_groups))
-            graph.properties[PltProperty.AXIS_NOTICKS_Y] = True
+            diss_graph = GraphObject(groups=graph_groups)
+            diss_graph.properties[PltProperty.AXIS_NOTICKS_Y] = True
             diss_result = diss_results[subgroup]
+
+            # Determine the axes range, based on the partial combinations that
+            # need to be plotted.
+            combi_list = [combi for combi in PartialCombiType if GroupName.from_enum(combi) not in skip]
+            (x_min, x_max) = page.properties[PltProperty.XRANGE] = (
+                0.95 * get_stat(min, diss_results, 0, keys, combi_list),
+                1.05 * get_stat(max, diss_results, 0, keys, combi_list),
+            )
+            (y_min, y_max) = page.properties[PltProperty.YRANGE] = (
+                0.95 * get_stat(min, diss_results, 1, keys, combi_list),
+                1.05 * get_stat(max, diss_results, 1, keys, combi_list),
+            )
 
             # Add the dissonance line graphs
             for combi in PartialCombiType:
-                # Add a line
+                x_min = y_min = MAXINT
+                x_max = y_max = 0
                 componentgroup = GroupName.from_enum(combi)
-                graph.add_child(component := ComponentObject(groups={GroupName.DISSONANCE_LINE, componentgroup}))
-                component.properties[PltProperty.COMPONENTTYPE] = ComponentType.LINE
-                component.content = diss_result[combi]
-                component.properties[PltProperty.COLOR] = get_line_format(combi, PltProperty.COLOR)
-                component.properties[PltProperty.LABEL] = get_line_format(
-                    combi, PltProperty.LABEL, nr_partials, nr_harmonics
-                )
-
-                # add values of minima
-                graph.add_child(
-                    component := ComponentObject(
-                        groups={GroupName.DISSONANCE_TEXT, GroupName.DISSONANCE_TEXT_MINIMA, componentgroup}
+                if componentgroup not in skip:
+                    # Update the axes dimentions for this partial-harmonic combination
+                    dl_component = ComponentObject(groups={GroupName.DISSONANCE_LINE, componentgroup})
+                    dl_component.properties[PltProperty.COMPONENTTYPE] = ComponentType.LINE
+                    dl_component.content = diss_result[combi]
+                    dl_component.properties[PltProperty.COLOR] = get_line_format(combi, PltProperty.COLOR)
+                    dl_component.properties[PltProperty.LABEL] = get_line_format(
+                        combi, PltProperty.LABEL, nr_partials, nr_harmonics
                     )
+                    diss_graph.add_child(dl_component)
+
+                    # add values of minima
+                    if output_type == GRAPH:
+                        dt_component = ComponentObject(
+                            groups={GroupName.DISSONANCE_TEXT, GroupName.DISSONANCE_TEXT_MINIMA, componentgroup},
+                        )
+                        dt_component.properties[PltProperty.COMPONENTTYPE] = ComponentType.TEXT
+                        dt_component.content = [
+                            {
+                                "x": dissonance.ratio,
+                                "y": dissonance.dissonance,
+                                "s": f"{abs(dissonance.ratio):1.3f}",
+                                "fontsize": "x-small",
+                                "ha": "center",
+                                "va": "top",
+                            }
+                            for dissonance in get_minima(*diss_result[combi])
+                        ]
+                        diss_graph.add_child(dt_component)
+
+                        # Add graph title
+                        gt_component = ComponentObject(groups={GroupName.DISSONANCE_TEXT, GroupName.GRAPH_TITLE})
+                        gt_component.properties[PltProperty.COMPONENTTYPE] = ComponentType.TEXT
+                        gt_component.content.append(
+                            {
+                                "x": x_min + 0.01 * (x_max - x_min),
+                                "y": y_max - 0.05 * (y_max - y_min),
+                                "s": subgroup,
+                                "fontsize": "small",
+                                "color": "b",
+                            }
+                        )
+                        diss_graph.add_child(gt_component)
+
+                        # Add vertical lines to indicate note ratios
+                        notenames = list(noteratio_dict[subgroup].keys())
+                        nl_component = ComponentObject(groups={GroupName.DISSONANCE_NOTELINES})
+                        nl_component.properties[PltProperty.COMPONENTTYPE] = ComponentType.VLINES
+                        if nl_component.properties.get(PltProperty.LABEL, None):
+                            del nl_component.properties[PltProperty.LABEL]
+                        nl_component.content = [
+                            list(np.array(list(noteratio_dict[subgroup].values()))),
+                            [0] * len(noteratio_dict[subgroup].values()),
+                            [page.properties[PltProperty.YRANGE][1]] * len(noteratio_dict[subgroup].values()),
+                            [
+                                "r" if notename is ref_note.kempyung(notenames) else "y"
+                                for notename in noteratio_dict[subgroup].keys()
+                            ],
+                        ]
+                        diss_graph.add_child(nl_component)
+
+                        # Add note abbreviations to vertical lines
+                        nn_component = ComponentObject(
+                            groups={
+                                GroupName.DISSONANCE_TEXT,
+                                GroupName.DISSONANCE_NOTELINES,
+                                GroupName.DISSONANCE_ANIMATION_GRAPH,
+                            },
+                        )
+                        nn_component.properties[PltProperty.COMPONENTTYPE] = ComponentType.TEXT
+                        nn_component.content = [
+                            {
+                                "x": ratio,
+                                "y": page.properties[PltProperty.YRANGE][1] - 0.1,
+                                "s": notename.short,
+                                "fontsize": "small",
+                                "color": "r" if notename is ref_note.kempyung(notenames) else "y",
+                                "ha": "center",
+                                "va": "bottom",
+                            }
+                            for notename, ratio in noteratio_dict[subgroup].items()
+                        ]
+                        diss_graph.add_child(nn_component)
+
+                    # ANIMATION: Add vertical lines for partials and harmonics
+                    # Remove the label of the line compos (don't need a legend)
+                    if output_type == ANIMATION:
+                        line_compos = [
+                            child
+                            for child in diss_graph.children
+                            if child.get_property_value(PltProperty.COMPONENTTYPE) == ComponentType.LINE
+                            and child.get_property_value(PltProperty.LABEL)
+                        ]
+                        for compo in line_compos:
+                            del compo.properties[PltProperty.LABEL]
+
+                        if page.properties.get(PltProperty.TITLE, None):
+                            del page.properties[PltProperty.TITLE]
+            page.add_child(diss_graph)
+
+            if output_type == ANIMATION:
+                ani_graph = GraphObject(output_type=ANIMATION, groups={GroupName.DISSONANCE_ANIMATION_GRAPH})
+                pl_component = ComponentObject(
+                    output_type=ANIMATION, groups={GroupName.DISSONANCE_ANIMATION_GRAPH, GroupName.PARTIALS}
                 )
-                component.properties[PltProperty.COMPONENTTYPE] = ComponentType.TEXT
-                component.content = [
-                    {
-                        "x": dissonance.ratio,
-                        "y": dissonance.dissonance,
-                        "s": f"{abs(dissonance.ratio):1.3f}",
-                        "fontsize": "x-small",
-                        "ha": "center",
-                        "va": "top",
-                    }
-                    for dissonance in get_minima(*diss_result[combi])
+                page.properties[PltProperty.CONSTRAINED_LAYOUT] = True
+                ani_graph.properties[PltProperty.AXIS_NOFRAME] = ["top", "left", "right"]
+                ani_graph.properties[PltProperty.AXIS_NOTICKS_X] = True
+                ani_graph.properties[PltProperty.AXIS_NOTICKS_Y] = True
+                ani_graph.add_child(pl_component)
+
+                partial_freqs = sorted(p.ratio for p in partials)
+                xmin, xmax = page.properties[PltProperty.XRANGE]
+                ani_graph.properties[PltProperty.XRANGE] = (xmin, 1.3 * xmax)
+                _, y_max_ani = ani_graph.properties[PltProperty.YRANGE] = (0, 1)
+
+                pl_component.properties[PltProperty.COMPONENTTYPE] = ComponentType.VLINES
+                pl_component.content = [
+                    list(np.array(partial_freqs)),
+                    [0] * len(partial_freqs),
+                    [y_max_ani] * len(partial_freqs),
+                    ["b"] * len(partial_freqs),
                 ]
-                diss = sorted(get_minima(*diss_result[combi]), key=lambda d: d.ratio)
+                hl_component = ComponentObject(
+                    output_type=ANIMATION, groups={GroupName.DISSONANCE_ANIMATION_GRAPH, GroupName.HARMONICS}
+                )
+                hl_component.properties[PltProperty.COMPONENTTYPE] = ComponentType.VLINES
+                harmonic_freqs = sorted(p.ratio for p in harmonics)
+                hl_component.content = [
+                    list(np.array(harmonic_freqs)),
+                    [0] * len(harmonic_freqs),
+                    [y_max_ani] * len(harmonic_freqs),
+                    ["y"] * len(harmonic_freqs),
+                ]
 
-            # Add graph title
-            graph.add_child(component := ComponentObject(groups={GroupName.DISSONANCE_TEXT, GroupName.GRAPH_TITLE}))
-            component.properties[PltProperty.COMPONENTTYPE] = ComponentType.TEXT
-            component.content.append(
-                {
-                    "x": x_min + 0.01 * (x_max - x_min),
-                    "y": y_max - 0.05 * (y_max - y_min),
-                    "s": subgroup,
-                    "fontsize": "small",
-                    "color": "b",
-                }
-            )
+                ani_graph.add_child(hl_component)
+                page.add_child(ani_graph)
 
-            # Add vertical lines to indicate note ratios
-            notenames = list(noteratio_dict[subgroup].keys())
-            graph.add_child(component := ComponentObject(groups={GroupName.DISSONANCE_NOTELINES}))
-            component.properties[PltProperty.COMPONENTTYPE] = ComponentType.VLINES
-            component.content = [
-                list(np.array(list(noteratio_dict[subgroup].values()))),
-                [0] * len(noteratio_dict[subgroup].values()),
-                [page.properties[PltProperty.YRANGE][1]] * len(noteratio_dict[subgroup].values()),
-                [
-                    "r" if notename is ref_note.kempyung(notenames) else "y"
-                    for notename in noteratio_dict[subgroup].keys()
-                ],
-            ]
-
-            # Add note abbreviations to vertical lines
-            graph.add_child(
-                component := ComponentObject(groups={GroupName.DISSONANCE_TEXT, GroupName.DISSONANCE_NOTELINES})
-            )
-            component.properties[PltProperty.COMPONENTTYPE] = ComponentType.TEXT
-            component.content = [
-                {
-                    "x": ratio,
-                    "y": page.properties[PltProperty.YRANGE][1] - 0.1,
-                    "s": notename.short,
-                    "fontsize": "small",
-                    "color": "r" if notename is ref_note.kempyung(notenames) else "y",
-                    "ha": "center",
-                    "va": "bottom",
-                }
-                for notename, ratio in noteratio_dict[subgroup].items()
-            ]
-
-            # ANIMATION: Add vertical lines for partials and harmonics
-            # Remove the label of the line compos (don't need a legend)
-            line_compos = [
-                child
-                for child in graph.children
-                if child.get_property_value(PltProperty.COMPONENTTYPE) == ComponentType.LINE
-                and child.get_property_value(PltProperty.LABEL)
-            ]
-            for compo in line_compos:
-                del compo.properties[PltProperty.LABEL]
-
-            if component.properties.get(PltProperty.LABEL, None):
-                del component.properties[PltProperty.LABEL]
-            if page.properties.get(PltProperty.TITLE, None):
-                del page.properties[PltProperty.TITLE]
-            page.add_child(ani_graph := GraphObject(groups={GroupName.DISSONANCE_ANIMATION_GRAPH}))
-            ani_graph.add_child(
-                component := ComponentObject(groups={GroupName.DISSONANCE_ANIMATION_GRAPH, GroupName.PARTIALS})
-            )
-            page.properties[PltProperty.CONSTRAINED_LAYOUT] = True
-            ani_graph.properties[PltProperty.AXIS_NOFRAME] = ["top", "left", "right"]
-            ani_graph.properties[PltProperty.AXIS_NOTICKS_X] = True
-            ani_graph.properties[PltProperty.AXIS_NOTICKS_Y] = True
-
-            partial_freqs = sorted(p.ratio for p in partials)
-            xmin, xmax = page.properties[PltProperty.XRANGE]
-            ani_graph.properties[PltProperty.XRANGE] = (xmin, 1.3 * xmax)
-            _, y_max_ani = ani_graph.properties[PltProperty.YRANGE] = (0, 1)
-
-            component.properties[PltProperty.COMPONENTTYPE] = ComponentType.VLINES
-            component.content = [
-                list(np.array(partial_freqs)),
-                [0] * len(partial_freqs),
-                [y_max_ani] * len(partial_freqs),
-                ["b"] * len(partial_freqs),
-            ]
-            ani_graph.add_child(
-                component := ComponentObject(groups={GroupName.DISSONANCE_ANIMATION_GRAPH, GroupName.HARMONICS})
-            )
-            component.properties[PltProperty.COMPONENTTYPE] = ComponentType.VLINES
-            harmonic_freqs = sorted(p.ratio for p in harmonics)
-            component.content = [
-                list(np.array(harmonic_freqs)),
-                [0] * len(harmonic_freqs),
-                [y_max_ani] * len(harmonic_freqs),
-                ["y"] * len(harmonic_freqs),
-            ]
-
-        page.properties[PltProperty.NBR_ROWS] = nr_cols = len([child for child in page.children if not child.skip])
+        page.properties[PltProperty.NBR_ROWS] = nr_cols = len(page.children)
         page.properties[PltProperty.NBR_COLUMNS] = 1
         if nr_cols == 2:
             page.properties[PltProperty.HEIGHT_RATIOS] = [4, 1]
+
+        document.add_child(page)
 
     filename = filename.format(ref_note=ref_note, ref_octave=ref_octave, aggregation="-".join(aggregation or ("all",)))
     filepath = get_path(groupname=groupname, folder=Folder.ANALYSES_DISS, filename=filename)

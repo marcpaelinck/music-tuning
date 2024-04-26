@@ -275,6 +275,7 @@ class Step(Enum):
         "method": step_plot_dissonance_graphs,
         "parameters": {
             "filename": "dissonance_graph-{ref_note}{ref_octave}_aggr[{aggregation}].pdf",
+            "output_type": GroupName.DISSONANCE_GRAPH,
             "ref_octave": 2,
             "ref_note": NoteName.DING,
         },
@@ -288,6 +289,7 @@ class Step(Enum):
         "method": step_plot_dissonance_graphs,
         "parameters": {
             "filename": "analysis_graph-{ref_note}{ref_octave}_aggr[{aggregation}].pdf",
+            "output_type": GroupName.DISSONANCE_GRAPH,
         },
         "expected_input": {
             # "aggr_partials": AggregatedPartialDict,
@@ -403,7 +405,7 @@ PIPE_PLOT_ANIMATED_DISS_GRAPH = [
         {
             "ref_octave": 2,
             "ref_note": NoteName.DING,
-            "include_only": [GroupName.DISSONANCE_ANIMATION_GRAPH],
+            "output_type": GroupName.DISSONANCE_ANIMATION_GRAPH,
             "skip": [
                 GroupName.DISSONANCE_LINE_PP,
                 GroupName.DISSONANCE_LINE_HP,
@@ -449,7 +451,7 @@ PIPE_PLOT_DISS_OF_OPTIMUM = [
         {
             "ref_octave": 2,
             "ref_note": NoteName.DING,
-            "include_only": [GroupName.DISSONANCE_GRAPH],
+            "output_type": GroupName.DISSONANCE_GRAPH,
             "skip": [
                 GroupName.DISSONANCE_LINE_PP,
                 GroupName.DISSONANCE_LINE_HP,
@@ -474,7 +476,7 @@ PIPE_PLOT_ANIMATED_ANALYSIS_GRAPH = [
         {
             "ref_octave": 2,
             "ref_note": NoteName.DING,
-            "include_only": [GroupName.DISSONANCE_ANIMATION_GRAPH],
+            "output_type": GroupName.DISSONANCE_ANIMATION_GRAPH,
             "skip": [
                 GroupName.DISSONANCE_LINE_PP,
                 GroupName.DISSONANCE_LINE_HP,
@@ -482,7 +484,7 @@ PIPE_PLOT_ANIMATED_ANALYSIS_GRAPH = [
                 GroupName.DISSONANCE_TEXT,
             ],
             # "filename": "animation_dissonance_Plot_Levelt.mp4",
-            "filename": "animation_dissonance_Plot_Sethares_bonang.mp4",
+            "filename": "animation_dissonance_Plot_Sethares_bonang-test.mp4",
             "end_shift_ratio": 2.5,
             "generator": plot_animated_diss_graph,
             "duration": 30,
@@ -493,5 +495,5 @@ PIPE_PLOT_ANIMATED_ANALYSIS_GRAPH = [
 
 
 if __name__ == "__main__":
-    pipeline = PipeLine(InstrumentGroupName.GENDERWAYANG, PIPE_OPTIMIZE_AND_PLOT)
+    pipeline = PipeLine(InstrumentGroupName.GENDERWAYANG, PIPE_PLOT_ANIMATED_ANALYSIS_GRAPH)
     pipeline.execute()

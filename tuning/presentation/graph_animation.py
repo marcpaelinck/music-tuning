@@ -21,6 +21,7 @@ from tuning.common.constants import (
 from tuning.common.utils import (
     get_logger,
     get_path,
+    mergedict,
     step_read_object_from_jsonfile,
     step_save_object_to_jsonfile,
 )
@@ -31,6 +32,7 @@ from tuning.visualization.utils import (
     GraphObject,
     GroupName,
     HierachicalPlotObject,
+    OutputType,
     PageObject,
     PlotObject,
     PltProperty,
@@ -93,13 +95,14 @@ def create_fig(
             if not component.skip:
                 figure, axes, handles = plot_component(
                     component.content,
+                    outputtype=OutputType.ANIMATION,
                     figure=figure,
                     axes=axes,
                     handles=handles,
-                    component_args=component.properties,
-                    graph_args=graph.properties,
-                    page_args=page.properties,
-                    doc_args=document.properties,
+                    component_args=mergedict(component.properties, component.animationproperties),
+                    graph_args=mergedict(graph.properties, graph.animationproperties),
+                    page_args=mergedict(page.properties, page.animationproperties),
+                    doc_args=mergedict(document.properties, document.animationproperties),
                 )
                 if component.id == line_compo_id:
                     line = handles[-1]

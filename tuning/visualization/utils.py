@@ -14,7 +14,7 @@ from matplotlib.lines import Line2D
 from pydantic import BaseModel, Field, model_validator
 
 from tuning.common.constants import PartialCombiType
-from tuning.common.utils import get_logger, open_create_file
+from tuning.common.utils import get_logger, mergedict, open_create_file
 
 logger = get_logger(__name__)
 
@@ -23,6 +23,11 @@ class ComponentType(Enum):
     LINE = "LINE"
     VLINES = "VLINES"
     TEXT = "TEXT"
+
+
+class OutputType(Enum):
+    ANIMATION = auto()
+    PDF = auto()
 
 
 class PltProperty(Enum):
@@ -119,8 +124,6 @@ class PlotObject(BaseModel):
     pdfproperties: Optional[dict[PltProperty, Any]] = Field(default_factory=dict)
     animationproperties: Optional[dict[PltProperty, Any]] = Field(default_factory=dict)
     groups: set[GroupName] = Field(default_factory=set)
-    include_only_list: list[GroupName] = list()
-    skip_list: list[GroupName] = list()
     skip: bool = False
     content: Optional[Any] = Field(default_factory=list)
     counter__: Callable = Field(default_factory=count, init=False, exclude=True)
@@ -168,21 +171,6 @@ class HierachicalPlotObject(PlotObject):
         self.children.append(child)
         child.sequence = next(self.counter__)
         child.properties[PltProperty.SEQ] = child.sequence
-        child.include_only_list = self.include_only_list
-        child.skip_list = self.skip_list
-        # Pass all graph groups to the child, unless the graph group of the child is explicitly set
-        child_graph_groups = set([g for g in child.groups if g.value.endswith("GRAPH")])
-        if not child_graph_groups:
-            parent_graph_groups = set([g for g in self.groups if g.value.endswith("GRAPH")])
-            child.groups = child.groups | parent_graph_groups
-        if self.skip:
-            child.skip = True
-        if not child.groups:
-            child.skip = False
-        else:
-            child_in_include_only_list = any([(group in self.include_only_list) for group in child.groups])
-            child_in_skip_list = any([(group in self.skip_list) for group in child.groups])
-            child.skip = (self.include_only_list and not child_in_include_only_list) or child_in_skip_list
 
     def last_child(self) -> "PlotObject":
         return self.content[-1] if self.content else None
@@ -210,6 +198,7 @@ class DocumentObject(HierachicalPlotObject):
 
 def plot_component(
     content: tuple[list[float]],
+    outputtype: OutputType,
     component_args: dict[PltProperty, Any] = dict(),
     graph_args: dict[PltProperty, Any] = dict(),
     page_args: dict[PltProperty, Any] = dict(),
@@ -219,7 +208,7 @@ def plot_component(
     handles: list[Line2D] = None,
     **kwargs,
 ):
-    def get_arg(property: PltProperty, strict: bool = True) -> tuple[Any]:
+    def get_arg(property: PltProperty, target: OutputType, strict: bool = True) -> tuple[Any]:
         """Searches for a property in the document and retrieves it if found.
         If the property occurs in multiple objects in the hierarchy, the property
         of the lowest object in the hierarchy will be returned.
@@ -245,7 +234,7 @@ def plot_component(
             raise Exception(f"Missing property {property}")
         return value
 
-    def get_args_kwargs(artist: str) -> dict[str, Any]:
+    def get_args_kwargs(artist: str, target: OutputType) -> dict[str, Any]:
         """Returns all properties that are kwargs for the given artist type
 
         Args:
@@ -267,7 +256,7 @@ def plot_component(
         )
 
     if not figure:
-        fig_args, fig_kwargs = get_args_kwargs(PltProperty.FIGURE)
+        fig_args, fig_kwargs = get_args_kwargs(PltProperty.FIGURE, outputtype)
         figure, axes = plt.subplots(*fig_args, **fig_kwargs, dpi=300)
         if pagetitle := page_args.get(PltProperty.TITLE, None):
             figure.suptitle(pagetitle)
@@ -291,13 +280,13 @@ def plot_component(
         axis.set_yticks([])
 
     # Retrieve and apply settings for the axis
-    _, axis_kwargs = get_args_kwargs(PltProperty.AXIS)
+    _, axis_kwargs = get_args_kwargs(PltProperty.AXIS, outputtype)
     if axis_kwargs:
         plt.setp(axis, **axis_kwargs)
 
     # Draw the plot
-    componenttype = get_arg(PltProperty.COMPONENTTYPE)
-    _, compo_kwargs = get_args_kwargs(PltProperty.COMPONENT)
+    componenttype = get_arg(PltProperty.COMPONENTTYPE, outputtype)
+    _, compo_kwargs = get_args_kwargs(PltProperty.COMPONENT, outputtype)
     match componenttype:
         case ComponentType.LINE:
             (handle,) = axis.plot(*content, **compo_kwargs)
@@ -364,13 +353,14 @@ def create_pdf_with_plots(
                     for component in [c for c in graph.children if not c.skip]:
                         figure, axes, handles = plot_component(
                             component.content,
+                            outputtype=OutputType.PDF,
                             figure=figure,
                             axes=axes,
                             handles=handles,
-                            component_args=component.properties,
-                            graph_args=graph.properties,
-                            page_args=page.properties,
-                            doc_args=document.properties,
+                            component_args=mergedict(component.properties, component.pdfproperties),
+                            graph_args=mergedict(graph.properties, graph.pdfproperties),
+                            page_args=mergedict(page.properties, page.pdfproperties),
+                            doc_args=mergedict(document.properties, document.pdfproperties),
                         )
                 # plt.show()
                 pdf.savefig()
